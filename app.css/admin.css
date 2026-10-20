@@ -1,0 +1,26 @@
+/* Veltrix Admin — only the few things that differ from the user app's messaging look.
+   Everything else (layout, bubbles, composer, dark mode) comes from messaging.css + brand.css. */
+
+/* The user app hides the pointer over buttons (touch-first). An admin page is also used with a mouse, so show it. */
+html.admin-page .vm-page,html.admin-page .vm-page *,html.admin-page .vm-viewer,html.admin-page .vm-viewer *,
+html.admin-page .vm-dialog-backdrop *,html.admin-page .vm-upload-menu *{cursor:auto!important}
+html.admin-page button,html.admin-page label,html.admin-page .vm-row,html.admin-page .vm-tile,
+html.admin-page .vm-img,html.admin-page .vm-vid,html.admin-page .vm-open,html.admin-page .vm-file-link,
+html.admin-page .vm-ic,html.admin-page .vm-send,html.admin-page .vm-fab,html.admin-page .vm-play,
+html.admin-page .vm-once,html.admin-page .vm-dlbtn,html.admin-page .vm-oncecard:not(:disabled),
+html.admin-page .vm-dialog-actions button,html.admin-page .vm-dialog-cancel,html.admin-page .vm-upload-menu button,
+html.admin-page .vm-editing button,html.admin-page .vm-tx{cursor:none!important}
+html.admin-page .vm-field textarea,html.admin-page .vm-search input{cursor:text!important}
+
+/* "Admin" chip next to the Messages title */
+.ad-chip{flex:none;padding:3px 9px;border-radius:20px;background:var(--brand-soft,#eef2ff);color:var(--brand,#2450ff);font-size:9px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase}
+
+/* Chat header: small "mobile app user" caption under the name */
+.vm-head .ad-who{display:flex;flex-direction:column;min-width:0}
+.vm-head .ad-who small{font-size:10px;color:var(--mut);margin-top:1px}
+
+/* Section caption inside the "new message" picker */
+.ad-caption{padding:6px 16px 4px;font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--mut)}
+
+/* Which contact the admin is answering as, shown next to the user's name in the inbox */
+.ad-as{font-weight:500;font-size:10px;color:var(--mut)}

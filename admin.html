@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en" class="admin-page">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Veltrix Admin</title>
+<link rel="preload" as="image" href="app.assets/splash-logo.png">
+<link rel="preload" as="image" href="app.assets/splash-logo-name-light.png">
+<link rel="stylesheet" href="app.css/style.css">
+<link rel="stylesheet" href="app.css/style.app.css">
+<link rel="stylesheet" href="app.css/messaging.css">
+<link rel="stylesheet" href="app.css/brand.css">
+<link rel="stylesheet" href="app.css/admin.css">
+</head>
+<body>
+<div id="splash" translate="no" role="status" aria-live="polite" aria-label="Loading Veltrix">
+  <div class="sp-layer sp-1"><img src="app.assets/splash-logo.png" alt="Veltrix" decoding="async" draggable="false"></div>
+  <div class="sp-layer sp-2"><img class="sp-name sp-name-light" src="app.assets/splash-logo-name-light.png" alt="Veltrix" decoding="async" draggable="false"><img class="sp-name sp-name-dark" src="app.assets/splash-logo-name.png" alt="Veltrix" decoding="async" draggable="false"><div class="sp-dots" aria-hidden="true"><i></i><i></i><i></i></div></div>
+</div>
+<script>
+/* Splash controller (identical to the user app): stage 1 (logo only) for a fixed time, then stage 2 (logo + name) until the app is ready. */
+(function(){
+ var el=document.getElementById("splash");if(!el)return;
+ var STAGE1=1800,STAGE2_MIN=500,MAX_WAIT=9000,holds={boot:1,load:1},st2=false,st2At=0,done=false;
+ document.documentElement.classList.add("splash-on");
+ function finish(){if(done)return;done=true;el.classList.add("out");document.documentElement.classList.remove("splash-on");setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el)},600)}
+ function check(){
+  if(done||!st2)return;
+  for(var k in holds)if(holds[k])return;
+  var wait=STAGE2_MIN-(Date.now()-st2At);
+  if(wait>0){setTimeout(check,wait);return}
+  finish();
+ }
+ function toStage2(){if(st2)return;st2=true;st2At=Date.now();el.classList.add("stage2");check()}
+ setTimeout(toStage2,STAGE1);
+ setTimeout(function(){holds={};toStage2();check()},MAX_WAIT); /* safety net: never trap the user */
+ window.__splash={hold:function(k){if(!done)holds[k]=1},release:function(k){holds[k]=0;check()}};
+ window.addEventListener("load",function(){window.__splash.release("load")});
+})();
+</script>
+<!-- The admin messaging screens are built into #adminApp by app.js/admin.js (same markup and classes as the user app's messaging). -->
+<div class="app" id="adminApp"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="app.js/supabase-config.js"></script>
+<script src="app.js/db.js"></script>
+<script src="app.js/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Veltrix</title>
+<link rel="preload" as="image" href="app.assets/splash-logo.png">
+<link rel="preload" as="image" href="app.assets/splash-logo-name-light.png">
+<link rel="stylesheet" href="app.css/style.css">
+<link rel="stylesheet" href="app.css/style.app.css">
+<link rel="stylesheet" href="app.css/messaging.css">
+<link rel="stylesheet" href="app.css/brand.css">
+</head>
+<body>
+<div id="splash" translate="no" role="status" aria-live="polite" aria-label="Loading Veltrix">
+  <div class="sp-layer sp-1"><img src="app.assets/splash-logo.png" alt="Veltrix" decoding="async" draggable="false"></div>
+  <div class="sp-layer sp-2"><img class="sp-name sp-name-light" src="app.assets/splash-logo-name-light.png" alt="Veltrix" decoding="async" draggable="false"><img class="sp-name sp-name-dark" src="app.assets/splash-logo-name.png" alt="Veltrix" decoding="async" draggable="false"><div class="sp-dots" aria-hidden="true"><i></i><i></i><i></i></div></div>
+</div>
+<script>
+/* Splash controller: stage 1 (logo only) for a fixed time, then stage 2 (logo + name) until the app is ready. */
+(function(){
+ var el=document.getElementById("splash");if(!el)return;
+ var STAGE1=1800,STAGE2_MIN=500,MAX_WAIT=9000,holds={boot:1,load:1},st2=false,st2At=0,done=false;
+ document.documentElement.classList.add("splash-on");
+ function finish(){if(done)return;done=true;el.classList.add("out");document.documentElement.classList.remove("splash-on");setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el)},600)}
+ function check(){
+  if(done||!st2)return;
+  for(var k in holds)if(holds[k])return;
+  var wait=STAGE2_MIN-(Date.now()-st2At);
+  if(wait>0){setTimeout(check,wait);return}
+  finish();
+ }
+ function toStage2(){if(st2)return;st2=true;st2At=Date.now();el.classList.add("stage2");check()}
+ setTimeout(toStage2,STAGE1);
+ setTimeout(function(){holds={};toStage2();check()},MAX_WAIT); /* safety net: never trap the user */
+ window.__splash={hold:function(k){if(!done)holds[k]=1},release:function(k){holds[k]=0;check()}};
+ window.addEventListener("load",function(){window.__splash.release("load")});
+})();
+</script>
+<div class="app">
+<section id="loginPage" class="auth-page">
+<div class="auth-container">
+<div class="brand"><div class="brand-logo" role="img" aria-label="Veltrix"></div></div>
+<div class="auth-card">
+<div class="auth-heading"><span class="eyebrow">WELCOME BACK</span><h2>Sign in</h2><p>Access your account and continue where you left off.</p></div>
+<form id="loginForm">
+<div class="input-group"><label for="loginEmail">Email address</label><input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email" required></div>
+<div class="input-group"><label for="loginPassword">Password</label><div class="password-field"><input type="password" id="loginPassword" placeholder="Enter your password" autocomplete="current-password" required><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" onclick="togglePassword('loginPassword', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+<button type="submit" class="primary-button">Sign in</button>
+</form>
+<div class="divider"><span>or</span></div>
+<button type="button" id="fingerprintLoginButton" class="secondary-button fingerprint-button"><span class="fingerprint-icon"><svg style="color: #000000; height: 25px; width: 25px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M112 320C112 205.1 205.1 112 320 112C383.1 112 439.6 140.1 477.8 184.5C486.4 194.6 501.6 195.7 511.6 187.1C521.6 178.5 522.8 163.3 514.2 153.3C467.3 98.6 397.7 64 320 64C178.6 64 64 178.6 64 320L64 360C64 373.3 74.7 384 88 384C101.3 384 112 373.3 112 360L112 320zM570.5 267.1C567.8 254.1 555 245.8 542.1 248.6C529.2 251.4 520.8 264.1 523.6 277C526.5 290.9 528.1 305.3 528.1 320.1L528.1 360.1C528.1 373.4 538.8 384.1 552.1 384.1C565.4 384.1 576.1 373.4 576.1 360.1L576.1 320.1C576.1 302 574.2 284.3 570.6 267.2zM320 144C301 144 282.6 147 265.5 152.6C250.3 157.6 246.8 176.3 257.2 188.5C264.3 196.8 276 199.3 286.6 196.4C297.2 193.5 308.4 192 320 192C390.7 192 448 249.3 448 320L448 344.9C448 370.1 446.5 395.2 443.6 420.2C441.9 434.8 453 448 467.8 448C479.6 448 489.7 439.4 491.1 427.7C494.4 400.3 496.1 372.7 496.1 345L496.1 320.1C496.1 222.9 417.3 144.1 320.1 144.1zM214.7 212.7C205.6 202.1 189.4 201.3 180.8 212.3C157.7 242.1 144 279.4 144 320L144 344.9C144 369.1 141.4 393.3 136.2 416.8C132.8 432.4 144.1 447.9 160.1 447.9C170.6 447.9 180 440.9 182.3 430.6C188.7 402.5 192 373.8 192 344.8L192 319.9C192 292.7 200.5 267.5 214.9 246.8C222.1 236.4 222.9 222.2 214.7 212.6zM320 224C267 224 224 267 224 320L224 344.9C224 380.8 219.4 416.4 210.2 451C206.4 465.3 216.9 480 231.7 480C241.2 480 249.6 473.8 252.1 464.6C262.6 425.6 268 385.4 268 344.9L268 320C268 291.3 291.3 268 320 268C348.7 268 372 291.3 372 320L372 344.9C372 381.2 368.5 417.3 361.6 452.8C358.9 466.7 369.3 480 383.4 480C393.6 480 402.4 473 404.4 463C412.1 424.2 416 384.7 416 344.9L416 320C416 267 373 224 320 224zM344 320C344 306.7 333.3 296 320 296C306.7 296 296 306.7 296 320L296 344.9C296 404.8 285 464.2 263.5 520.1L257.6 535.4C252.8 547.8 259 561.7 271.4 566.4C283.8 571.1 297.7 565 302.4 552.6L308.3 537.3C331.9 475.9 344 410.7 344 344.9L344 320z"/></svg></span> Login with fingerprint</button>
+<div id="loginMessage" class="message"></div>
+<div class="switch-auth"><span>Don't have an account?</span><button type="button" onclick="showPage('signupPage')">Create account</button></div>
+</div></div>
+</section>
+
+<section id="signupPage" class="auth-page hidden">
+<div class="signup-wrapper">
+<div class="signup-header">
+<div class="brand"><div class="brand-logo" role="img" aria-label="Veltrix"></div></div>
+<div class="signup-title"><span class="eyebrow">CREATE YOUR ACCOUNT</span><h2>Let's get you started.</h2><p>Create your account in a few simple steps.</p></div>
+<div class="signup-progress">
+    <div class="progress-item active" data-step="1"><span>01</span><small>Details</small></div>
+    <div class="progress-line"></div>
+    <div class="progress-item" data-step="2"><span>02</span><small>Location</small></div>
+    <div class="progress-line"></div>
+    <div class="progress-item" data-step="3"><span>03</span><small>Profile</small></div>
+</div>
+</div>
+
+<form id="signupForm" class="signup-form" novalidate>
+
+<div class="form-section signup-step active-step" data-step="1"><div class="section-number">01</div><div class="section-content">
+<div class="section-heading"><span>YOUR INFORMATION</span><h3>Personal details</h3><p>Tell us a little about yourself.</p></div>
+<div class="form-grid">
+<div class="input-group full-width"><label for="fullName">Full name</label><input type="text" id="fullName" placeholder="Enter your full name" autocomplete="name" required></div>
+<div class="input-group"><label for="signupEmail">Email address</label><input type="email" id="signupEmail" placeholder="you@example.com" autocomplete="email" required></div>
+<div class="input-group"><label for="signupPassword">Password</label><div class="password-field"><input type="password" id="signupPassword" placeholder="Create a password" autocomplete="new-password" minlength="6" required><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" onclick="togglePassword('signupPassword', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+<div class="input-group full-width"><label for="confirmPassword">Confirm password</label><div class="password-field"><input type="password" id="confirmPassword" placeholder="Confirm your password" autocomplete="new-password" minlength="6" required><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" onclick="togglePassword('confirmPassword', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+</div></div></div>
+
+<div class="form-section signup-step hidden-step" data-step="2"><div class="section-number">02</div><div class="section-content">
+<div class="section-heading"><span>LOCATION & AGE</span><h3>Where are you?</h3><p>Your browser can automatically detect your approximate location.</p></div>
+<div class="form-grid">
+<div class="input-group full-width"><label>Detected location</label><div class="location-field"><span id="location" class="location-text">Not detected yet</span><button type="button" id="locationButton" class="detect-button">Detect</button></div><small id="locationStatus">Your browser will ask for permission to use your location.</small>
+<div id="locationNotice" class="location-notice hidden" role="alert"></div></div>
+<div class="input-group full-width"><label for="dateOfBirth">Date of birth</label><input type="date" id="dateOfBirth" required></div>
+</div></div></div>
+
+<div class="form-section signup-step hidden-step" data-step="3"><div class="section-number">03</div><div class="section-content">
+<div class="section-heading"><span>PROFILE & SECURITY</span><h3>Make it yours.</h3><p>Add a profile photo and enable biometric authentication on supported devices.</p></div>
+<div class="profile-upload"><div id="profilePreview" class="profile-preview"><span>+</span></div><div class="upload-info"><h4>Profile picture</h4><p>Choose a photo to represent your account.</p><label for="profilePicture" class="upload-button">Choose photo</label><input type="file" id="profilePicture" accept="image/*" hidden></div></div>
+<div class="security-card"><div class="security-icon"><svg style="color: #ffffff; height: 25px; width: 25px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M112 320C112 205.1 205.1 112 320 112C383.1 112 439.6 140.1 477.8 184.5C486.4 194.6 501.6 195.7 511.6 187.1C521.6 178.5 522.8 163.3 514.2 153.3C467.3 98.6 397.7 64 320 64C178.6 64 64 178.6 64 320L64 360C64 373.3 74.7 384 88 384C101.3 384 112 373.3 112 360L112 320zM570.5 267.1C567.8 254.1 555 245.8 542.1 248.6C529.2 251.4 520.8 264.1 523.6 277C526.5 290.9 528.1 305.3 528.1 320.1L528.1 360.1C528.1 373.4 538.8 384.1 552.1 384.1C565.4 384.1 576.1 373.4 576.1 360.1L576.1 320.1C576.1 302 574.2 284.3 570.6 267.2zM320 144C301 144 282.6 147 265.5 152.6C250.3 157.6 246.8 176.3 257.2 188.5C264.3 196.8 276 199.3 286.6 196.4C297.2 193.5 308.4 192 320 192C390.7 192 448 249.3 448 320L448 344.9C448 370.1 446.5 395.2 443.6 420.2C441.9 434.8 453 448 467.8 448C479.6 448 489.7 439.4 491.1 427.7C494.4 400.3 496.1 372.7 496.1 345L496.1 320.1C496.1 222.9 417.3 144.1 320.1 144.1zM214.7 212.7C205.6 202.1 189.4 201.3 180.8 212.3C157.7 242.1 144 279.4 144 320L144 344.9C144 369.1 141.4 393.3 136.2 416.8C132.8 432.4 144.1 447.9 160.1 447.9C170.6 447.9 180 440.9 182.3 430.6C188.7 402.5 192 373.8 192 344.8L192 319.9C192 292.7 200.5 267.5 214.9 246.8C222.1 236.4 222.9 222.2 214.7 212.6zM320 224C267 224 224 267 224 320L224 344.9C224 380.8 219.4 416.4 210.2 451C206.4 465.3 216.9 480 231.7 480C241.2 480 249.6 473.8 252.1 464.6C262.6 425.6 268 385.4 268 344.9L268 320C268 291.3 291.3 268 320 268C348.7 268 372 291.3 372 320L372 344.9C372 381.2 368.5 417.3 361.6 452.8C358.9 466.7 369.3 480 383.4 480C393.6 480 402.4 473 404.4 463C412.1 424.2 416 384.7 416 344.9L416 320C416 267 373 224 320 224zM344 320C344 306.7 333.3 296 320 296C306.7 296 296 306.7 296 320L296 344.9C296 404.8 285 464.2 263.5 520.1L257.6 535.4C252.8 547.8 259 561.7 271.4 566.4C283.8 571.1 297.7 565 302.4 552.6L308.3 537.3C331.9 475.9 344 410.7 344 344.9L344 320z"/></svg></div><div class="security-copy"><h4>Fingerprint / biometric login </h4><p>Use your device's fingerprint, Face ID, PIN or other supported biometric security. You can skip this and still create your account.</p></div><label class="switch"><input type="checkbox" id="fingerprintToggle"><span class="slider"></span></label></div>
+<div id="fingerprintStatus" class="security-status"></div>
+</div></div>
+
+<div class="step-navigation">
+    <button type="button" id="backStepButton" class="step-back hidden-step">Back</button>
+    <button type="button" id="nextStepButton" class="primary-button step-next">Continue</button>
+</div>
+
+<div id="signupMessage" class="message"></div>
+<button type="submit" id="createAccountButton" class="primary-button create-account-button hidden-step">Create my account</button>
+<div class="switch-auth"><span>Already have an account?</span><button type="button" onclick="showPage('loginPage')">Sign in</button></div>
+</form>
+</div>
+</section>
+
+<section id="dashboardPage" class="dashboard-page wd hidden">
+<div class="wd-screen">
+<header class="wd-header">
+<div class="wd-avatar-wrap">
+<button type="button" class="wd-avatar" id="dashboardAvatar" aria-label="Account menu" aria-haspopup="true" aria-expanded="false"><span>U</span></button>
+<div class="wd-menu hidden" id="accountMenu" role="menu"><button type="button" class="wd-menu-item" id="openSettingsMenu" role="menuitem">Settings</button><button type="button" class="wd-menu-item" id="logoutButton" role="menuitem">Log out</button></div>
+</div>
+<label class="wd-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" id="assetSearch" placeholder="Search assets" autocomplete="off" aria-label="Search assets"></label>
+<button type="button" class="wd-icon-btn" id="scanButton" aria-label="Scan QR code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V6a2 2 0 0 1 2-2h3M15 4h3a2 2 0 0 1 2 2v3M20 15v3a2 2 0 0 1-2 2h-3M9 20H6a2 2 0 0 1-2-2v-3M4 12h16"/></svg></button>
+<button type="button" class="wd-icon-btn" id="notifyButton" aria-label="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16z"/><path d="M10 21h4"/></svg><i class="wd-dot hidden" id="notifyDot"></i></button>
+</header>
+
+<section class="wd-search-panel" id="cryptoSearchPanel" aria-label="Search cryptocurrencies" hidden>
+  <div class="wd-search-panel-heading"><div><h2>Explore crypto</h2><p>Search 20 popular cryptocurrencies by name or symbol.</p></div><button type="button" id="closeCryptoSearch" aria-label="Close cryptocurrency search">×</button></div>
+  <div class="wd-market-summary"><span>TOP CRYPTOCURRENCIES</span><span id="cryptoSearchStatus">Loading market data…</span></div>
+  <div class="wd-market-list" id="cryptoMarketList" role="list"></div>
+</section>
+
+<section class="wd-balance" aria-label="Balance">
+<div class="wd-balance-top">
+<div>
+<div class="wd-label"><span id="balanceLabel">Total Assets</span> <button type="button" class="wd-eye" id="toggleBalance" aria-label="Hide balance" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+<div class="wd-amount"><span id="totalAssets">0.00</span><button type="button" class="wd-currency-trigger" id="currencySelector" aria-haspopup="dialog" aria-expanded="false"><span id="selectedCurrencyCode">USD</span><i class="wd-caret"></i></button></div>
+</div>
+<button type="button" class="wd-deposit" data-action="Deposit">Deposit</button>
+</div>
+<div class="wd-pnl">Today's PNL <span id="pnlValue" class="wd-up">+0.00 USD (0.0%)</span> <i class="wd-caret"></i></div>
+</section>
+
+<nav class="wd-actions" aria-label="Quick actions">
+<button type="button" data-action="Deposit"><span class="wd-circle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><!--!Font Awesome Free v7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2026 Fonticons, Inc.--><path d="M320 32C373 32 416 75 416 128C416 181 373 224 320 224C267 224 224 181 224 128C224 75 267 32 320 32zM80 368C80 297.9 127 236.6 197.1 203.1C222.4 244.4 268 272 320 272C375.7 272 424.1 240.3 448 194C463.8 182.7 483.1 176 504 176L523.5 176C533.9 176 541.5 185.8 539 195.9L521.9 264.2C531.8 276.6 540.1 289.9 546.3 304L568 304C581.3 304 592 314.7 592 328L592 440C592 453.3 581.3 464 568 464L528 464C511.5 486 489.5 503.6 464 514.7L464 544C464 561.7 449.7 576 432 576L399 576C384.7 576 372.2 566.5 368.2 552.8L361.1 528L278.8 528L271.7 552.8C267.8 566.5 255.3 576 241 576L208 576C190.3 576 176 561.7 176 544L176 514.7C119.5 490 80 433.6 80 368zM456 384C469.3 384 480 373.3 480 360C480 346.7 469.3 336 456 336C442.7 336 432 346.7 432 360C432 373.3 442.7 384 456 384z"/></svg></span>Deposit</button>
+<button type="button" data-action="Send"><span class="wd-circle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M568.4 37.7C578.2 34.2 589 36.7 596.4 44C603.8 51.3 606.2 62.2 602.7 72L424.7 568.9C419.7 582.8 406.6 592 391.9 592C377.7 592 364.9 583.4 359.6 570.3L295.4 412.3C290.9 401.3 292.9 388.7 300.6 379.7L395.1 267.3C400.2 261.2 399.8 252.3 394.2 246.7C388.6 241.1 379.6 240.7 373.6 245.8L261.2 340.1C252.1 347.7 239.6 349.7 228.6 345.3L70.1 280.8C57 275.5 48.4 262.7 48.4 248.5C48.4 233.8 57.6 220.7 71.5 215.7L568.4 37.7z"/></svg></span>Send</button>
+<button type="button" data-action="Convert"><span class="wd-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14-4.5L4 9M4 4v5h5M4 13a8 8 0 0 0 14 4.5L20 15M20 20v-5h-5"/></svg></span>Convert</button>
+<button type="button" data-action="Withdraw"><span class="wd-circle"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-wallet" viewBox="0 0 16 16">
+  <path d="M0 3a2 2 0 0 1 2-2h13.5a.5.5 0 0 1 0 1H15v2a1 1 0 0 1 1 1v8.5a1.5 1.5 0 0 1-1.5 1.5h-12A2.5 2.5 0 0 1 0 12.5zm1 1.732V12.5A1.5 1.5 0 0 0 2.5 14h12a.5.5 0 0 0 .5-.5V5H2a2 2 0 0 1-1-.268M1 3a1 1 0 0 0 1 1h12V2H2a1 1 0 0 0-1 1"/>
+</svg></span>Withdraw</button>
+<button type="button" data-action="Messaging"><span class="wd-circle"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chat-quote" viewBox="0 0 16 16">
+  <path d="M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6s-3.004-6-7-6-7 2.808-7 6c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.347-.306c-.52.263-1.639.742-3.468 1.105"/>
+  <path d="M7.066 6.76A1.665 1.665 0 0 0 4 7.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 0 0 .6.58c1.486-1.54 1.293-3.214.682-4.112zm4 0A1.665 1.665 0 0 0 8 7.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 0 0 .6.58c1.486-1.54 1.293-3.214.682-4.112z"/>
+</svg></span>Messaging</button>
+</nav>
+
+<section class="wd-assets" aria-label="Your crypto assets">
+<div class="wd-tabs"><span class="wd-tab active" id="assetsTabLabel">Assets</span></div>
+<div id="assetList" class="wd-list"></div>
+</section>
+
+<section class="wd-card-stack-section" aria-label="Wallet highlights">
+  <div class="wd-stack-heading"><div><span class="wd-stack-kicker">YOUR WALLET</span><h2>Discover more</h2></div><span class="wd-stack-hint">Swipe left</span></div>
+  <div class="wd-card-stack" id="walletCardStack" aria-roledescription="carousel" aria-label="Five wallet information cards">
+    <article class="wd-stack-card card-violet" data-stack-card><div class="wd-stack-card-top"><span class="wd-stack-icon">↗</span><span class="wd-stack-count">01 / 05</span></div><div><span class="wd-stack-label">MARKET PULSE</span><h3>Stay in the know.</h3><p>Keep an eye on market movement and explore what's changing.</p></div><span class="wd-stack-footer">Market overview <b>↗</b></span></article>
+    <article class="wd-stack-card card-ink" data-stack-card><div class="wd-stack-card-top"><span class="wd-stack-icon">⌁</span><span class="wd-stack-count">02 / 05</span></div><div><span class="wd-stack-label">SECURITY CENTER</span><h3>Your wallet, protected.</h3><p>Review your account security settings and keep your details up to date.</p></div><span class="wd-stack-footer">Review security <b>↗</b></span></article>
+    <article class="wd-stack-card card-mint" data-stack-card><div class="wd-stack-card-top"><span class="wd-stack-icon">◷</span><span class="wd-stack-count">03 / 05</span></div><div><span class="wd-stack-label">ACTIVITY</span><h3>Everything in one place.</h3><p>Your recent wallet activity will be easier to follow as you start transacting.</p></div><span class="wd-stack-footer">View activity <b>↗</b></span></article>
+    <article class="wd-stack-card card-amber" data-stack-card><div class="wd-stack-card-top"><span class="wd-stack-icon">✳</span><span class="wd-stack-count">04 / 05</span></div><div><span class="wd-stack-label">SMART HABITS</span><h3>Make every move count.</h3><p>Take a moment to check your assets and understand your portfolio.</p></div><span class="wd-stack-footer">Explore tips <b>↗</b></span></article>
+    <article class="wd-stack-card card-blue" data-stack-card><div class="wd-stack-card-top"><span class="wd-stack-icon">◇</span><span class="wd-stack-count">05 / 05</span></div><div><span class="wd-stack-label">VELTRIX GUIDE</span><h3>A clearer way forward.</h3><p>Get familiar with your wallet tools and the basics of managing digital assets.</p></div><span class="wd-stack-footer">Wallet guide <b>↗</b></span></article>
+  </div>
+  <div class="wd-stack-controls"><button type="button" id="stackPrev" aria-label="Previous card"></button><div class="wd-stack-dots" id="stackDots" aria-label="Card position"></div><button type="button" id="stackNext" aria-label="Next card"></button></div>  
+</section>
+</div>
+<div class="wd-toast" id="wdToast" role="status" aria-live="polite"></div>
+<section class="wd-feature-page wd-market-detail-page" id="marketDetailPage" hidden aria-label="Cryptocurrency market details">
+  <header class="wd-market-detail-header"><button type="button" class="wd-detail-round" id="marketDetailBack" aria-label="Back to cryptocurrency search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg></button><span class="wd-detail-header-spacer"></span><button type="button" class="wd-detail-round" id="marketFavorite" aria-label="Add to watchlist" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3z"/></svg></button></header>
+  <div class="wd-market-detail-main">
+    <div class="wd-detail-asset-head"><span class="wd-detail-coin" id="marketDetailLogo"></span><div class="wd-detail-asset-name"><h2 id="marketDetailSymbol">BTC</h2><p id="marketDetailName">Bitcoin <button type="button" id="copyMarketSymbol" aria-label="Copy cryptocurrency symbol">▢</button></p></div><div class="wd-detail-price"><strong id="marketDetailPrice">—</strong><span id="marketDetailChange">Loading market data…</span></div></div>
+    <div class="wd-detail-chart-wrap"><div id="marketChartLoading" class="wd-detail-chart-loading"><span></span><span></span><span></span><span></span><span></span><span></span></div><canvas id="marketDetailChart" aria-label="Cryptocurrency price chart"></canvas><div class="wd-chart-price-pill" id="marketChartPricePill">—</div></div>
+    <div class="wd-detail-timeframes" role="group" aria-label="Chart time range"><button type="button" class="active" data-market-range="1D">1D</button><button type="button" data-market-range="1W">1W</button><button type="button" data-market-range="1M">1M</button></div>
+    <section class="wd-detail-balance"><span>Balance</span><strong>$0.00</strong><small>0.00 <b id="marketDetailBalanceSymbol">BTC</b></small></section>
+    <div class="wd-market-notice" role="status"><span class="wd-market-notice-icon" aria-hidden="true">i</span><p><strong>Wallet actions coming soon</strong><br>Send and receive will be available when your wallet is connected.</p></div>
+    <button type="button" class="wd-detail-about" id="marketAboutToggle"><span>✦</span> About <b id="marketAboutName">Bitcoin</b><span class="wd-detail-chevron">›</span></button><p class="wd-detail-about-copy" id="marketAboutCopy" hidden>Market prices are indicative and may change. This preview is for market exploration and does not execute trades.</p>
+  </div>
+  <button type="button" class="wd-detail-buy" id="marketBuyButton">Buy</button>
+</section>
+
+
+<section class="wd-feature-page" id="notificationPage" hidden aria-labelledby="notificationTitle">
+  <header class="wd-feature-header wd-notification-header">
+    <button type="button" class="wd-feature-back" data-close-feature aria-label="Back to dashboard"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-bell-slash-fill" viewBox="0 0 16 16">
+  <path d="M5.164 14H15c-1.5-1-2-5.902-2-7q0-.396-.06-.776zm6.288-10.617A5 5 0 0 0 8.995 2.1a1 1 0 1 0-1.99 0A5 5 0 0 0 3 7c0 .898-.335 4.342-1.278 6.113zM10 15a2 2 0 1 1-4 0zm-9.375.625a.53.53 0 0 0 .75.75l14.75-14.75a.53.53 0 0 0-.75-.75z"/>
+</svg></button>
+    <h1 id="notificationTitle">Notifications</h1>
+    <button type="button" class="wd-notification-filter" id="notificationFilterButton" aria-label="Filter notifications by date" title="Filter notifications by date" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg></button>
+  </header>
+  <div class="wd-empty-state wd-notification-empty">
+    <div class="wd-empty-illustration" aria-hidden="true" style="border-radius: 50px;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path fill="currentColor" d="M320 496C342.1 496 360 513.9 360 536C360 558.1 342.1 576 320 576C297.9 576 280 558.1 280 536C280 513.9 297.9 496 320 496zM320 64C346.5 64 368 85.5 368 112C368 112.6 368 113.1 368 113.7L352 417.7C351.1 434.7 337 448 320 448C303 448 289 434.7 288 417.7L272 113.7C272 113.1 272 112.6 272 112C272 85.5 293.5 64 320 64z"/></svg></div>
+    <h2>No notifications yet</h2><p>Your updates and alerts will appear here.</p>
+  </div>
+  <div class="wd-notification-filter-backdrop" id="notificationFilterBackdrop" hidden></div>
+  <section class="wd-notification-filter-sheet" id="notificationFilterSheet" role="dialog" aria-modal="true" aria-labelledby="notificationFilterTitle" hidden>
+    <div class="wd-notification-sheet-handle" aria-hidden="true"></div>
+    <div class="wd-notification-sheet-heading"><div><span>NOTIFICATIONS</span><h2 id="notificationFilterTitle">Filter by date</h2></div><button type="button" id="notificationFilterClose" aria-label="Close date filter">×</button></div>
+    <p class="wd-notification-filter-help">Choose which time period to view.</p>
+    <div class="wd-notification-date-options" role="group" aria-label="Notification date range">
+      <button type="button" class="is-selected" data-notification-range="all"><span>All</span><small>View all notifications</small><i aria-hidden="true">✓</i></button>
+      <button type="button" data-notification-range="today"><span>Today</span><small>Notifications from today</small><i aria-hidden="true">✓</i></button>
+      <button type="button" data-notification-range="yesterday"><span>Yesterday</span><small>Notifications from yesterday</small><i aria-hidden="true">✓</i></button>
+      <button type="button" data-notification-range="7days"><span>Last 7 days</span><small>The past week</small><i aria-hidden="true">✓</i></button>
+      <button type="button" data-notification-range="30days"><span>Last 30 days</span><small>The past month</small><i aria-hidden="true">✓</i></button>
+    </div>
+    <button type="button" class="wd-notification-apply" id="notificationFilterApply">Done</button>
+  </section>
+</section>
+<section class="wd-feature-page wd-scanner-page" id="qrScannerPage" hidden aria-label="QR code scanner">
+  <video id="qrCameraVideo" class="wd-camera-video" autoplay muted playsinline aria-label="Live camera preview"></video><div class="wd-camera-shade" aria-hidden="true"></div>
+  <div class="wd-scanner-spinner" id="qrSpinner" role="status" aria-label="Loading camera"><i></i></div>
+  <header class="wd-scanner-header"><button type="button" class="wd-scanner-back" data-close-feature aria-label="Close scanner">×</button><div><span>VELTRIX SCAN</span><h1>Scan QR code</h1></div><span class="wd-scanner-live"><i></i> LIVE</span></header>
+  <div class="wd-scanner-content"><p class="wd-scanner-instruction">Position a QR code inside the frame</p><div class="wd-qr-frame" aria-label="QR scanning area"><span class="wd-qr-corner top-left"></span><span class="wd-qr-corner top-right"></span><span class="wd-qr-corner bottom-left"></span><span class="wd-qr-corner bottom-right"></span><div class="wd-qr-scan-line"></div><div class="wd-qr-placeholder" aria-hidden="true"><svg viewBox="0 0 100 100" fill="none"><path d="M12 12h27v27H12zM18 18v15h15V18zM61 12h27v27H61zM67 18v15h15V18zM12 61h27v27H12zM18 67v15h15V67zM51 12v10h10M51 29v10h10M51 51h10v10H51zM71 51h17v10H71zM51 71h10v17H51zM71 71h17v17H71zM61 61v10M41 51h10M41 71h10" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/></svg></div></div><p class="wd-scanner-status" id="qrScannerStatus" role="status" aria-live="polite">Starting camera…</p><button type="button" class="wd-scanner-upload" id="qrUploadButton">Choose an image instead</button><input type="file" id="qrImageInput" accept="image/*" hidden></div>
+</section>
+<section class="wd-feature-page wd-deposit-page" id="depositPage" hidden aria-label="Deposit cryptocurrency">
+  <div id="depositCoinPicker">
+    <div class="wd-deposit-trending-head"><h2>Trending</h2><div class="wd-deposit-tabs" role="tablist" aria-label="Asset category"><button type="button" class="active" role="tab" aria-selected="true" data-deposit-tab="tokens">Tokens</button><button type="button" role="tab" aria-selected="false" data-deposit-tab="dapps">dApps</button></div></div>
+    <div class="wd-deposit-list-caption"><span>POPULAR TOKENS</span><span>PRICE · 24H</span></div>
+    <div class="wd-market-list wd-deposit-coin-list" id="depositCoinList" role="list"></div>
+    <div class="wd-deposit-bottom-search"><span class="wd-deposit-count" id="depositResultCount">20</span><label class="wd-deposit-search-field"><input type="search" id="depositCoinSearch" placeholder="Tokens, dApps" autocomplete="off" aria-label="Search tokens"><button type="button" id="depositPasteButton">Paste</button></label><button type="button" id="clearDepositSearch" class="wd-deposit-clear" aria-label="Close deposit section">×</button></div>
+  </div>
+  <div id="depositCoinDetails" hidden>
+    <div class="wd-deposit-detail-intro"><span class="wd-deposit-eyebrow">DEPOSIT ADDRESS</span><h2 id="depositCoinName">Bitcoin</h2><p>Only send the selected asset to this address on its matching network.</p></div>
+    <div class="wd-deposit-address-card">
+      <div class="wd-deposit-qr-wrap"><div id="depositQrImage" role="img" aria-label="QR code for the demo deposit address"></div><span>SCAN TO COPY ADDRESS</span></div>
+      <label class="wd-deposit-address-label" for="depositAddress">Wallet address</label>
+      <div class="wd-deposit-address-row"><code id="depositAddress"></code><button type="button" id="copyDepositAddress" aria-label="Copy wallet address">Copy</button></div>
+      <p class="wd-deposit-warning">Prototype preview: this is a demo address, not a live deposit address. Connect a wallet backend before accepting funds.</p>
+    </div>
+    <button type="button" class="wd-deposit-back-list" id="backToDepositCoins">Choose another asset</button>
+  </div>
+</section>
+
+
+<div class="wd-currency-overlay" id="currencyOverlay" hidden>
+  <section class="wd-currency-modal" role="dialog" aria-modal="true" aria-labelledby="currencyModalTitle">
+    <div class="wd-currency-modal-head"><div><span class="wd-currency-eyebrow">ACCOUNT</span><h2 id="currencyModalTitle">Switch account</h2><p>Choose which account you want to view.</p></div><button type="button" id="closeCurrencyModal" class="wd-currency-close" aria-label="Close currency selector">×</button></div>
+    <label class="wd-currency-search" hidden style="display:none"><span aria-hidden="true">⌕</span><input id="currencySearch" type="search" placeholder="Search currency or country" autocomplete="off" aria-label="Search currencies"></label>
+    <div class="wd-currency-list" id="currencyList" role="listbox" aria-label="Available currencies"></div>
+  </section>
+</div>
+
+<!-- Account settings / profile screens, styled to match the supplied reference. -->
+<section id="profileSettingsPage" class="profile-ui-page" hidden aria-label="Settings">
+  <header class="profile-ui-header">
+    <button type="button" class="profile-ui-back" id="settingsBack" aria-label="Back to dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <h1>Settings</h1>
+    <button type="button" class="profile-ui-top-icon" id="editProfileShortcut" aria-label="Edit profile" title="Edit profile"></button>
+  </header>
+  <div class="profile-ui-identity">
+    <button type="button" class="profile-ui-avatar-button" id="settingsAvatarButton" aria-label="Open profile details"><img id="settingsAvatarImage" alt="Profile picture"><span id="settingsAvatarInitials">U</span></button>
+    <div class="profile-ui-identity-copy"><h2 id="settingsDisplayName">Your name</h2><p id="settingsUsername">@username</p></div>
+  </div>
+  <div class="profile-ui-list">
+    <button type="button" class="profile-ui-row" id="settingsLanguage"><span class="profile-ui-icon">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-translate" viewBox="0 0 16 16">
+  <path d="M4.545 6.714 4.11 8H3l1.862-5h1.284L8 8H6.833l-.435-1.286zm1.634-.736L5.5 3.956h-.049l-.679 2.022z"/>
+  <path d="M0 2a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v3h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-3H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zm7.138 9.995q.289.451.63.846c-.748.575-1.673 1.001-2.768 1.292.178.217.451.635.555.867 1.125-.359 2.08-.844 2.886-1.494.777.665 1.739 1.165 2.93 1.472.133-.254.414-.673.629-.89-1.125-.253-2.057-.694-2.82-1.284.681-.747 1.222-1.651 1.621-2.757H14V8h-3v1.047h.765c-.318.844-.74 1.546-1.272 2.13a6 6 0 0 1-.415-.492 2 2 0 0 1-.94.31"/>
+</svg>
+        
+        </span><span class="profile-ui-row-copy"><strong>App language</strong><small>Choose the language of the app</small></span><svg class="profile-ui-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+  <div class="profile-ui-list">
+    <button type="button" class="profile-ui-row" id="settingsTheme" role="switch" aria-checked="false"><span class="profile-ui-icon" id="themeIcon"><svg viewBox="0 0 24 24" style="fill:none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></span><span class="profile-ui-row-copy"><strong>Day &amp; night mode</strong><small id="themeState">Day mode is on</small></span><span class="sx-switch" id="themeSwitch" aria-hidden="true"><i></i></span></button>
+  </div>
+  <div class="profile-ui-list">
+    <button type="button" class="profile-ui-row" id="settingsTwoStep"><span class="profile-ui-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-shield-lock" viewBox="0 0 16 16">
+  <path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533q.18.085.293.118a1 1 0 0 0 .101.025 1 1 0 0 0 .1-.025q.114-.034.294-.118c.24-.113.547-.29.893-.533a10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56"/>
+  <path d="M9.5 6.5a1.5 1.5 0 0 1-1 1.415l.385 1.99a.5.5 0 0 1-.491.595h-.788a.5.5 0 0 1-.49-.595l.384-1.99a1.5 1.5 0 1 1 2-1.415"/>
+</svg></span><span class="profile-ui-row-copy"><strong>Two-step verification</strong><small>Add an extra layer of security</small></span><svg class="profile-ui-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+  <div class="profile-ui-list">
+    <button type="button" class="profile-ui-row" id="settingsDevices"><span class="profile-ui-icon"><svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="currentColor" class="bi bi-phone-flip" viewBox="0 0 16 16">
+  <path fill-rule="evenodd" d="M11 1H5a1 1 0 0 0-1 1v6a.5.5 0 0 1-1 0V2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v6a.5.5 0 0 1-1 0V2a1 1 0 0 0-1-1m1 13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a.5.5 0 0 0-1 0v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2a.5.5 0 0 0-1 0zM1.713 7.954a.5.5 0 1 0-.419-.908c-.347.16-.654.348-.882.57C.184 7.842 0 8.139 0 8.5c0 .546.408.94.823 1.201.44.278 1.043.51 1.745.696C3.978 10.773 5.898 11 8 11q.148 0 .294-.002l-1.148 1.148a.5.5 0 0 0 .708.708l2-2a.5.5 0 0 0 0-.708l-2-2a.5.5 0 1 0-.708.708l1.145 1.144L8 10c-2.04 0-3.87-.221-5.174-.569-.656-.175-1.151-.374-1.47-.575C1.012 8.639 1 8.506 1 8.5c0-.003 0-.059.112-.17.115-.112.31-.242.6-.376Zm12.993-.908a.5.5 0 0 0-.419.908c.292.134.486.264.6.377.113.11.113.166.113.169s0 .065-.13.187c-.132.122-.352.26-.677.4-.645.28-1.596.523-2.763.687a.5.5 0 0 0 .14.99c1.212-.17 2.26-.43 3.02-.758.38-.164.713-.357.96-.587.246-.229.45-.537.45-.919 0-.362-.184-.66-.412-.883s-.535-.411-.882-.571M7.5 2a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1z"/>
+</svg></span><span class="profile-ui-row-copy"><strong>Linked devices</strong><small>Use Veltrix on other devices</small></span><svg class="profile-ui-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+  <div class="profile-ui-list">
+    <button type="button" class="profile-ui-row" id="settingsNotifications"><span class="profile-ui-icon"><svg viewBox="0 0 24 24" style="fill:none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/></svg></span><span class="profile-ui-row-copy"><strong>Notifications</strong><small>Choose what alerts you receive</small></span><svg class="profile-ui-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+  <div class="profile-ui-list">
+    <button type="button" class="profile-ui-row" id="settingsSupport"><span class="profile-ui-icon"><svg style="height: 25px; width: 25px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M320 128C241 128 175.3 185.3 162.3 260.7C171.6 257.7 181.6 256 192 256L208 256C234.5 256 256 277.5 256 304L256 400C256 426.5 234.5 448 208 448L192 448C139 448 96 405 96 352L96 288C96 164.3 196.3 64 320 64C443.7 64 544 164.3 544 288L544 456.1C544 522.4 490.2 576.1 423.9 576.1L336 576L304 576C277.5 576 256 554.5 256 528C256 501.5 277.5 480 304 480L336 480C362.5 480 384 501.5 384 528L384 528L424 528C463.8 528 496 495.8 496 456L496 435.1C481.9 443.3 465.5 447.9 448 447.9L432 447.9C405.5 447.9 384 426.4 384 399.9L384 303.9C384 277.4 405.5 255.9 432 255.9L448 255.9C458.4 255.9 468.3 257.5 477.7 260.6C464.7 185.3 399.1 127.9 320 127.9z"/></svg></span><span class="profile-ui-row-copy"><strong>Support Team</strong><small>Chat with us on WhatsApp</small></span><svg class="profile-ui-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+  <div class="profile-ui-list profile-ui-list-danger">
+    <button type="button" class="profile-ui-row profile-ui-logout" id="settingsLogout"><span class="profile-ui-icon"><svg style="height: 25px; width: 25px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M224 160C241.7 160 256 145.7 256 128C256 110.3 241.7 96 224 96L160 96C107 96 64 139 64 192L64 448C64 501 107 544 160 544L224 544C241.7 544 256 529.7 256 512C256 494.3 241.7 480 224 480L160 480C142.3 480 128 465.7 128 448L128 192C128 174.3 142.3 160 160 160L224 160zM566.6 342.6C579.1 330.1 579.1 309.8 566.6 297.3L438.6 169.3C426.1 156.8 405.8 156.8 393.3 169.3C380.8 181.8 380.8 202.1 393.3 214.6L466.7 288L256 288C238.3 288 224 302.3 224 320C224 337.7 238.3 352 256 352L466.7 352L393.3 425.4C380.8 437.9 380.8 458.2 393.3 470.7C405.8 483.2 426.1 483.2 438.6 470.7L566.6 342.7z"/></svg></span><span class="profile-ui-row-copy"><strong>Log out</strong><small>Sign out of your account</small></span><svg class="profile-ui-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+</section>
+<section id="profileDetailsPage" class="profile-ui-page profile-ui-details" hidden aria-label="Profile">
+  <header class="profile-ui-header"><button type="button" id="profileDetailsBack" class="profile-ui-back" aria-label="Back to settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Profile</h1><span class="profile-ui-header-spacer" aria-hidden="true"></span></header>
+  <div class="profile-ui-edit-photo"><button type="button" id="editProfileAvatarButton" class="profile-ui-avatar-button profile-ui-avatar-large" aria-label="Change profile picture"><img id="profileDetailsAvatarImage" alt="Profile picture"><span id="profileDetailsAvatarInitials">U</span><i><svg viewBox="0 0 576 512" aria-hidden="true"><path d="M0 96C0 60.7 28.7 32 64 32H160L192 0H384l32 32H512c35.3 0 64 28.7 64 64V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zm288 320a128 128 0 1 0 0-256 128 128 0 1 0 0 256zm0-48a80 80 0 1 1 0-160 80 80 0 1 1 0 160z"/></svg></i></button><input type="file" id="profileDetailsPhotoInput" accept="image/*" hidden></div>
+  <div class="profile-ui-fields">
+    <button type="button" class="profile-ui-field" data-edit-field="name"><span class="profile-ui-field-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person-fill" viewBox="0 0 16 16">
+  <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/>
+</svg></span><span class="profile-ui-field-copy"><strong>Name</strong><small id="profileFieldName">Your name</small></span><svg class="profile-ui-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button type="button" class="profile-ui-field" data-edit-field="about"><span class="profile-ui-field-icon"><svg viewBox="0 0 512 512" aria-hidden="true"><path d="M256 8C119 8 8 119 8 256S119 504 256 504 504 393 504 256 393 8 256 8zm0 112a24 24 0 1 1 0 48 24 24 0 1 1 0-48zm32 272h-64c-17.7 0-32-14.3-32-32s14.3-32 32-32h8v-64h-8c-17.7 0-32-14.3-32-32s14.3-32 32-32h40c17.7 0 32 14.3 32 32v96c17.7 0 32 14.3 32 32s-14.3 32-32 32z"/></svg></span><span class="profile-ui-field-copy"><strong>About</strong><small id="profileFieldAbout" class="profile-ui-green">Add a short bio</small></span><svg class="profile-ui-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button type="button" class="profile-ui-field" data-edit-field="username"><span class="profile-ui-field-icon"><svg viewBox="0 0 512 512" aria-hidden="true"><path d="M256 8C119 8 8 119 8 256S119 504 256 504c45.7 0 90.3-12.6 129.3-36.5 15.1-9.2 19.9-28.9 10.7-44s-28.9-19.9-44-10.7C322 431.7 289.4 440 256 440c-101.6 0-184-82.4-184-184S154.4 72 256 72s184 82.4 184 184v16c0 22.1-17.9 40-40 40s-40-17.9-40-40v-16c0-57.4-46.6-104-104-104s-104 46.6-104 104 46.6 104 104 104c30.1 0 57.2-12.8 76.2-33.2C349.1 347.4 372.7 368 400 368c57.4 0 104-46.6 104-104v-8C504 119 393 8 256 8zm0 280a32 32 0 1 1 0-64 32 32 0 1 1 0 64z"/></svg></span><span class="profile-ui-field-copy"><strong>Username</strong><small id="profileFieldUsername">Choose a username</small></span><svg class="profile-ui-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button type="button" class="profile-ui-field" data-edit-field="phone"><span class="profile-ui-field-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-telephone-forward" viewBox="0 0 16 16">
+  <path d="M3.654 1.328a.678.678 0 0 0-1.015-.063L1.605 2.3c-.483.484-.661 1.169-.45 1.77a17.6 17.6 0 0 0 4.168 6.608 17.6 17.6 0 0 0 6.608 4.168c.601.211 1.286.033 1.77-.45l1.034-1.034a.678.678 0 0 0-.063-1.015l-2.307-1.794a.68.68 0 0 0-.58-.122l-2.19.547a1.75 1.75 0 0 1-1.657-.459L5.482 8.062a1.75 1.75 0 0 1-.46-1.657l.548-2.19a.68.68 0 0 0-.122-.58zM1.884.511a1.745 1.745 0 0 1 2.612.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.68.68 0 0 0 .178.643l2.457 2.457a.68.68 0 0 0 .644.178l2.189-.547a1.75 1.75 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.6 18.6 0 0 1-7.01-4.42 18.6 18.6 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877zm10.762.135a.5.5 0 0 1 .708 0l2.5 2.5a.5.5 0 0 1 0 .708l-2.5 2.5a.5.5 0 0 1-.708-.708L14.293 4H9.5a.5.5 0 0 1 0-1h4.793l-1.647-1.646a.5.5 0 0 1 0-.708"/>
+</svg></span><span class="profile-ui-field-copy"><strong>Phone</strong><small id="profileFieldPhone">Add phone number</small></span><svg class="profile-ui-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button type="button" class="profile-ui-field" data-edit-field="links"><span class="profile-ui-field-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M451.5 160C434.9 160 418.8 164.5 404.7 172.7C388.9 156.7 370.5 143.3 350.2 133.2C378.4 109.2 414.3 96 451.5 96C537.9 96 608 166 608 252.5C608 294 591.5 333.8 562.2 363.1L491.1 434.2C461.8 463.5 422 480 380.5 480C294.1 480 224 410 224 323.5C224 322 224 320.5 224.1 319C224.6 301.3 239.3 287.4 257 287.9C274.7 288.4 288.6 303.1 288.1 320.8C288.1 321.7 288.1 322.6 288.1 323.4C288.1 374.5 329.5 415.9 380.6 415.9C405.1 415.9 428.6 406.2 446 388.8L517.1 317.7C534.4 300.4 544.2 276.8 544.2 252.3C544.2 201.2 502.8 159.8 451.7 159.8zM307.2 237.3C305.3 236.5 303.4 235.4 301.7 234.2C289.1 227.7 274.7 224 259.6 224C235.1 224 211.6 233.7 194.2 251.1L123.1 322.2C105.8 339.5 96 363.1 96 387.6C96 438.7 137.4 480.1 188.5 480.1C205 480.1 221.1 475.7 235.2 467.5C251 483.5 269.4 496.9 289.8 507C261.6 530.9 225.8 544.2 188.5 544.2C102.1 544.2 32 474.2 32 387.7C32 346.2 48.5 306.4 77.8 277.1L148.9 206C178.2 176.7 218 160.2 259.5 160.2C346.1 160.2 416 230.8 416 317.1C416 318.4 416 319.7 416 321C415.6 338.7 400.9 352.6 383.2 352.2C365.5 351.8 351.6 337.1 352 319.4C352 318.6 352 317.9 352 317.1C352 283.4 334 253.8 307.2 237.5z"/></svg> </span><span class="profile-ui-field-copy"><strong>Links</strong><small id="profileFieldLinks" class="profile-ui-green">Add links</small></span><svg class="profile-ui-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+  <div class="profile-ui-edit-dialog" id="profileEditDialog" hidden><div class="profile-ui-dialog-card" role="dialog" aria-modal="true" aria-labelledby="profileEditTitle"><h2 id="profileEditTitle">Edit profile</h2><label id="profileEditLabel" for="profileEditInput">Name</label><input id="profileEditInput" maxlength="80" autocomplete="off"><div class="profile-ui-dialog-actions"><button type="button" id="profileEditCancel">Cancel</button><button type="button" id="profileEditSave">Save</button></div></div></div>
+  <p class="profile-ui-bottom-note">Tap any detail above to edit it. Your name, username, phone number and links are used to personalise your Veltrix account and are never shown publicly without your permission. Changes are saved to your profile as soon as you press Save.</p>
+</section>
+<input type="file" id="profileDetailsPhotoInput" accept="image/*" hidden>
+
+</section>
+</div>
+<section id="languageBack" class="sx-back" hidden></section>
+<section class="sx-lang" id="langSheet" role="dialog" aria-modal="true" aria-label="App language" aria-hidden="true">
+  <div class="sx-lang-head"><button type="button" class="sx-x" id="langClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button><h2>App language</h2></div>
+  <div class="sx-lang-list" id="langList" translate="no" role="radiogroup"></div>
+</section>
+<section id="twoStepPage" class="profile-ui-page sx-page" hidden aria-label="Two-step verification">
+  <header class="profile-ui-header"><button type="button" class="profile-ui-back" data-sx-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Two-step verification</h1><span class="profile-ui-header-spacer"></span></header>
+  <div class="sx-body">
+    <div class="sx-hero"><svg viewBox="0 0 170 100" aria-hidden="true" fill="none" stroke="var(--wd-accent,#20243a)" stroke-linecap="round" stroke-linejoin="round"><rect x="62" y="14" width="96" height="62" rx="6" fill="#fff" stroke-width="3"/><rect x="69" y="21" width="82" height="48" rx="2.5" fill="var(--wd-accent,#20243a)" fill-opacity=".08" stroke="none"/><path d="M58 76h104v1.5a5 5 0 0 1-5 5H63a5 5 0 0 1-5-5z" fill="var(--wd-accent,#20243a)" stroke="none"/><rect x="95" y="76" width="30" height="3" rx="1.5" fill="#fff" stroke="none"/><rect x="18" y="34" width="38" height="62" rx="8" fill="#fff" stroke-width="3"/><path d="M31 41h12" stroke-width="2.5"/><path d="M30 89h14" stroke-width="2.5"/><circle cx="37" cy="62" r="7" stroke-width="2.5"/><path d="M34 62l2.2 2.4 4-4.6" stroke-width="2.2"/></svg></div>
+    <p class="sx-lead">Help protect your account by adding an extra layer of security.</p>
+    <div class="sx-card sx-toggle-row"><span class="sx-ico"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-shield-fill-exclamation" viewBox="0 0 16 16">
+  <path fill-rule="evenodd" d="M8 0c-.69 0-1.843.265-2.928.56-1.11.3-2.229.655-2.887.87a1.54 1.54 0 0 0-1.044 1.262c-.596 4.477.787 7.795 2.465 9.99a11.8 11.8 0 0 0 2.517 2.453c.386.273.744.482 1.048.625.28.132.581.24.829.24s.548-.108.829-.24a7 7 0 0 0 1.048-.625 11.8 11.8 0 0 0 2.517-2.453c1.678-2.195 3.061-5.513 2.465-9.99a1.54 1.54 0 0 0-1.044-1.263 63 63 0 0 0-2.887-.87C9.843.266 8.69 0 8 0m-.55 8.502L7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0M8.002 12a1 1 0 1 1 0-2 1 1 0 0 1 0 2"/>
+</svg></span><span class="sx-grow"><strong>Two-step verification</strong><small id="twoStepState">Off</small></span><label class="sx-switch"><input type="checkbox" id="twoStepSwitch" aria-label="Two-step verification"><i></i></label></div>
+    <button type="button" class="sx-card sx-link-row" id="twoStepTrusted"><span class="sx-grow"><strong>Trusted devices</strong><small>View and manage your list of trusted devices.</small></span><svg class="sx-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+  </div>
+</section>
+<section id="pinPage" class="profile-ui-page sx-page" hidden aria-label="Set PIN">
+  <header class="profile-ui-header"><button type="button" class="profile-ui-back" data-sx-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1 id="pinTitle">Create PIN</h1><span class="profile-ui-header-spacer"></span></header>
+  <div class="sx-body">
+    <p class="sx-lead left" id="pinIntro">Create a 4-digit PIN to turn on two-step verification.</p>
+    <label class="sx-label" id="pinLabelA">PIN</label>
+    <div class="sx-pin" id="pinA" translate="no"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="PIN digit 1"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="PIN digit 2"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="PIN digit 3"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="PIN digit 4"></div>
+    <div id="pinBWrap"><label class="sx-label">Re-enter PIN</label>
+    <div class="sx-pin" id="pinB" translate="no"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="Re-enter PIN digit 1"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="Re-enter PIN digit 2"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="Re-enter PIN digit 3"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="Re-enter PIN digit 4"></div>
+    <ul class="sx-checks" id="pinChecks"><li data-c="len">4 digits</li><li data-c="match">PINs match</li></ul></div>
+    <p class="sx-error" id="pinError" hidden></p>
+  </div>
+  <div class="sx-foot"><button type="button" class="sx-main" id="pinSave" disabled>Save</button></div>
+</section>
+<section id="devicesPage" class="profile-ui-page sx-page" hidden aria-label="Linked devices">
+  <header class="profile-ui-header"><button type="button" class="profile-ui-back" data-sx-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Linked devices</h1><span class="profile-ui-header-spacer"></span></header>
+  <div class="sx-body">
+    <div class="sx-hero"><svg viewBox="0 0 170 100" aria-hidden="true" fill="none" stroke="var(--wd-accent,#20243a)" stroke-linecap="round" stroke-linejoin="round"><rect x="62" y="14" width="96" height="62" rx="6" fill="#fff" stroke-width="3"/><rect x="69" y="21" width="82" height="48" rx="2.5" fill="var(--wd-accent,#20243a)" fill-opacity=".08" stroke="none"/><path d="M58 76h104v1.5a5 5 0 0 1-5 5H63a5 5 0 0 1-5-5z" fill="var(--wd-accent,#20243a)" stroke="none"/><rect x="95" y="76" width="30" height="3" rx="1.5" fill="#fff" stroke="none"/><rect x="18" y="34" width="38" height="62" rx="8" fill="#fff" stroke-width="3"/><path d="M31 41h12" stroke-width="2.5"/><path d="M30 89h14" stroke-width="2.5"/><circle cx="37" cy="62" r="7" stroke-width="2.5"/><path d="M34 62l2.2 2.4 4-4.6" stroke-width="2.2"/></svg></div>
+    <p class="sx-lead">You can link other devices to this account.</p>
+    <button type="button" class="sx-main" id="linkDeviceBtn">Link a device</button>
+    <hr class="sx-hr">
+    <span class="sx-eyebrow">DEVICE STATUS</span>
+    <p class="sx-sub">Tap a device to rename it or log out.</p>
+    <div id="deviceList" translate="no"></div>
+    <p class="sx-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>Your personal messages are <b>end-to-end encrypted</b> on all your devices.</span></p>
+  </div>
+</section>
+<section id="linkQrPage" class="profile-ui-page sx-page" hidden aria-label="Link a device">
+  <header class="profile-ui-header"><button type="button" class="profile-ui-back" data-sx-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Link a device</h1><span class="profile-ui-header-spacer"></span></header>
+  <div class="sx-body">
+    <div class="wd-deposit-detail-intro sx-intro"><span class="wd-deposit-eyebrow">LINK A DEVICE</span><h2>Scan to link</h2><p>Open Veltrix on your other device and scan this code to sign in to your account.</p></div>
+    <div class="wd-deposit-address-card">
+      <div class="wd-deposit-qr-wrap"><div id="linkQrImage" role="img" aria-label="QR code to link a device"></div><span>SCAN TO LINK DEVICE</span></div>
+      <label class="wd-deposit-address-label">Link code</label>
+      <div class="wd-deposit-address-row"><code id="linkCode" translate="no"></code><button type="button" id="copyLinkCode" aria-label="Copy link code">Copy</button></div>
+      <p class="wd-deposit-warning">Never share this code with anyone. It expires when you leave this page.</p>
+    </div>
+  </div>
+</section>
+<section id="deviceEditPage" class="profile-ui-page sx-page" hidden aria-label="Edit device">
+  <header class="profile-ui-header"><button type="button" class="profile-ui-back" data-sx-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Edit device</h1><button type="button" class="profile-ui-top-icon" id="deviceRename" aria-label="Rename device"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pen-fill" viewBox="0 0 16 16">
+  <path d="m13.498.795.149-.149a1.207 1.207 0 1 1 1.707 1.708l-.149.148a1.5 1.5 0 0 1-.059 2.059L4.854 14.854a.5.5 0 0 1-.233.131l-4 1a.5.5 0 0 1-.606-.606l1-4a.5.5 0 0 1 .131-.232l9.642-9.642a.5.5 0 0 0-.642.056L6.854 4.854a.5.5 0 1 1-.708-.708L9.44.854A1.5 1.5 0 0 1 11.5.796a1.5 1.5 0 0 1 1.998-.001"/>
+</svg></button></header>
+  <div class="sx-body center">
+    <div class="sx-dev-big" id="deviceBigIcon"></div>
+    <h2 class="sx-dev-name" id="deviceName" translate="no"></h2><span class="sx-cap">Device name</span>
+    <div class="sx-info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span><span>Last active</span> <span id="deviceLast" translate="no"></span></span></div>
+    <div class="sx-info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg><span id="devicePlatform" translate="no"></span></div>
+    <button type="button" class="sx-outline-danger" id="deviceLogout">Log out</button>
+    <p class="sx-note left">If you don't recognise this device or can't access it any longer you should log out of it.</p>
+  </div>
+</section>
+<section id="notifPage" class="profile-ui-page sx-page" hidden aria-label="Notifications">
+  <header class="profile-ui-header"><button type="button" class="profile-ui-back" data-sx-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Notifications</h1><span class="profile-ui-header-spacer"></span></header>
+  <div class="sx-body"><p class="sx-lead left">Choose which topics Veltrix can send you notifications about. Turned-off topics stay silent.</p><div id="notifList"></div></div>
+</section>
+<section class="sd-sheet" id="sdSheet" role="dialog" aria-modal="true" aria-label="Send crypto" aria-hidden="true">
+  <div class="sd-view" id="sdAmountView">
+    <header class="sd-head">
+      <button type="button" class="sd-round" id="sdClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <button type="button" class="sd-coin-chip" id="sdCoinBtn" aria-label="Choose cryptocurrency"></button>
+    </header>
+    <div class="sd-center"><div class="sd-amt-wrap"><span class="sd-amt" id="sdAmt">0</span><span class="sd-unit" id="sdUnit"></span></div><div class="sd-usd" id="sdUsd">≈ $0.00</div><div class="sd-err" id="sdAmtErr" hidden></div></div>
+    <button type="button" class="sd-bal" id="sdBal"><span>Available</span><b id="sdBalVal">—</b><i>Max</i></button>
+    <button type="button" class="sd-main" id="sdContinue" disabled>Continue</button>
+    <div class="sd-keys" id="sdKeys"><button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button><button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button><button data-k=".">.</button><button data-k="0">0</button><button data-k="del" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12z"/><path d="M13 9.5l4 5M17 9.5l-4 5"/></svg></button></div>
+  </div>
+  <div class="sd-view" id="sdPickView" hidden>
+    <header class="sd-head"><button type="button" class="sd-round" id="sdPickBack" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><h2 class="sd-title">Select crypto</h2><span class="sd-round ghost"></span></header>
+    <div class="sd-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="sdSearch" type="search" placeholder="Search crypto name" autocomplete="off" aria-label="Search crypto"></div>
+    <div class="sd-list" id="sdList" role="listbox"></div>
+  </div>
+  <div class="sd-view" id="sdAddrView" hidden>
+    <header class="sd-head"><button type="button" class="sd-round" id="sdAddrBack" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><h2 class="sd-title">Recipient</h2><span class="sd-round ghost"></span></header>
+    <div class="sd-summary"><span>You are sending</span><strong id="sdSumAmt"></strong><small id="sdSumUsd"></small></div>
+    <label class="sd-label" for="sdAddr" id="sdAddrLabel">Wallet address</label>
+    <div class="sd-input" id="sdInputBox"><input id="sdAddr" type="text" placeholder="Enter wallet address" autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" id="sdPaste">Paste</button></div>
+    <div class="sd-msg" id="sdAddrMsg" hidden></div>
+    <div class="sd-grow"></div>
+    <button type="button" class="sd-main" id="sdSend" disabled>Send</button>
+  </div>
+  <div class="sd-view" id="sdAuthView" hidden>
+    <header class="sd-head"><button type="button" class="sd-round" id="sdAuthBack" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><h2 class="sd-title">Confirm transfer</h2><span class="sd-round ghost"></span></header>
+    <div class="sd-auth-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5.5c0 4.4-2.9 8-7 9.5-4.1-1.5-7-5.1-7-9.5V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg></div>
+    <h3 class="sd-auth-h">Enter your 2FA code</h3>
+    <p class="sd-auth-p">Enter the 4-digit PIN you set for two-step verification to authorize this transfer.</p>
+    <div class="sd-summary"><span>You are sending</span><strong id="sdAuthAmt"></strong><small id="sdAuthTo"></small></div>
+    <div class="sx-pin" id="sdPin" translate="no"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="Digit 1"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="Digit 2"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="Digit 3"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="Digit 4"></div>
+    <div class="sd-msg bad" id="sdPinErr" hidden></div>
+    <div class="sd-grow"></div>
+    <button type="button" class="sd-main" id="sdProceed" disabled>Proceed</button>
+  </div>
+  <div class="sd-view" id="sdSetupView" hidden>
+    <header class="sd-head"><button type="button" class="sd-round" id="sdSetupBack" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><h2 class="sd-title">Security check</h2><span class="sd-round ghost"></span></header>
+    <div class="sd-setup-body">
+      <div class="sd-auth-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5.5c0 4.4-2.9 8-7 9.5-4.1-1.5-7-5.1-7-9.5V6z"/><path d="M12 9v4M12 16.2v.1"/></svg></div>
+      <h3 class="sd-auth-h">Set up 2FA to continue</h3>
+      <p class="sd-auth-p">For your protection, every transfer needs two-step verification. Create a 4-digit PIN in Settings, then come back and send again.</p>
+    </div>
+    <button type="button" class="sd-main" id="sdSetupGo">Set up 2FA</button>
+    <button type="button" class="sd-main sd-ghost" id="sdSetupLater">Not now</button>
+  </div>
+  <div class="sd-view sd-success sd-lux" id="sdDoneView" hidden>
+    <canvas id="sdConfetti" aria-hidden="true"></canvas>
+    <div class="lux-scroll">
+      <div class="lux-top">
+        <span class="lux-eyebrow lux-anim" style="--d:.1s">TRANSFER COMPLETE</span>
+        <div class="lux-badge"><i class="lux-ripple"></i><i class="lux-ripple r2"></i>
+          <svg class="lux-check" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="luxGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a5190"/><stop offset="1" stop-color="#20243a"/></linearGradient></defs><circle class="lux-disc" cx="60" cy="60" r="54"/><circle class="lux-ring" cx="60" cy="60" r="54"/><path class="lux-tick" d="M37 62l15 15 31-33"/></svg>
+        </div>
+        <div class="lux-amt lux-anim" id="luxAmt" style="--d:.85s"></div>
+        <div class="lux-usd lux-anim" id="luxUsd" style="--d:.95s"></div>
+        <span class="lux-pill lux-anim" style="--d:1.05s"><i></i>Sent successfully</span>
+      </div>
+      <div class="lux-card lux-anim" style="--d:1.15s">
+        <div class="lux-row"><span>To</span><b><em id="luxTo"></em><button type="button" class="lux-copy" data-copy="to" aria-label="Copy address"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg></button></b></div>
+        <div class="lux-row"><span>Network</span><b id="luxNet"></b></div>
+        <div class="lux-row"><span>Network fee</span><b class="lux-free">Covered by Veltrix</b></div>
+        <div class="lux-row"><span>Date</span><b id="luxDate"></b></div>
+        <div class="lux-row"><span>Transaction ID</span><b><em id="luxTx"></em><button type="button" class="lux-copy" data-copy="tx" aria-label="Copy transaction ID"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg></button></b></div>
+      </div>
+      <div class="lux-foot lux-anim" style="--d:1.35s">
+        <button type="button" class="sd-main lux-gold" id="sdDone">Done</button>
+        <button type="button" class="sd-main lux-ghost" id="sdShare">Share receipt</button>
+      </div>
+    </div>
+  </div>
+</section>
+<div class="cv-backdrop" id="cvBackdrop" hidden></div>
+<section class="cv-sheet" id="cvSheet" role="dialog" aria-modal="true" aria-labelledby="cvTitle" aria-hidden="true">
+  <div class="cv-handle"></div>
+  <header class="cv-head">
+    <button type="button" class="cv-round" id="cvClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="cv-titles"><h2 id="cvTitle">Convert</h2><span class="cv-sub">Crypto to dollars</span></div>
+  </header>
+  <div class="cv-body">
+    <div class="cv-amount-wrap"><span class="cv-cur" id="cvCur">$</span><input id="cvAmount" class="cv-amount" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Amount"></div>
+    <button type="button" class="cv-size" id="cvSizeBtn">Size: <b id="cvSize">0</b> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h14M18 9l-4-4M20 15H6M6 15l4 4"/></svg></button>
+    <input type="range" id="cvSlider" class="cv-slider" min="0" max="100" step="1" value="0" aria-label="Percent of balance">
+    <div class="cv-pct" id="cvPct"><button type="button" data-p="0">0%</button><button type="button" data-p="25">25%</button><button type="button" data-p="50">50%</button><button type="button" data-p="75">75%</button><button type="button" data-p="100">100%</button></div>
+    <div class="cv-spacer"></div>
+    <div class="cv-rows">
+      <button type="button" class="cv-row cv-from-btn" id="cvFromBtn" aria-haspopup="dialog"><span>From</span><span class="cv-sel"><span class="cv-from-disp" id="cvFromDisp"></span><em id="cvAvail"></em></span></button>
+      <div class="cv-row line"><span>To</span><b id="cvTo">Dollar wallet</b></div>
+      <div class="cv-row line"><span>Rate <i class="cv-live" id="cvLive">Estimated</i></span><b id="cvRate">—</b></div>
+      <div class="cv-row line"><span>You receive</span><b id="cvRecv">—</b></div>
+    </div>
+    <div class="cv-slide" id="cvSlide" aria-disabled="true"><div class="cv-knob" id="cvKnob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div><span id="cvSlideTxt">Slide to Convert</span></div>
+    <p class="cv-foot">Risk disclosure • 0.11% fee</p>
+  </div>
+
+  <div class="sd-view" id="cvAuthView" hidden>
+    <header class="sd-head"><button type="button" class="sd-round" id="cvAuthBack" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><h2 class="sd-title">Confirm conversion</h2><span class="sd-round ghost"></span></header>
+    <div class="sd-auth-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5.5c0 4.4-2.9 8-7 9.5-4.1-1.5-7-5.1-7-9.5V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg></div>
+    <h3 class="sd-auth-h">Enter your 2FA code</h3>
+    <p class="sd-auth-p">Enter the 4-digit PIN you set for two-step verification to authorize this conversion.</p>
+    <div class="sd-summary"><span>You are converting</span><strong id="cvAuthAmt"></strong><small id="cvAuthTo"></small></div>
+    <div class="sx-pin" id="cvPin" translate="no"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="Digit 1"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="Digit 2"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="Digit 3"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="Digit 4"></div>
+    <div class="sd-msg bad" id="cvPinErr" hidden></div>
+    <div class="sd-grow"></div>
+    <button type="button" class="sd-main" id="cvProceed" disabled>Proceed</button>
+  </div>
+  <div class="sd-view" id="cvSetupView" hidden>
+    <header class="sd-head"><button type="button" class="sd-round" id="cvSetupBack" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><h2 class="sd-title">Security check</h2><span class="sd-round ghost"></span></header>
+    <div class="sd-setup-body">
+      <div class="sd-auth-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5.5c0 4.4-2.9 8-7 9.5-4.1-1.5-7-5.1-7-9.5V6z"/><path d="M12 9v4M12 16.2v.1"/></svg></div>
+      <h3 class="sd-auth-h">Set up 2FA to continue</h3>
+      <p class="sd-auth-p">For your protection, every conversion needs two-step verification. Create a 4-digit PIN in Settings, then come back and convert again.</p>
+    </div>
+    <button type="button" class="sd-main" id="cvSetupGo">Set up 2FA</button>
+    <button type="button" class="sd-main sd-ghost" id="cvSetupLater">Not now</button>
+  </div>
+  <div class="sd-view sd-success sd-lux cv-lux" id="cvDoneView" hidden>
+    <canvas id="cvConfetti" aria-hidden="true"></canvas>
+    <div class="lux-scroll">
+      <div class="lux-top">
+        <span class="lux-eyebrow lux-anim" style="--d:.1s">CONVERSION COMPLETE</span>
+        <div class="lux-badge"><i class="lux-ripple"></i><i class="lux-ripple r2"></i>
+          <svg class="lux-check" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="luxGold2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a5190"/><stop offset="1" stop-color="#20243a"/></linearGradient></defs><circle class="lux-disc" cx="60" cy="60" r="54"/><circle class="lux-ring" cx="60" cy="60" r="54"/><path class="lux-tick" d="M37 62l15 15 31-33"/></svg>
+        </div>
+        <div class="lux-amt lux-anim" id="cvLuxAmt" style="--d:.85s"></div>
+        <div class="lux-usd lux-anim" id="cvLuxSub" style="--d:.95s"></div>
+        <span class="lux-pill lux-anim" style="--d:1.05s"><i></i>Converted successfully</span>
+      </div>
+      <div class="lux-card lux-anim" style="--d:1.15s">
+        <div class="lux-row"><span>Converted</span><b id="cvLuxFrom"></b></div><div class="lux-row"><span>Rate</span><b id="cvLuxRate"></b></div><div class="lux-row"><span>Credited to</span><b id="cvLuxAcct"></b></div><div class="lux-row"><span>Date</span><b id="cvLuxDate"></b></div>
+        <div class="lux-row"><span>Reference</span><b><em id="cvLuxRef"></em><button type="button" class="lux-copy" data-copy="ref" aria-label="Copy reference"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg></button></b></div>
+      </div>
+      <div class="lux-foot lux-anim" style="--d:1.35s">
+        <button type="button" class="sd-main lux-gold" id="cvDoneBtn">Done</button>
+        <button type="button" class="sd-main lux-ghost" id="cvShare">Share receipt</button>
+      </div>
+    </div>
+  </div>
+</section>
+<div class="cv-pick-back" id="cvPickBack" hidden></div>
+<section class="cv-pick" id="cvPicker" role="dialog" aria-modal="true" aria-label="Select crypto">
+  <div class="cv-handle"></div>
+  <div class="cv-pick-head"><h3>Select crypto</h3><button type="button" class="cv-round" id="cvPickClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="cv-pick-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="cvPickSearch" type="search" placeholder="Search crypto name" autocomplete="off" aria-label="Search crypto"></div>
+  <div class="cv-pick-list" id="cvPickList" role="listbox"></div>
+</section>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="app.js/supabase-config.js"></script>
+<script src="app.js/db.js"></script>
+<script src="app.js/qr.js"></script>
+<script src="app.js/script.js"></script>
+<script src="app.js/messaging.js"></script>
+<script src="app.js/settings.js"></script>
+<script src="app.js/i18n.js"></script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+/* Settings sub-sections: language, two-step verification (4-digit PIN), linked devices, notifications. */
+(function(){
+ const $=id=>document.getElementById(id);
+ const get=(k,d)=>veltrixDB.pref.get(k,d);
+ const set=(k,v)=>veltrixDB.pref.set(k,v);
+ const toast=m=>{try{wdToast(m)}catch{}};
+ /* ---- notification gate used by the rest of the app ---- */
+ const TOPICS=[["security","Security alerts","Sign-ins, PIN and account protection"],["chat","Chat messages","New messages and mentions"],["transaction","Transaction alerts","Conversions and wallet activity"],["withdrawal","Withdrawal alerts","Funds sent from your wallet"],["deposit","Deposit alerts","Funds received in your wallet"],["price","Price alerts","Big moves in coins you follow"],["login","Login activity","New device and location logins"],["promo","Promotions & offers","Deals, rewards and campaigns"],["news","News & updates","Product news and announcements"]];
+ const prefs=()=>Object.assign({},...TOPICS.map(t=>({[t[0]]:true})),get("veltrixNotif",{}));
+ window.veltrixNotify=function(topic,msg){if(prefs()[topic]===false)return false;toast(msg);return true};
+ /* ---- navigation ---- */
+ const stack=[];
+ const pages=["twoStepPage","pinPage","devicesPage","linkQrPage","deviceEditPage","notifPage"];
+ function openPage(id){const el=$(id);el.hidden=false;el.scrollTop=0;stack.push(id)}
+ function back(){const id=stack.pop();if(id)$(id).hidden=true;if(id==="linkQrPage")linkQrDone()}
+ function closeAll(){while(stack.length)$(stack.pop()).hidden=true}
+ document.querySelectorAll("[data-sx-back]").forEach(b=>b.addEventListener("click",()=>{const top=stack[stack.length-1];if(top==="pinPage"){pinCancel();return}back()}));
+ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&stack.length&&!document.querySelector(".sx-dlg:not([hidden])")){if(stack[stack.length-1]==="pinPage")pinCancel();else back()}});
+ ["settingsLogout","logoutButton"].forEach(id=>{const b=$(id);if(b)b.addEventListener("click",closeAll)});
+ /* ---- generic dialog ---- */
+ function dialog(o){return new Promise(res=>{
+  const d=document.createElement("div");d.className="profile-ui-edit-dialog sx-dlg";
+  d.innerHTML=`<div class="profile-ui-dialog-card" role="dialog" aria-modal="true"><h2></h2><p class="sx-dlg-msg" style="margin:0;font-size:13px;color:#7b7d85;line-height:1.5"></p>${o.input?'<input maxlength="40" autocomplete="off" style="margin-top:12px">':''}<div class="profile-ui-dialog-actions"><button type="button" data-n>${o.cancel||"Cancel"}</button><button type="button" data-y${o.danger?' style="background:#e5484d"':""}>${o.ok||"OK"}</button></div></div>`;
+  d.querySelector("h2").textContent=o.title;const m=d.querySelector(".sx-dlg-msg");if(o.msg)m.textContent=o.msg;else m.remove();
+  const inp=d.querySelector("input");if(inp)inp.value=o.value||"";
+  const done=v=>{d.remove();res(v)};
+  d.querySelector("[data-n]").onclick=()=>done(null);
+  d.querySelector("[data-y]").onclick=()=>{if(inp){const v=inp.value.trim();if(!v){inp.focus();return}done(v)}else done(true)};
+  d.addEventListener("click",e=>{if(e.target===d)done(null)});
+  document.body.appendChild(d);if(inp)setTimeout(()=>{inp.focus();inp.select()},40);
+ })}
+ /* ---- two-step verification ---- */
+ const sw=$("twoStepSwitch");let pinMode="create";
+ const tfa=()=>get("veltrixTwoStep",{on:false});
+ function paintTfa(){const on=!!tfa().on;sw.checked=on;$("twoStepState").textContent=on?"On":"Off"}
+  $("settingsTwoStep").addEventListener("click",()=>{paintTfa();openPage("twoStepPage")});
+ $("twoStepTrusted").addEventListener("click",()=>openDevices());
+ sw.addEventListener("click",e=>{e.preventDefault();openPin(tfa().on?"verify":"create")});
+ const boxes=id=>[...$(id).querySelectorAll("input")];
+ const val=id=>boxes(id).map(i=>i.value).join("");
+ function wire(id,next){const bs=boxes(id);bs.forEach((b,i)=>{
+  b.addEventListener("input",()=>{b.value=b.value.replace(/\D/g,"").slice(-1);b.classList.toggle("filled",!!b.value);if(b.value&&i<3)bs[i+1].focus();else if(b.value&&next)next();check()});
+  b.addEventListener("keydown",e=>{if(e.key==="Backspace"&&!b.value&&i>0){bs[i-1].value="";bs[i-1].classList.remove("filled");bs[i-1].focus();check()}});
+  b.addEventListener("paste",e=>{const t=(e.clipboardData.getData("text")||"").replace(/\D/g,"").slice(0,4);if(!t)return;e.preventDefault();bs.forEach((x,j)=>{x.value=t[j]||"";x.classList.toggle("filled",!!x.value)});(bs[Math.min(t.length,3)]).focus();if(t.length===4&&next)next();check()});
+ })}
+ wire("pinA",()=>{if(pinMode==="create")boxes("pinB")[0].focus()});wire("pinB");
+ function check(){
+  const a=val("pinA"),b=val("pinB"),len=a.length===4,match=len&&a===b;
+  $("pinChecks").querySelector('[data-c="len"]').classList.toggle("ok",len);
+  $("pinChecks").querySelector('[data-c="match"]').classList.toggle("ok",match);
+  $("pinSave").disabled=pinMode==="create"?!match:!len;
+  $("pinError").hidden=true;$("pinA").classList.remove("bad");
+ }
+ function openPin(mode){
+  pinMode=mode;["pinA","pinB"].forEach(id=>boxes(id).forEach(i=>{i.value="";i.classList.remove("filled")}));
+  const c=mode==="create";
+  $("pinTitle").textContent=c?"Create PIN":"Enter PIN";
+  $("pinIntro").textContent=c?"Create a 4-digit PIN to turn on two-step verification.":"Enter your 4-digit PIN to turn off two-step verification.";
+  $("pinBWrap").hidden=!c;$("pinSave").textContent=c?"Save":"Turn off";
+  check();openPage("pinPage");setTimeout(()=>boxes("pinA")[0].focus(),120);
+ }
+ function pinCancel(){back();paintTfa()}
+ /* API used by the Send flow */
+ window.veltrixTwoStep={isOn:()=>!!tfa().on,verify:async p=>!!tfa().on&&await veltrixDB.pin.verify(String(p)),setup:()=>openPin("create")};
+ $("pinSave").addEventListener("click",async()=>{
+  const a=val("pinA");if(a.length!==4)return;
+  if(pinMode==="create"){if(a!==val("pinB"))return;try{await veltrixDB.pin.set(a)}catch{toast("Couldn't save your PIN. Please try again.");return}set("veltrixTwoStep",{on:true});back();paintTfa();veltrixNotify("security","Two-step verification turned on")}
+  else{if(!(await veltrixDB.pin.clear(a))){$("pinError").textContent="Incorrect PIN. Try again.";$("pinError").hidden=false;$("pinA").classList.add("bad");return}
+   set("veltrixTwoStep",{on:false});back();paintTfa();veltrixNotify("security","Two-step verification turned off")}
+ });
+ /* ---- linked devices ---- */
+ const ICON={desktop:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>',phone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>'};
+ function detect(){const u=navigator.userAgent;
+  const br=/Edg\//.test(u)?"Microsoft Edge":/OPR\//.test(u)?"Opera":/SamsungBrowser/.test(u)?"Samsung Internet":/Firefox\//.test(u)?"Firefox":/Chrome\//.test(u)?"Google Chrome":/Safari\//.test(u)?"Safari":"Browser";
+  const os=/Windows/.test(u)?"Windows":/Android/.test(u)?"Android":/iPhone|iPad|iPod/.test(u)?"iOS":/Mac OS/.test(u)?"macOS":/Linux/.test(u)?"Linux":"Unknown OS";
+  return{name:`${br} (${os})`,os,icon:/Android|iPhone|iPad|iPod/.test(u)?"phone":"desktop"}}
+ function devices(){let d=get("veltrixDevices",null);if(!Array.isArray(d)||!d.length){const x=detect();d=[{id:"this",name:x.name,platform:x.os,icon:x.icon,last:Date.now(),current:true}]}
+  const c=d.find(z=>z.current);if(c)c.last=Date.now();set("veltrixDevices",d);return d}
+ const when=t=>{try{return new Date(t).toLocaleString(undefined,{month:"long",day:"numeric",hour:"numeric",minute:"2-digit"})}catch{return""}};
+ const esc2=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+ function paintDevices(){const d=devices();$("deviceList").innerHTML=d.map(x=>`<button type="button" class="sx-dev" data-id="${esc2(x.id)}"><span class="sx-dev-ic">${ICON[x.icon]||ICON.desktop}</span><span class="sx-grow"><strong>${esc2(x.name)}${x.current?" · This device":""}</strong><small>Last active ${esc2(when(x.last))}</small></span></button>`).join("")}
+ function openDevices(){paintDevices();openPage("devicesPage")}
+ $("settingsDevices").addEventListener("click",openDevices);
+ let editing=null;
+ $("deviceList").addEventListener("click",e=>{const b=e.target.closest(".sx-dev");if(!b)return;editing=b.dataset.id;paintEdit();openPage("deviceEditPage")});
+ function paintEdit(){const x=devices().find(z=>z.id===editing);if(!x)return;$("deviceBigIcon").innerHTML=ICON[x.icon]||ICON.desktop;$("deviceName").textContent=x.name;$("deviceLast").textContent=when(x.last);$("devicePlatform").textContent=x.name}
+ $("deviceRename").addEventListener("click",async()=>{const d=devices(),x=d.find(z=>z.id===editing);if(!x)return;const v=await dialog({title:"Rename device",value:x.name,input:true,ok:"Save"});if(v){x.name=v;set("veltrixDevices",d);paintEdit();paintDevices()}});
+ $("deviceLogout").addEventListener("click",async()=>{const d=devices(),x=d.find(z=>z.id===editing);if(!x)return;
+  const ok=await dialog({title:"Log out of this device?",msg:x.current?"You will be signed out of Veltrix on this device.":`${x.name} will be signed out of your account.`,ok:"Log out",danger:true});if(!ok)return;
+  if(x.current){closeAll();$("settingsLogout").click()}
+  else{set("veltrixDevices",d.filter(z=>z.id!==editing));back();paintDevices();veltrixNotify("security","Device logged out")}});
+ /* link a device: QR in the same card style as the receive-crypto QR */
+ let linkTimer=null;
+ function linkQrDone(){clearTimeout(linkTimer)}
+ $("linkDeviceBtn").addEventListener("click",()=>{
+  const code="VLX-"+[...crypto.getRandomValues(new Uint8Array(8))].map(b=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b%32]).join("");
+  $("linkCode").textContent=code;const t=$("linkQrImage");t.replaceChildren();openPage("linkQrPage");
+  try{VeltrixQR.render(t,"veltrix://link?code="+code,{size:240})}catch(e){t.textContent="QR unavailable. Use the link code below."}
+ });
+ $("copyLinkCode").addEventListener("click",async()=>{try{await navigator.clipboard.writeText($("linkCode").textContent);toast("Link code copied")}catch{toast("Copy not supported")}});
+ /* ---- notifications ---- */
+ function paintNotif(){const p=prefs();$("notifList").innerHTML=TOPICS.map(t=>`<div class="sx-card"><span class="sx-grow"><strong>${t[1]}</strong><small>${t[2]}</small></span><label class="sx-switch"><input type="checkbox" data-t="${t[0]}" aria-label="${t[1]}"${p[t[0]]?" checked":""}><i></i></label></div>`).join("")}
+ $("settingsNotifications").addEventListener("click",()=>{paintNotif();openPage("notifPage")});
+ $("notifList").addEventListener("change",e=>{const i=e.target.closest("input[data-t]");if(!i)return;const p=prefs();p[i.dataset.t]=i.checked;set("veltrixNotif",p)});
+
+ /* ---- day & night mode ---- */
+ const themeRow=$("settingsTheme");
+ const SUN='<svg viewBox="0 0 24 24" style="fill:none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',MOON='<svg viewBox="0 0 24 24" style="fill:none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
+ function paintTheme(){const dark=document.documentElement.getAttribute("data-theme")==="dark";$("themeSwitch").classList.toggle("on",dark);themeRow.setAttribute("aria-checked",String(dark));$("themeState").textContent=dark?"Night mode is on":"Day mode is on";$("themeIcon").innerHTML=dark?MOON:SUN;
+  let m=document.querySelector('meta[name="theme-color"]');if(!m){m=document.createElement("meta");m.name="theme-color";document.head.appendChild(m)}m.content=dark?"#000000":"#ffffff"}
+ themeRow.addEventListener("click",()=>{const dark=document.documentElement.getAttribute("data-theme")!=="dark";
+  if(dark)document.documentElement.setAttribute("data-theme","dark");else document.documentElement.removeAttribute("data-theme");
+  veltrixDB.pref.set("theme",dark?"dark":"light");paintTheme()});
+ window.addEventListener("veltrix-ready",()=>{if(veltrixDB.pref.get("theme","light")==="dark")document.documentElement.setAttribute("data-theme","dark");else document.documentElement.removeAttribute("data-theme");paintTheme()});
+ paintTheme();
+ /* ---- support team (WhatsApp) ---- */
+ const SUPPORT_WHATSAPP="";/* <-- put your support number here, digits only with country code, e.g. "2348012345678" */
+ $("settingsSupport").addEventListener("click",async()=>{
+  const ok=await dialog({title:"Contact support team?",msg:"Do you want to proceed and contact the support team on WhatsApp?",ok:"Proceed",cancel:"Cancel"});
+  if(!ok)return;
+  const url="https://wa.me/"+SUPPORT_WHATSAPP.replace(/\D/g,"")+"?text="+encodeURIComponent("Hello Veltrix Support, I need some help.");
+  if(!window.open(url,"_blank","noopener"))location.href=url;
+ });
+ /* hook existing success toasts to the notification settings */
+ const old=window.wdToast;
+})();

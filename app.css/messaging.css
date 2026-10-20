@@ -1,0 +1,245 @@
+/* Veltrix messaging — fully scoped with the vm- prefix so it cannot affect existing styles. */
+.vm-page,.vm-viewer,.vm-toast{--bg:#0b1014;--card:#1c242a;--line:#222c33;--tx:#e9eef1;--mut:#8a959c;--acc:#2f6bff;--me:#1f4fc9;box-sizing:border-box;font-family:inherit}
+.vm-page *{box-sizing:border-box}
+.vm-page[hidden],.vm-viewer[hidden],.vm-page [hidden]{display:none!important}
+.vm-page{position:fixed;inset:0;z-index:12500;background:var(--bg);color:var(--tx);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);animation:vmIn .2s ease-out both}
+.vm-over{z-index:12600}
+@keyframes vmIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.vm-top{display:flex;align-items:center;gap:12px;padding:10px 14px}
+.vm-top h1{margin:0;font-size:20px;letter-spacing:-.3px;font-weight:700;flex:1}
+.vm-top small{color:var(--mut);font-size:12px}
+.vm-ic{width:40px;height:40px;border:0;border-radius:50%;background:transparent;color:var(--tx);display:grid;place-items:center;cursor:none;flex:0 0 40px;padding:0}
+.vm-ic:active{background:var(--card)}
+.vm-ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.vm-search{display:flex;align-items:center;gap:12px;margin:4px 14px 8px;padding:0 18px;height:48px;border-radius:24px;background:var(--card);color:var(--mut)}
+.vm-search svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;flex:0 0 20px}
+.vm-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--tx);font:inherit;font-size:15px;-webkit-appearance:none}
+.vm-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:110px}
+.vm-row{display:flex;align-items:center;gap:14px;width:100%;padding:11px 16px;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:none}
+.vm-row:active{background:var(--card)}
+.vm-av{width:52px;height:52px;flex:0 0 52px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:17px;color:#fff;letter-spacing:.5px}
+.vm-sm{width:40px;height:40px;flex-basis:40px;font-size:14px}
+.vm-body{flex:1;min-width:0}
+.vm-l1{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.vm-name{font-weight:650;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vm-time{font-size:12px;color:var(--mut);flex:none}
+.vm-prev{margin-top:3px;font-size:14px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vm-prev b{color:#59a0ff;font-weight:600;letter-spacing:-2px;margin-right:6px}
+.vm-empty{text-align:center;color:var(--mut);padding:90px 36px 0}
+.vm-empty .vm-eic{width:84px;height:84px;margin:0 auto 20px;border-radius:28px;background:var(--card);display:grid;place-items:center;color:var(--mut)}
+.vm-empty svg{width:40px;height:40px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.vm-empty h2{color:var(--tx);font-size:19px;margin:0 0 8px}.vm-empty p{margin:0;font-size:14px;line-height:1.5}
+.vm-fab{position:absolute;right:20px;bottom:calc(24px + env(safe-area-inset-bottom));width:60px;height:60px;border:0;border-radius:20px;background:var(--acc);color:#fff;display:grid;place-items:center;cursor:none;box-shadow:0 8px 24px rgba(47,107,255,.4)}
+.vm-fab:active{transform:scale(.95)}
+.vm-fab svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.vm-head{display:flex;align-items:center;gap:6px;padding:8px 8px 8px 4px;border-bottom:1px solid var(--line);background:#0e151a}
+.vm-head .vm-body{display:flex;align-items:center;gap:11px}
+.vm-head .vm-name{font-size:17px}
+.vm-msgs{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 12px 8px;display:flex;flex-direction:column;gap:4px;background:radial-gradient(circle at 20% 0,#101a22,var(--bg) 60%)}
+.vm-day{align-self:center;margin:10px 0 6px;padding:4px 12px;border-radius:10px;background:var(--card);color:var(--mut);font-size:12px}
+.vm-hello{align-self:center;margin:auto;text-align:center;color:var(--mut);font-size:14px;max-width:240px}
+.vm-b{position:relative;max-width:78%;padding:7px 10px 6px;border-radius:14px;font-size:15px;line-height:1.35;word-wrap:break-word;overflow-wrap:anywhere}
+.vm-b.me{align-self:flex-end;background:var(--me);border-bottom-right-radius:4px}
+.vm-b.them{align-self:flex-start;background:var(--card);border-bottom-left-radius:4px}
+.vm-b p{margin:0;white-space:pre-wrap}
+.vm-meta{display:block;text-align:right;font-size:11px;color:rgba(255,255,255,.62);margin-top:3px}
+.vm-meta b{color:#9fd0ff;letter-spacing:-2px;margin-left:4px;font-weight:600}
+.vm-b.media{padding:4px 4px 5px}
+.vm-b.media .vm-meta{padding:0 6px}.vm-b.media p{padding:5px 6px 0}
+.vm-img,.vm-vid{display:block;width:min(260px,64vw);max-height:340px;object-fit:cover;border-radius:11px;background:#000;cursor:none}
+.vm-gone{padding:22px 30px;font-size:13px;color:var(--mut)}
+.vm-voice{display:flex;align-items:center;gap:10px;min-width:210px;padding:2px 2px 0}
+.vm-play{width:38px;height:38px;flex:0 0 38px;border:0;border-radius:50%;background:#fff;color:#14202a;display:grid;place-items:center;cursor:none;padding:0}
+.vm-play svg{width:17px;height:17px;fill:currentColor}
+.vm-play .pa{display:none}.vm-voice.playing .vm-play .pl{display:none}.vm-voice.playing .vm-play .pa{display:block}
+.vm-wave{flex:1;display:flex;align-items:center;gap:2px;height:30px}
+.vm-wave i{flex:1;min-width:2px;border-radius:2px;background:rgba(255,255,255,.38)}
+.vm-wave i.on{background:#fff}
+.vm-dur{font-size:12px;color:rgba(255,255,255,.75);min-width:34px;text-align:right}
+.vm-bar{display:flex;align-items:flex-end;gap:8px;padding:8px 10px calc(10px + env(safe-area-inset-bottom));background:var(--bg)}
+.vm-field{flex:1;min-width:0;display:flex;align-items:flex-end;gap:2px;min-height:48px;padding:0 6px 0 16px;border-radius:26px;background:var(--card)}
+.vm-field textarea{flex:1;min-width:0;max-height:120px;border:0;outline:0;resize:none;background:transparent;color:var(--tx);font:inherit;font-size:16px;line-height:1.35;padding:13px 0;-webkit-appearance:none}
+.vm-field .vm-ic{height:48px;color:var(--mut)}
+.vm-recf{align-items:center;padding-left:6px;gap:10px;color:var(--tx)}
+.vm-recf .vm-ic{color:#ff6b6b}
+.vm-dot{width:10px;height:10px;border-radius:50%;background:#ff4b4b;animation:vmBlink 1s infinite}
+@keyframes vmBlink{50%{opacity:.25}}
+.vm-recf span{font-variant-numeric:tabular-nums}.vm-recf em{color:var(--mut);font-style:normal;font-size:13px;margin-left:auto;padding-right:14px}
+.vm-send{width:50px;height:50px;flex:0 0 50px;border:0;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;cursor:none;padding:0}
+.vm-send svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.vm-send .s,.vm-send.has .m,.vm-send.rec .m{display:none}.vm-send.has .s,.vm-send.rec .s{display:block}
+.vm-viewer{position:fixed;inset:0;z-index:12800;background:rgba(0,0,0,.94);display:grid;place-items:center}
+.vm-viewer img{max-width:100%;max-height:100%;object-fit:contain}
+.vm-viewer .vm-ic{position:absolute;top:calc(10px + env(safe-area-inset-top));left:10px;color:#fff}
+.vm-toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translate(-50%,16px);z-index:13000;padding:10px 16px;border-radius:12px;background:#f1f4f6;color:#10181e;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;max-width:88vw;text-align:center}
+.vm-toast.show{opacity:1;transform:translate(-50%,0)}
+@media(min-width:700px){.vm-page{left:50%;right:auto;width:480px;transform:translateX(-50%);border-left:1px solid var(--line);border-right:1px solid var(--line);animation:none}}
+@media(prefers-reduced-motion:reduce){.vm-page,.vm-dot{animation:none}}
+
+/* Compact Veltrix light styling: inherit the dashboard's monochrome look. */
+.vm-page,.vm-viewer,.vm-toast{--bg:#fff;--card:#f5f5f5;--line:#ededed;--tx:#111;--mut:#777;--acc:#111;--me:#111;--wd-page:#fff;background:var(--bg);color:var(--tx)}
+.vm-top{gap:8px;padding:7px 12px}.vm-top h1{font-size:17px;letter-spacing:-.25px}.vm-top small{font-size:10px}
+.vm-ic{width:34px;height:34px;flex-basis:34px;color:#222}.vm-ic svg{width:18px;height:18px}
+.vm-search{gap:8px;margin:3px 12px 6px;padding:0 13px;height:38px;border-radius:12px;background:#f5f5f5;color:#777}
+.vm-search svg{width:17px;height:17px;flex-basis:17px}.vm-search input{font-size:13px;border:0!important;outline:0!important;box-shadow:none!important;background:transparent!important;border-color:transparent!important;appearance:none;-webkit-appearance:none}
+.vm-search input:focus,.vm-search input:active{border:0!important;outline:0!important;box-shadow:none!important}
+.vm-row{gap:10px;padding:9px 13px}.vm-av{width:43px;height:43px;flex-basis:43px;font-size:13px;overflow:hidden;position:relative}.vm-av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}.vm-avatar-initials{display:none}.vm-avatar-fallback .vm-avatar-initials{display:block}.vm-sm{width:34px;height:34px;flex-basis:34px;font-size:11px}
+.vm-name{font-size:13px;font-weight:650}.vm-time{font-size:10px}.vm-prev{margin-top:2px;font-size:11px}.vm-scroll{padding-bottom:80px}
+.vm-empty{padding:64px 28px 0}.vm-empty .vm-eic{width:64px;height:64px;margin-bottom:14px;border-radius:20px}.vm-empty svg{width:30px;height:30px}.vm-empty h2{font-size:16px;margin-bottom:6px}.vm-empty p{font-size:12px}
+.vm-fab{right:16px;bottom:calc(18px + env(safe-area-inset-bottom));width:48px;height:48px;border-radius:15px;background:#111;box-shadow:0 5px 16px rgba(0,0,0,.15)}.vm-fab svg{width:22px;height:22px}
+.vm-head{gap:4px;padding:6px 8px;border-bottom:1px solid #eee;background:#fff}.vm-head .vm-body{gap:8px}.vm-head .vm-name{font-size:13px}
+.vm-msgs{padding:10px 11px 7px;gap:4px;background:#fff}.vm-day{margin:8px 0 5px;padding:4px 9px;background:#f4f4f4;font-size:10px;color:#666}.vm-hello{font-size:12px}
+.vm-b{max-width:80%;padding:7px 9px 5px;border-radius:12px;font-size:13px;line-height:1.4}.vm-b.me{background:#111;color:#fff}.vm-b.them{background:#f1f1f1;color:#111}.vm-meta{font-size:9px;margin-top:2px;color:rgba(255,255,255,.65)}.vm-b.them .vm-meta{color:#888}.vm-meta b{color:#ddd}.vm-edited{font-size:9px;opacity:.7;font-style:italic}
+.vm-img,.vm-vid{width:min(220px,60vw);max-height:280px}.vm-gone{padding:16px 20px;font-size:11px}.vm-voice{gap:7px;min-width:180px}.vm-play{width:32px;height:32px;flex-basis:32px}.vm-wave{height:24px}.vm-dur{font-size:10px}
+.vm-bar{gap:6px;padding:7px 9px calc(8px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #f0f0f0}.vm-field{min-height:40px;padding:0 4px 0 12px;border-radius:20px;background:#f5f5f5}.vm-field textarea{font-size:13px;padding:11px 0}.vm-field .vm-ic{height:38px}.vm-send{width:40px;height:40px;flex-basis:40px;background:#111}.vm-send svg{width:18px;height:18px}
+.vm-recf{gap:7px}.vm-recf em{font-size:11px}.vm-toast{bottom:calc(80px + env(safe-area-inset-bottom));padding:9px 13px;font-size:12px;background:#111;color:#fff}
+@media(min-width:700px){.vm-page{background:#fff;border-color:#eee;box-shadow:0 0 40px rgba(0,0,0,.08)}}
+
+/* In-page action sheets, edit banner, upload picker and live camera. */
+.vm-editing{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 12px;background:#f6f6f6;border-top:1px solid #eee;border-left:3px solid #111;min-width:0}
+.vm-editing[hidden]{display:none!important}.vm-editing>div{min-width:0;flex:1}.vm-editing small{display:block;font-size:10px;font-weight:700;color:#555}.vm-editing p{margin:2px 0 0;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#333}.vm-editing button{border:0;background:transparent;color:#444;font-size:22px;width:28px;height:28px;cursor:none}
+.vm-dialog-backdrop{position:fixed;inset:0;z-index:14000;background:rgba(0,0,0,.42);display:grid;place-items:center;padding:22px}.vm-dialog-backdrop[hidden],.vm-camera[hidden],.vm-upload-menu[hidden]{display:none!important}
+.vm-dialog{width:min(100%,340px);background:#fff;color:#111;border-radius:18px;padding:20px;box-shadow:0 18px 60px rgba(0,0,0,.2)}.vm-dialog h2{font-size:17px;margin:0 0 7px}.vm-dialog p{font-size:13px;line-height:1.45;color:#666;margin:0 0 16px}.vm-dialog-actions{display:grid;gap:8px}.vm-dialog-actions button,.vm-dialog-cancel{width:100%;min-height:40px;border:0;border-radius:10px;background:#f2f2f2;color:#111;font:inherit;font-size:13px;font-weight:650;cursor:none}.vm-dialog-actions button.danger{background:#fff0f0;color:#c62828}.vm-dialog-cancel{margin-top:8px;background:transparent;color:#666}
+.vm-upload-menu{position:fixed;z-index:13900;left:50%;top:50%;transform:translate(-50%,-50%);width:min(86vw,300px);padding:10px;background:#fff;border:1px solid #eee;border-radius:16px;box-shadow:0 16px 50px rgba(0,0,0,.18);display:grid;gap:4px}.vm-upload-menu button{border:0;background:transparent;text-align:left;padding:13px 12px;border-radius:9px;color:#111;font:inherit;font-size:13px;cursor:none}.vm-upload-menu button:active{background:#f2f2f2}
+.vm-camera{position:fixed;inset:0;z-index:14500;background:#090909;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(12px + env(safe-area-inset-top)) 12px calc(22px + env(safe-area-inset-bottom))}.vm-camera header{width:100%;display:flex;align-items:center;justify-content:space-between;padding:6px 8px}.vm-camera header button{border:0;background:transparent;color:#fff;font:inherit;font-size:14px}.vm-camera video{width:100%;flex:1;min-height:0;object-fit:contain}.vm-camera #vmCameraSnap{width:66px;height:66px;flex:0 0 66px;border:5px solid #fff;border-radius:50%;background:#fff;color:#111;font-size:0;box-shadow:inset 0 0 0 2px #111;cursor:none}.vm-file-link{display:block;color:inherit;text-decoration:none;font-size:12px;padding:6px 2px;max-width:240px;overflow-wrap:anywhere}
+.vm-bar{position:relative;align-items:flex-end;min-width:0}.vm-field{min-width:0;align-items:center}.vm-field textarea{display:block;min-height:40px;max-height:112px;align-self:center;line-height:18px;padding:10px 0;overflow-y:auto}.vm-field .vm-ic{flex:0 0 34px;width:34px;height:38px;align-self:center}.vm-send{align-self:flex-end}
+
+/* Final mobile polish: centered composer, inset rounded edit banner, true full-screen camera. */
+#vmChat{min-height:0;overflow:hidden}
+#vmChat .vm-msgs{min-height:0;flex:1 1 auto}
+#vmChat .vm-editing{flex:0 0 auto;margin:8px 10px 0;padding:9px 12px;min-height:48px;width:auto;border:1px solid #e8e8e8;border-left:3px solid #111;border-radius:13px;background:#f8f8f8;box-shadow:0 1px 2px rgba(0,0,0,.025)}
+#vmChat .vm-editing p{line-height:1.35}
+#vmChat .vm-bar{flex:0 0 auto;width:100%;display:flex;align-items:center;gap:7px;padding:8px 10px calc(9px + env(safe-area-inset-bottom));}
+#vmChat .vm-field{flex:1 1 0;min-width:0;min-height:42px;display:flex;align-items:center;align-self:center;padding:2px 4px 2px 12px;border-radius:22px;overflow:hidden}
+#vmChat .vm-field textarea{flex:1 1 0;width:0;min-width:0;min-height:36px;max-height:104px;align-self:center;margin:0;padding:9px 0;line-height:18px;font-size:14px;box-sizing:border-box}
+#vmChat .vm-field .vm-ic{flex:0 0 32px;width:32px;height:36px;align-self:center;margin:0}
+#vmChat .vm-send{flex:0 0 40px;width:40px;height:40px;align-self:center;margin:0}
+#vmChat .vm-send svg{width:18px;height:18px}
+.vm-camera{position:fixed!important;inset:0!important;width:100vw;height:100dvh;min-height:100%;z-index:2147483000!important;padding:calc(14px + env(safe-area-inset-top)) 16px calc(22px + env(safe-area-inset-bottom));overflow:hidden;background:#050505;isolation:isolate}
+.vm-camera header{position:relative;z-index:2;flex:0 0 auto;min-height:42px;padding:4px 2px 12px}
+.vm-camera header strong{font-size:15px;font-weight:600}
+.vm-camera video{position:relative;z-index:1;display:block;width:100%;height:100%;flex:1 1 auto;min-height:0;max-height:none;object-fit:cover;border-radius:0;background:#050505}
+.vm-camera #vmCameraSnap{position:relative;z-index:2;flex:0 0 68px;width:68px;height:68px;margin-top:14px;margin-bottom:4px}
+@media(min-width:700px){.vm-camera{width:100vw!important;max-width:none!important;left:0!important;right:0!important;border:0!important;box-shadow:none!important}}
+@media(max-width:380px){#vmChat .vm-bar{gap:5px;padding-left:7px;padding-right:7px}#vmChat .vm-field{padding-left:8px}#vmChat .vm-field .vm-ic{flex-basis:29px;width:29px}#vmChat .vm-send{flex-basis:38px;width:38px;height:38px}}
+
+
+/* Refined inset composer and separated edit banner; call and direct-camera actions removed. */
+#vmChat .vm-editing{margin:10px 14px 0;gap:12px;padding:9px 13px;min-height:48px;border:1px solid #e8e8e8;border-left:3px solid #171717;border-radius:14px;background:#fafafa;box-shadow:0 3px 12px rgba(0,0,0,.035)}
+#vmChat .vm-bar{width:auto;margin:10px 12px calc(10px + env(safe-area-inset-bottom));padding:0;gap:9px;border:0;background:transparent;align-items:center}
+#vmChat .vm-field{min-height:44px;background:#f5f5f5;border:1px solid #ededed;box-shadow:0 2px 8px rgba(0,0,0,.025);padding-left:13px}
+#vmChat .vm-field textarea{min-height:38px;font-size:13px;padding-top:10px;padding-bottom:10px}
+#vmChat .vm-send{width:42px;height:42px;flex-basis:42px;box-shadow:0 3px 10px rgba(0,0,0,.12)}
+#vmChat .vm-msgs{padding-bottom:8px}
+@media(max-width:380px){#vmChat .vm-editing{margin-left:11px;margin-right:11px}#vmChat .vm-bar{margin-left:9px;margin-right:9px;gap:7px}}
+
+
+/* Staging tray, one-time view, download-first media, full-screen viewer. */
+#vmChat .vm-stage{flex:0 0 auto;display:flex;gap:8px;overflow-x:auto;margin:8px 14px 0;padding:8px;border:1px solid #e8e8e8;border-radius:14px;background:#fafafa;-webkit-overflow-scrolling:touch}
+.vm-stage[hidden]{display:none!important}
+.vm-tile{position:relative;flex:0 0 92px;height:92px;border-radius:11px;overflow:hidden;background:#111;cursor:none}
+.vm-tile img,.vm-tile video{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.vm-tplay{position:absolute;left:50%;top:50%;width:30px;height:30px;transform:translate(-50%,-50%);border-radius:50%;background:rgba(0,0,0,.55);display:grid;place-items:center;pointer-events:none}
+.vm-tplay svg{width:14px;height:14px;fill:#fff}
+.vm-tfile{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px;background:#f1f1f1;color:#111}
+.vm-tfile svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round}
+.vm-tfile small{font-size:9px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vm-tx{position:absolute;top:4px;right:4px;width:22px;height:22px;border:0;border-radius:50%;background:rgba(0,0,0,.62);color:#fff;display:grid;place-items:center;padding:0;cursor:none}
+.vm-tx svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round}
+.vm-once{width:28px;height:28px;border:1.5px solid #fff;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;display:grid;place-items:center;padding:0;cursor:none}
+.vm-tile .vm-once{position:absolute;right:5px;bottom:5px}
+.vm-once svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.vm-once.on{background:#fff;color:#111;border-color:#fff}
+.vm-preview{z-index:12900;flex-direction:column}
+.vm-preview:not([hidden]){display:grid}
+.vm-preview img,.vm-preview video,.vm-viewer video{max-width:100%;max-height:100%;object-fit:contain}
+.vm-preview img[hidden],.vm-preview video[hidden],.vm-viewer img[hidden],.vm-viewer video[hidden]{display:none!important}
+.vm-preview .vm-once-big{position:absolute;top:calc(10px + env(safe-area-inset-top));right:12px;width:42px;height:42px;z-index:2}
+.vm-preview .vm-once-big svg{width:24px;height:24px}
+.vm-prevhint{position:absolute;left:0;right:0;bottom:calc(22px + env(safe-area-inset-bottom));text-align:center;color:#fff;font-size:12px;padding:0 20px;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+.vm-mwrap{position:relative;border-radius:11px;overflow:hidden;line-height:0;background:#000}
+.vm-mwrap .blur{filter:blur(16px) brightness(.85);transform:scale(1.12);min-height:140px}
+.vm-dlbtn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:6px;padding:9px 14px;border:0;border-radius:22px;background:rgba(0,0,0,.68);color:#fff;font:inherit;font-size:12px;font-weight:650;line-height:1;cursor:none;white-space:nowrap}
+.vm-dlbtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.vm-open{position:absolute;inset:0;border:0;background:transparent;cursor:none;padding:0;display:grid;place-items:center}
+.vm-playov svg{width:42px;height:42px;padding:12px;border-radius:50%;background:rgba(0,0,0,.55);fill:#fff}
+.vm-oncecard{display:flex;align-items:center;gap:9px;min-width:170px;padding:8px 6px;border:0;background:transparent;color:inherit;font:inherit;font-size:13px;font-weight:600;cursor:none;text-align:left}
+.vm-oncecard svg{width:24px;height:24px;flex:0 0 24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.vm-oncecard.done,.vm-oncecard:disabled{opacity:.75;cursor:none}
+.vm-file-link{display:flex!important;align-items:center;gap:10px;min-width:180px}
+.vm-fic{width:34px;height:34px;flex:0 0 34px;border-radius:9px;background:rgba(127,127,127,.22);display:grid;place-items:center}
+.vm-fic svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round}
+.vm-fname{display:flex;flex-direction:column;font-weight:600;min-width:0}.vm-fname small{font-weight:400;font-size:10px;opacity:.7;margin-top:2px}
+
+/* Send + mic icons: centred, crisp edges, and a smooth cross-fade when switching between them. */
+.vm-send,#vmChat .vm-send{position:relative;display:block;padding:0;line-height:0;overflow:hidden}
+.vm-send .m,.vm-send .s,#vmChat .vm-send .m,#vmChat .vm-send .s{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;line-height:0;pointer-events:none;transition:opacity .18s ease,transform .24s cubic-bezier(.2,.8,.2,1)}
+.vm-send .m,#vmChat .vm-send .m{opacity:1;transform:none}
+.vm-send .s,#vmChat .vm-send .s{opacity:0;transform:scale(.55) rotate(-12deg)}
+.vm-send.has .m,.vm-send.rec .m,#vmChat .vm-send.has .m,#vmChat .vm-send.rec .m{display:flex;opacity:0;transform:scale(.55)}
+.vm-send.has .s,.vm-send.rec .s,#vmChat .vm-send.has .s,#vmChat .vm-send.rec .s{display:flex;opacity:1;transform:none}
+.vm-send svg,#vmChat .vm-send svg{display:block;margin:0;shape-rendering:geometricPrecision;-webkit-backface-visibility:hidden;backface-visibility:hidden}
+.vm-send .s svg,#vmChat .vm-send .s svg{width:18px;height:18px;flex:0 0 18px;fill:currentColor;stroke:none}
+.vm-send .m svg,#vmChat .vm-send .m svg{width:17px;height:17px;flex:0 0 17px;fill:none;stroke:currentColor;stroke-width:1.8px;stroke-linecap:round;stroke-linejoin:round}
+.vm-send .m svg *{vector-effect:non-scaling-stroke}
+@media(prefers-reduced-motion:reduce){.vm-send .m,.vm-send .s{transition:none}}
+
+
+/* ---------- New-message cues (WhatsApp style): unread glow, badges, read-receipt ticks ---------- */
+:root{--vm-green:#25d366;--vm-green-glow:rgba(37,211,102,.55)}
+.vm-l2{display:flex;align-items:center;gap:8px;margin-top:2px}
+.vm-l2 .vm-prev{flex:1;min-width:0;margin-top:0}
+/* conversation with unread messages: soft green wash, bold text, green time, glowing count badge */
+.vm-row.vm-unread{background:linear-gradient(90deg,rgba(37,211,102,.13),rgba(37,211,102,0) 75%)}
+.vm-row.vm-unread .vm-name{font-weight:750}
+.vm-row.vm-unread .vm-prev{color:#111;font-weight:600}
+.vm-row.vm-unread .vm-time{color:#12a150;font-weight:700}
+.vm-badge-n{flex:none;min-width:19px;height:19px;padding:0 6px;border-radius:10px;background:var(--vm-green);color:#fff;font-size:10.5px;font-weight:700;line-height:19px;text-align:center;box-shadow:0 0 0 3px rgba(37,211,102,.22),0 0 12px var(--vm-green-glow);animation:vmGlow 2.2s ease-in-out infinite}
+@keyframes vmGlow{50%{box-shadow:0 0 0 5px rgba(37,211,102,.12),0 0 16px var(--vm-green-glow)}}
+/* dashboard Messaging icon badge: sits half over the icon's top-right edge */
+.wd-actions [data-action="Messaging"] .wd-circle{position:relative;overflow:visible}
+.vm-badge{position:absolute;top:-5px;right:-6px;z-index:2;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:var(--vm-green);color:#fff;border:2px solid #fff;box-sizing:content-box;font-style:normal;font-size:10px;font-weight:700;line-height:19px;text-align:center;box-shadow:0 0 10px var(--vm-green-glow);animation:vmGlow 2.2s ease-in-out infinite;pointer-events:none}
+.vm-badge[hidden]{display:none!important}
+/* divider inside a chat: where the new messages start */
+.vm-newdiv{align-self:stretch;display:flex;justify-content:center;margin:10px 0 6px}
+.vm-newdiv span{padding:4px 14px;border-radius:12px;background:rgba(37,211,102,.14);color:#12a150;font-size:10.5px;font-weight:700;box-shadow:0 0 12px rgba(37,211,102,.35)}
+/* ✓✓: white (shining) until the other person opens the chat, then green */
+.vm-meta b.vm-tk{color:#fff;opacity:1;text-shadow:0 0 6px rgba(255,255,255,.85);letter-spacing:-2px;margin-left:4px;font-weight:700;transition:color .3s,text-shadow .3s}
+.vm-meta b.vm-tk.read{color:#3dff8f;text-shadow:0 0 7px rgba(61,255,143,.85)}
+.vm-prev b.vm-tk{color:#a3a8ae;letter-spacing:-2px;margin-right:6px;font-weight:700}
+.vm-prev b.vm-tk.read{color:var(--vm-green);text-shadow:0 0 6px var(--vm-green-glow)}
+@media(prefers-reduced-motion:reduce){.vm-badge,.vm-badge-n{animation:none}}
+
+
+/* ---------- Polish: emoji colours, rounded unread highlight, centred count badges ---------- */
+/* Dark theme = whole-page invert; emoji get the exact inverse so they keep their real colours. */
+.vm-emoji{display:inline-block;line-height:1;font-style:normal}
+html[data-theme="dark"] .vm-emoji{filter:invert(1) hue-rotate(180deg)}
+/* unread conversation: a rounded card instead of a square band */
+.vm-row.vm-unread{width:auto;margin:3px 10px;padding-left:10px;padding-right:10px;border-radius:18px;background:rgba(37,211,102,.12);box-shadow:inset 0 0 0 1px rgba(37,211,102,.28)}
+.vm-row.vm-unread:active{background:rgba(37,211,102,.2)}
+/* divider: fully rounded pill, soft glow */
+.vm-newdiv span{border-radius:999px;padding:5px 16px;box-shadow:0 0 0 1px rgba(37,211,102,.25),0 2px 12px rgba(37,211,102,.28)}
+/* count badges: true centring for 1, 2, 99, 1000… (flex, equal side padding, circle when one digit, pill when longer) */
+.vm-badge-n,.vm-badge{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:20px;min-width:20px;padding:0 6px;border-radius:999px;font-size:11px;font-weight:700;line-height:1;letter-spacing:0;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap;text-indent:0}
+.vm-badge-n::first-line,.vm-badge::first-line{line-height:1}
+.vm-badge{height:21px;min-width:21px;border:2px solid #fff;top:-6px;right:-7px;padding:0 5px;font-size:10.5px}
+/* full-width rounded card (buttons shrink-wrap by default) and optical vertical centring of the digits */
+.vm-row.vm-unread{width:calc(100% - 20px)}
+.vm-badge-n,.vm-badge{padding-top:1.5px;padding-bottom:0}
+
+
+/* ---------- Polish 2: unread highlight fades out; emoji clean everywhere; composer mirror ---------- */
+/* Unread conversation: strongest at the start (left), then gently fades into the page toward the end (right). */
+.vm-row.vm-unread{margin:3px 0 3px 10px;width:calc(100% - 10px);padding-left:10px;padding-right:16px;border-radius:18px 0 0 18px;box-shadow:none;
+ background:linear-gradient(90deg,rgba(37,211,102,.30) 0%,rgba(37,211,102,.16) 35%,rgba(37,211,102,.05) 70%,rgba(37,211,102,0) 100%)}
+.vm-row.vm-unread:active{background:linear-gradient(90deg,rgba(37,211,102,.40) 0%,rgba(37,211,102,.22) 40%,rgba(37,211,102,.08) 100%)}
+/* Own bubbles (.vm-b.me) already cancel the dark page filter themselves, so emoji inside must NOT be un-inverted again. */
+html[data-theme="dark"] .vm-b.me .vm-emoji{filter:none}
+/* Composer: transparent textarea text + mirror layer that draws the same text with clean emoji (dark theme only). */
+.vm-ta{position:relative;flex:1 1 0;min-width:0;display:flex;align-self:center}
+.vm-ta textarea{position:relative;z-index:1;width:100%!important;flex:1 1 auto}
+.vm-mirror{display:none;position:absolute;left:0;top:0;right:0;bottom:0;z-index:0;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none;color:var(--tx);box-sizing:border-box}
+html[data-theme="dark"] .vm-mirror{display:block}
+html[data-theme="dark"] .vm-ta textarea{color:transparent!important;caret-color:var(--tx);background:transparent}
+html[data-theme="dark"] .vm-ta textarea::placeholder{color:var(--mut);opacity:1}
