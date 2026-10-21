@@ -84,7 +84,7 @@ window.addEventListener("veltrix-notif",e=>{
 });
 function openNotif(id){
   const n=notifs.find(x=>x.id===id);if(!n)return;openNotifId=id;
-  $("ndIcon").innerHTML=topicIcon(n.topic);$("ndIcon").className="wd-act-ic big "+topicCls(n.topic);$("ndTopic").textContent=topicTitle(n.topic);$("ndTitle").textContent=n.title;$("ndBody").textContent=n.body;$("ndTime").textContent=when(n.created_at);
+  $("ndIcon").innerHTML=topicIcon(n.topic);$("ndIcon").className="wd-act-ic big "+topicCls(n.topic);$("ndTopic").textContent=topicTitle(n.topic);$("ndTitle").textContent=n.title;$("ndBody").textContent=n.body;$("ndTime").textContent=when(n.created_at);$("ndRows").innerHTML=[["Type",topicTitle(n.topic)],["Received",when(n.created_at)]].map(r=>`<div class="nd-row"><span>${esc(r[0])}</span><b>${esc(r[1])}</b></div>`).join("");
   openFeature("notificationDetailPage");
   if(!n.read){n.read=true;paintBadge();paintNotifs();db().notif.markRead(id).catch(()=>{})}
 }

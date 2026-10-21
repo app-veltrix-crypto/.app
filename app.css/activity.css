@@ -50,26 +50,7 @@ body.wd-usd-mode #assetsSection{display:none}
 .wd-td-row b{flex:1;min-width:0;font-weight:600;text-align:right;word-break:break-all}
 .wd-td-copy{flex:none;border:0;background:#fff;color:var(--brand,#2450ff);font-weight:700;font-size:12px;padding:5px 10px;border-radius:999px;cursor:pointer}
 
-/* ===== notifications feed: compact sizes + per-topic SVG icons ===== */
-.wd-act-list{margin-top:8px;padding-bottom:20px}
-.wd-act-day{font-size:10px;letter-spacing:1.2px;margin:14px 4px 4px}
-.wd-act-row{gap:10px;padding:9px 8px;border-radius:12px}
-.wd-act-ic{width:36px;height:36px;border-radius:12px;font-size:15px}
-.wd-act-ic svg{width:18px;height:18px}
-.wd-act-ic.big{width:52px;height:52px;border-radius:17px;font-size:22px}
-.wd-act-ic.big svg{width:26px;height:26px}
-.wd-act-main{gap:2px}
-.wd-act-main b{font-size:13px;font-weight:650}
-.wd-act-main small{font-size:11.5px}
-.wd-act-side{gap:5px}
-.wd-act-side em{font-size:10px}
-.wd-act-side i{width:7px;height:7px}
-.wd-act-detail{margin-top:20px}
-.wd-act-detail h2{font-size:18px;letter-spacing:-.3px;margin:10px 0 4px}
-.wd-act-chip{margin-top:10px;padding:3px 10px;font-size:11px}
-.wd-act-time{margin:0 0 14px;font-size:11.5px}
-.wd-act-body{padding:13px 14px;border-radius:14px;font-size:13px;line-height:1.5}
-.wd-act-trash{width:36px;height:36px}.wd-act-trash svg{width:17px;height:17px}
+/* ===== topic tints (icons are inline SVG, one per notification type) ===== */
 .t-security{background:#e8f7ee!important;color:#0f9d58}
 .t-chat{background:#e9f1ff!important;color:#2f6df6}
 .t-transaction{background:#eeeaff!important;color:#6d4ff0}
@@ -80,23 +61,44 @@ body.wd-usd-mode #assetsSection{display:none}
 .t-promo{background:#fdeaf4!important;color:#d6409f}
 .t-news{background:#eef0f4!important;color:#566074}
 .t-x{background:#f1f3f8!important;color:#566074}
+.wd-act-ic svg{width:17px;height:17px}
 
-/* ===== settings > notifications: compact grouped list ===== */
-#notifPage .sx-body{padding:4px 16px 48px}
-#notifPage .sx-lead{margin:4px 2px 4px;font-size:11.5px;line-height:1.5}
-.nt-count{margin:0 2px 2px;font-size:10.5px;font-weight:700;color:var(--brand,#2450ff)}
-.nt-label{margin:16px 4px 6px;font-size:10px;font-weight:750;letter-spacing:1.3px;text-transform:uppercase;color:#9295a0}
-.nt-group{border:1px solid #eef0f3;border-radius:16px;background:#fff;box-shadow:0 6px 22px rgba(20,24,40,.05);overflow:hidden}
-.nt-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #f0f1f4}
-.nt-row:last-child{border-bottom:0}
-.nt-ic{flex:none;width:30px;height:30px;border-radius:10px;display:grid;place-items:center}
-.nt-ic svg{width:15px;height:15px}
-.nt-row .sx-grow{gap:1px}
-.nt-row .sx-grow strong{font-size:12.5px;font-weight:600}
-.nt-row .sx-grow small{font-size:10.5px;line-height:1.35}
-.nt-row .sx-switch{width:38px;height:22px;margin-left:auto}
-.nt-row .sx-switch i::after{width:16px;height:16px;left:3px;top:3px}
-.nt-row .sx-switch input:checked+i::after{transform:translateX(16px)}
+/* ===== notifications list: one soft card per notification ===== */
+#notificationPage .wd-act-list{max-width:440px;margin:10px auto 0;padding-bottom:28px}
+#notificationPage .wd-act-day{font-size:10px;font-weight:750;letter-spacing:1.4px;color:#9295a0;margin:16px 4px 7px}
+#notificationPage .wd-act-row{position:relative;gap:11px;padding:11px 12px;margin-bottom:8px;border:1px solid #eef0f3;border-radius:18px;background:#fff;box-shadow:0 6px 22px rgba(20,24,40,.05);align-items:center}
+#notificationPage .wd-act-row.unread{background:linear-gradient(135deg,var(--brand-soft,#eef2ff),#fff 70%);border-color:var(--brand-ring,rgba(36,80,255,.22))}
+#notificationPage .wd-act-ic{width:36px;height:36px;border-radius:50%;font-size:15px}
+#notificationPage .wd-act-main{gap:2px}
+#notificationPage .wd-act-main b{font-size:12.5px;font-weight:650;color:#111318}
+#notificationPage .wd-act-main small{font-size:11px;line-height:1.4;color:#7b7d85;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#notificationPage .wd-act-side{align-self:flex-start;gap:6px;padding-top:1px}
+#notificationPage .wd-act-side em{font-size:10px;color:#9295a0}
+#notificationPage .wd-act-side i{width:7px;height:7px;background:var(--brand,#2450ff)}
+
+/* ===== notification details page: same header as the notifications page, same card language ===== */
+#notificationDetailPage .wd-notification-header{display:grid;grid-template-columns:32px 1fr 32px;align-items:center;gap:0;max-width:680px;margin:0 auto;min-height:40px;padding-top:4px}
+#notificationDetailPage .wd-notification-header h1{margin:0;text-align:center;font-size:16px;line-height:1.2;letter-spacing:-.2px;font-weight:700}
+#notificationDetailPage .wd-feature-back,#notificationDetailPage .wd-act-trash{width:32px;height:32px;min-width:32px;display:grid;place-items:center;border:0;border-radius:50%;padding:0;line-height:0;box-shadow:none}
+#notificationDetailPage .wd-feature-back{background:var(--brand-soft,#eef2ff);color:var(--brand,#2450ff)}
+#notificationDetailPage .wd-act-trash{background:#fff1f1;color:#e5484d}
+#notificationDetailPage .wd-feature-back svg,#notificationDetailPage .wd-act-trash svg{display:block;width:15px;height:15px}
+.nd-wrap{max-width:440px;margin:14px auto 0;padding-bottom:28px}
+.nd-hero,.nd-card{border:1px solid #eef0f3;border-radius:20px;background:#fff;box-shadow:0 8px 28px rgba(20,24,40,.06)}
+.nd-hero{padding:20px 16px 16px;text-align:center;margin-bottom:10px}
+.nd-hero .wd-act-ic.big{width:52px;height:52px;border-radius:50%;margin:0 auto}
+.nd-hero .wd-act-ic.big svg{width:24px;height:24px}
+.nd-hero .wd-act-chip{margin-top:10px;padding:3px 10px;font-size:10.5px}
+.nd-hero h2{font-size:16px;letter-spacing:-.25px;margin:9px 0 3px;font-weight:700;color:#111318;word-break:break-word}
+.nd-hero .wd-act-time{margin:0;font-size:11px;color:#9295a0}
+.nd-card{padding:13px 14px;margin-bottom:10px}
+.nd-eyebrow{display:block;font-size:10px;font-weight:750;letter-spacing:1.4px;color:#9295a0;margin-bottom:7px}
+.nd-card .wd-act-body{padding:0;background:none;border-radius:0;font-size:12.5px;line-height:1.6;color:#2b2e38}
+.nd-rows{padding:2px 14px}
+.nd-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #f0f1f4;font-size:12px}
+.nd-row:last-child{border-bottom:0}
+.nd-row span{flex:none;color:#7b7d85;min-width:80px}
+.nd-row b{flex:1;min-width:0;font-weight:600;text-align:right;color:#111318}
 
 /* ===== deposit list: small gap above the fixed search bar instead of a big empty space ===== */
 .wd-deposit-page.wd-feature-page{padding-bottom:0!important}
