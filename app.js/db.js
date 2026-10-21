@@ -11,7 +11,7 @@ const sb=window.supabase.createClient(cfg.url,cfg.anonKey,{auth:{persistSession:
 const fire=n=>window.dispatchEvent(new Event(n));
 
 /* ================= account / wallet ================= */
-let cache=null,prefs={},prefTimer=null;
+let cache=null,prefs={},prefTimer=null,pendingImage=null;
 const toAccount=(p,assets)=>({
   id:p.id,email:p.email,fullName:p.full_name,location:p.location||"",dateOfBirth:p.date_of_birth||"",
   profileImage:p.profile_image||"",profileAbout:p.profile_about||"",profileUsername:p.profile_username||"",
@@ -35,6 +35,7 @@ async function load(){
   if(p.error)throw p.error;
   cache=toAccount(p.data,a.data);
   prefs=(s.data&&s.data.data)||{};
+  if(pendingImage&&!cache.profileImage){cache.profileImage=pendingImage;pendingImage=null;push()}
   return cache;
 }
 async function reloadWallet(){const uid=cache&&cache.id;if(!uid)return null;
@@ -42,6 +43,9 @@ async function reloadWallet(){const uid=cache&&cache.id;if(!uid)return null;
   if(!p.error&&!a.error){cache.usdBalance=Number(p.data.usd_balance)||0;cache.assets=a.data.map(x=>({symbol:x.symbol,name:x.name||undefined,amount:Number(x.amount)}))}
   return cache}
 
+async function saveProfileNow(){if(!cache)return;
+  const {data,error}=await sb.from("profiles").update(toRow(cache)).eq("id",cache.id).select("id");
+  if(error||!data||!data.length)console.error("Profile save failed",error||"no rows were updated")}
 let pushTimer=null;
 function push(){clearTimeout(pushTimer);pushTimer=setTimeout(async()=>{
   if(!cache)return;
@@ -171,9 +175,9 @@ window.veltrixDB={
     const {data,error}=await sb.auth.signUp({email,password,options:{data:{
       full_name:fullName,location,date_of_birth:dateOfBirth,fingerprint_enabled:!!fingerprintEnabled}}});
     if(error)throw error;
-    if(!data.session)return {needsConfirm:true};
+    if(!data.session){pendingImage=profileImage||null;return {needsConfirm:true}}
     await boot();
-    if(profileImage){cache.profileImage=profileImage;push()}
+    if(profileImage){cache.profileImage=profileImage;await saveProfileNow()}
     return {needsConfirm:false};
   },
   async signIn(email,password){const {error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;return boot()},

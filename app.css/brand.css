@@ -166,3 +166,6 @@ html[data-theme="dark"] .wd-stack-card{box-shadow:0 18px 40px rgba(0,0,0,.45)}
 /* Primary button keeps its brand colour on hover/press (old rule turned it near-black) */
 .primary-button:hover,.primary-button:active,.primary-button:focus-visible{background:var(--brand-grad);filter:brightness(1.06);box-shadow:var(--brand-shadow)}
 .primary-button:active{filter:brightness(.94)}
+
+/* Primary buttons: no inherited dark border, and the gradient is painted across the full border box so it reaches every edge */
+.primary-button,.primary-button:hover,.primary-button:active,.primary-button:focus-visible{border:0;background-origin:border-box;background-clip:border-box;background-image:var(--brand-grad)}
