@@ -15,8 +15,21 @@ const PRICE_DOWN=0.90;  /* alert when it is 10% below */
 const POLL_MS=60000;
 
 /* ====================================================== helpers */
-const TOPIC={security:["Security alert","🛡"],chat:["Chat message","💬"],transaction:["Transaction","⇄"],withdrawal:["Withdrawal","↗"],deposit:["Deposit","↙"],price:["Price alert","📈"],login:["New login","🔑"],promo:["Promotion","🎁"],news:["News & updates","📰"]};
-const topicTitle=t=>(TOPIC[t]||["Notification"])[0],topicIcon=t=>(TOPIC[t]||[,"🔔"])[1];
+const SV=b=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${b}</svg>`;
+const TOPIC_SVG={
+  security:SV('<path d="M12 3 5 6v5.2c0 4.4 2.9 8 7 9.8 4.1-1.8 7-5.4 7-9.8V6l-7-3z"/><path d="m9 12 2.2 2.2L15.5 10"/>'),
+  chat:SV('<path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-6.5L8 20.5V17H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M8 10h8M8 13h5"/>'),
+  transaction:SV('<path d="M4 8h15M15.5 4.5 19 8l-3.5 3.5"/><path d="M20 16H5M8.5 12.5 5 16l3.5 3.5"/>'),
+  withdrawal:SV('<path d="M7 17 17 7"/><path d="M9 7h8v8"/>'),
+  deposit:SV('<path d="M17 7 7 17"/><path d="M15 17H7V9"/>'),
+  price:SV('<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>'),
+  login:SV('<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9"/><path d="m16 7 3 3"/><path d="m14 9 2 2"/>'),
+  promo:SV('<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12"/><path d="M12 8C10 3.5 6 4.5 7 7c.4 1 3 1 5 1zM12 8c2-4.500 6-3.500 5-1-.4 1-3 1-5 1z"/>'),
+  news:SV('<path d="M5 4h11a2 2 0 0 1 2 2v13H7a2 2 0 0 1-2-2V4z"/><path d="M18 9h1.5A1.500 1.500 0 0 1 21 10.500V17a2 2 0 0 1-2 2"/><path d="M8.500 8h6M8.500 12h6M8.500 16h3"/>'),
+  _:SV('<path d="M6 16V11a6 6 0 1 1 12 0v5l1.500 2h-15L6 16z"/><path d="M10 21h4"/>')
+};
+const TOPIC={security:["Security alert"],chat:["Chat message"],transaction:["Transaction"],withdrawal:["Withdrawal"],deposit:["Deposit"],price:["Price alert"],login:["New login"],promo:["Promotion"],news:["News & updates"]};
+const topicTitle=t=>(TOPIC[t]||["Notification"])[0],topicIcon=t=>TOPIC_SVG[t]||TOPIC_SVG._,topicCls=t=>"t-"+(TOPIC_SVG[t]?t:"x");
 const when=t=>{try{return new Date(t).toLocaleString(undefined,{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"})}catch{return""}};
 function ago(t){const s=Math.max(0,(Date.now()-new Date(t))/1000);if(s<60)return"Just now";if(s<3600)return Math.floor(s/60)+" min ago";if(s<86400)return Math.floor(s/3600)+" h ago";
   const d=new Date(t),n=new Date();const y=new Date(n.getFullYear(),n.getMonth(),n.getDate()-1);
@@ -51,7 +64,7 @@ function paintNotifs(){
   list.hidden=false;
   let html="",last=null;
   for(const n of rows){const k=dayKey(n.created_at);if(k!==last){html+=`<div class="wd-act-day">${esc(dayLabel(k))}</div>`;last=k}
-    html+=`<button type="button" class="wd-act-row${n.read?"":" unread"}" data-nid="${esc(n.id)}"><span class="wd-act-ic">${topicIcon(n.topic)}</span><span class="wd-act-main"><b>${esc(n.title)}</b><small>${esc(n.body)}</small></span><span class="wd-act-side"><em>${esc(ago(n.created_at))}</em>${n.read?"":"<i></i>"}</span></button>`}
+    html+=`<button type="button" class="wd-act-row${n.read?"":" unread"}" data-nid="${esc(n.id)}"><span class="wd-act-ic ${topicCls(n.topic)}">${topicIcon(n.topic)}</span><span class="wd-act-main"><b>${esc(n.title)}</b><small>${esc(n.body)}</small></span><span class="wd-act-side"><em>${esc(ago(n.created_at))}</em>${n.read?"":"<i></i>"}</span></button>`}
   list.innerHTML=html;
 }
 async function loadNotifs(){if(!signedIn())return;try{notifs=await db().notif.list();paintBadge();paintNotifs()}catch(e){console.error("Notifications could not be loaded",e)}}
@@ -71,7 +84,7 @@ window.addEventListener("veltrix-notif",e=>{
 });
 function openNotif(id){
   const n=notifs.find(x=>x.id===id);if(!n)return;openNotifId=id;
-  $("ndIcon").textContent=topicIcon(n.topic);$("ndTopic").textContent=topicTitle(n.topic);$("ndTitle").textContent=n.title;$("ndBody").textContent=n.body;$("ndTime").textContent=when(n.created_at);
+  $("ndIcon").innerHTML=topicIcon(n.topic);$("ndIcon").className="wd-act-ic big "+topicCls(n.topic);$("ndTopic").textContent=topicTitle(n.topic);$("ndTitle").textContent=n.title;$("ndBody").textContent=n.body;$("ndTime").textContent=when(n.created_at);
   openFeature("notificationDetailPage");
   if(!n.read){n.read=true;paintBadge();paintNotifs();db().notif.markRead(id).catch(()=>{})}
 }
@@ -92,6 +105,7 @@ async function deleteOpen(){
 
 /* ====================================================== TRANSACTION HISTORY */
 let txRows=[],txAll=[],openTx=null;
+const EMPTY_TX_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M6 8V1h1v6.117L8.743 6.07a.5.5 0 0 1 .514 0L11 7.117V1h1v7a.5.5 0 0 1-.757.429L9 7.083 6.757 8.43A.5.5 0 0 1 6 8"/><path d="M3 0h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-1h1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v1H1V2a2 2 0 0 1 2-2"/><path d="M1 5v-.5a.5.5 0 0 1 1 0V5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0V8h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0v.5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1z"/></svg>';
 function txView(t){
   const n=Number(t.amount),u=t.usd_value==null?null:Number(t.usd_value);
   if(t.kind==="send")return{icon:"↗",title:"Sent "+t.symbol,sub:t.to_address?"To "+short(t.to_address):"Withdrawal",amt:"-"+trimNum(n)+" "+t.symbol,sub2:u!=null?"≈ "+usd(u):"",dir:"out",type:"Send"};
@@ -113,7 +127,7 @@ async function refreshTx(){
   const m=mode();
   try{txRows=await db().tx.list(m,5)}catch(e){console.error("History could not be loaded",e);txRows=[]}
   if(m!==mode())return;
-  $("txList").innerHTML=txRows.length?txRows.map((t,i)=>txRowHTML(t,i,"d")).join(""):`<div class="wd-empty"><strong>No transactions yet</strong><p>${m==="usd"?"Conversions into your dollar wallet will show up here.":"Sends and conversions from your crypto wallet will show up here."}</p></div>`;
+  $("txList").innerHTML=txRows.length?txRows.map((t,i)=>txRowHTML(t,i,"d")).join(""):`<div class="wd-empty"><div class="wd-empty-icon">${EMPTY_TX_SVG}</div><strong>No transactions yet</strong><p>${m==="usd"?"Conversions into your dollar wallet will show up here.":"Sends and conversions from your crypto wallet will show up here."}</p></div>`;
   $("txViewAll").hidden=txRows.length<5;
 }
 function openDetail(t){
@@ -188,6 +202,6 @@ window.addEventListener("veltrix-ready",async()=>{
 window.addEventListener("veltrix-revoked",reset);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&signedIn()){pollWatch();loadNotifs()}});
 
-window.veltrixActivity={push,refreshTx,paintMode,logTest,syncFav:coin=>paintFav(!!(coin&&wl.has(String(coin.symbol).toUpperCase()))),reload:loadNotifs};
+window.veltrixActivity={push,refreshTx,paintMode,logTest,syncFav:coin=>paintFav(!!(coin&&wl.has(String(coin.symbol).toUpperCase()))),reload:loadNotifs,topicSvg:topicIcon};
 window.veltrixWatch={sync:coin=>paintFav(!!(coin&&wl.has(String(coin.symbol).toUpperCase()))),toggle:toggleWatch};
 })();

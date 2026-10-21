@@ -12,10 +12,10 @@
 <link rel="preload" as="image" href="app.assets/splash-logo.png">
 <link rel="preload" as="image" href="app.assets/splash-logo-name-light.png">
 <link rel="stylesheet" href="app.css/style.css?v=5">
-<link rel="stylesheet" href="app.css/style.app.css?v=5">
+<link rel="stylesheet" href="app.css/style.app.css?v=6">
 <link rel="stylesheet" href="app.css/messaging.css?v=5">
 <link rel="stylesheet" href="app.css/brand.css?v=5">
-<link rel="stylesheet" href="app.css/activity.css?v=1">
+<link rel="stylesheet" href="app.css/activity.css?v=2">
 </head>
 <body>
 <div id="splash" translate="no" role="status" aria-live="polite" aria-label="Loading Veltrix">
@@ -25,7 +25,7 @@
 
 <section class="wd-feature-page wd-act-page" id="notificationDetailPage" hidden aria-labelledby="ndTitle" style="z-index:12100">
   <header class="wd-feature-header"><button type="button" class="wd-feature-back" id="notificationDetailBack" aria-label="Back to notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg></button><h1>Notification</h1><button type="button" class="wd-act-trash" id="notificationDeleteBtn" aria-label="Delete this notification" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button></header>
-  <div class="wd-act-detail"><span class="wd-act-ic big" id="ndIcon">🔔</span><span class="wd-act-chip" id="ndTopic"></span><h2 id="ndTitle"></h2><p class="wd-act-time" id="ndTime"></p><p class="wd-act-body" id="ndBody"></p></div>
+  <div class="wd-act-detail"><span class="wd-act-ic big" id="ndIcon"></span><span class="wd-act-chip" id="ndTopic"></span><h2 id="ndTitle"></h2><p class="wd-act-time" id="ndTime"></p><p class="wd-act-body" id="ndBody"></p></div>
 </section>
 
 <section class="wd-feature-page wd-act-page" id="txHistoryPage" hidden aria-labelledby="txHistoryTitle" style="z-index:12050">
@@ -405,7 +405,7 @@
 </section>
 <section id="notifPage" class="profile-ui-page sx-page" hidden aria-label="Notifications">
   <header class="profile-ui-header"><button type="button" class="profile-ui-back" data-sx-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Notifications</h1><span class="profile-ui-header-spacer"></span></header>
-  <div class="sx-body"><p class="sx-lead left">Choose which topics Veltrix can send you notifications about. Turned-off topics stay silent.</p><div id="notifList"></div></div>
+  <div class="sx-body"><p class="sx-lead left">Choose which topics Veltrix can send you notifications about. Turned-off topics stay silent.</p><div class="nt-count" id="ntCount"></div><div id="notifTopicList"></div></div>
 </section>
 <section class="sd-sheet" id="sdSheet" role="dialog" aria-modal="true" aria-label="Send crypto" aria-hidden="true">
   <div class="sd-view" id="sdAmountView">
@@ -560,8 +560,8 @@
 <script src="app.js/qr.js?v=6"></script>
 <script src="app.js/script.js?v=6"></script>
 <script src="app.js/messaging.js?v=5"></script>
-<script src="app.js/settings.js?v=7"></script>
-<script src="app.js/activity.js?v=1"></script>
+<script src="app.js/settings.js?v=8"></script>
+<script src="app.js/activity.js?v=2"></script>
 <script src="app.js/i18n.js?v=5"></script>
 <script src="app.js/chrome.js?v=5"></script>
 </body>

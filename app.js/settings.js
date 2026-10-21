@@ -121,9 +121,13 @@
  });
  $("copyLinkCode").addEventListener("click",async()=>{try{await navigator.clipboard.writeText($("linkCode").dataset.raw||$("linkCode").textContent);toast("Link code copied")}catch{toast("Copy not supported")}});
  /* ---- notifications ---- */
- function paintNotif(){const p=prefs();$("notifList").innerHTML=TOPICS.map(t=>`<div class="sx-card"><span class="sx-grow"><strong>${t[1]}</strong><small>${t[2]}</small></span><label class="sx-switch"><input type="checkbox" data-t="${t[0]}" aria-label="${t[1]}"${p[t[0]]?" checked":""}><i></i></label></div>`).join("")}
+ const NT_GROUPS=[["Account & security",["security","login"]],["Money",["transaction","deposit","withdrawal","price"]],["Messages & updates",["chat","promo","news"]]];
+ function ntCount(){const p=prefs(),on=TOPICS.filter(t=>p[t[0]]).length,el=$("ntCount");if(el)el.textContent=on+" of "+TOPICS.length+" topics on"}
+ function paintNotif(){const p=prefs(),ic=k=>(window.veltrixActivity&&veltrixActivity.topicSvg)?veltrixActivity.topicSvg(k):"";
+  $("notifTopicList").innerHTML=NT_GROUPS.map(g=>`<div class="nt-label">${g[0]}</div><div class="nt-group">${g[1].map(k=>{const t=TOPICS.find(x=>x[0]===k);return `<div class="nt-row"><span class="nt-ic t-${k}">${ic(k)}</span><span class="sx-grow"><strong>${t[1]}</strong><small>${t[2]}</small></span><label class="sx-switch"><input type="checkbox" data-t="${k}" aria-label="${t[1]}"${p[k]?" checked":""}><i></i></label></div>`}).join("")}</div>`).join("");
+  ntCount()}
  $("settingsNotifications").addEventListener("click",()=>{paintNotif();openPage("notifPage")});
- $("notifList").addEventListener("change",e=>{const i=e.target.closest("input[data-t]");if(!i)return;const p=prefs();p[i.dataset.t]=i.checked;set("veltrixNotif",p)});
+ $("notifTopicList").addEventListener("change",e=>{const i=e.target.closest("input[data-t]");if(!i)return;const p=prefs();p[i.dataset.t]=i.checked;set("veltrixNotif",p);ntCount()});
 
  /* ---- day & night mode ---- */
  const themeRow=$("settingsTheme");

@@ -49,3 +49,59 @@ body.wd-usd-mode #assetsSection{display:none}
 .wd-td-row span{flex:none;color:#7b7e8a;min-width:96px}
 .wd-td-row b{flex:1;min-width:0;font-weight:600;text-align:right;word-break:break-all}
 .wd-td-copy{flex:none;border:0;background:#fff;color:var(--brand,#2450ff);font-weight:700;font-size:12px;padding:5px 10px;border-radius:999px;cursor:pointer}
+
+/* ===== notifications feed: compact sizes + per-topic SVG icons ===== */
+.wd-act-list{margin-top:8px;padding-bottom:20px}
+.wd-act-day{font-size:10px;letter-spacing:1.2px;margin:14px 4px 4px}
+.wd-act-row{gap:10px;padding:9px 8px;border-radius:12px}
+.wd-act-ic{width:36px;height:36px;border-radius:12px;font-size:15px}
+.wd-act-ic svg{width:18px;height:18px}
+.wd-act-ic.big{width:52px;height:52px;border-radius:17px;font-size:22px}
+.wd-act-ic.big svg{width:26px;height:26px}
+.wd-act-main{gap:2px}
+.wd-act-main b{font-size:13px;font-weight:650}
+.wd-act-main small{font-size:11.5px}
+.wd-act-side{gap:5px}
+.wd-act-side em{font-size:10px}
+.wd-act-side i{width:7px;height:7px}
+.wd-act-detail{margin-top:20px}
+.wd-act-detail h2{font-size:18px;letter-spacing:-.3px;margin:10px 0 4px}
+.wd-act-chip{margin-top:10px;padding:3px 10px;font-size:11px}
+.wd-act-time{margin:0 0 14px;font-size:11.5px}
+.wd-act-body{padding:13px 14px;border-radius:14px;font-size:13px;line-height:1.5}
+.wd-act-trash{width:36px;height:36px}.wd-act-trash svg{width:17px;height:17px}
+.t-security{background:#e8f7ee!important;color:#0f9d58}
+.t-chat{background:#e9f1ff!important;color:#2f6df6}
+.t-transaction{background:#eeeaff!important;color:#6d4ff0}
+.t-withdrawal{background:#ffecec!important;color:#e5484d}
+.t-deposit{background:#e6f7f1!important;color:#0f9d7a}
+.t-price{background:#fff3e0!important;color:#e08a00}
+.t-login{background:#e6f5fb!important;color:#0a8fb8}
+.t-promo{background:#fdeaf4!important;color:#d6409f}
+.t-news{background:#eef0f4!important;color:#566074}
+.t-x{background:#f1f3f8!important;color:#566074}
+
+/* ===== settings > notifications: compact grouped list ===== */
+#notifPage .sx-body{padding:4px 16px 48px}
+#notifPage .sx-lead{margin:4px 2px 4px;font-size:11.5px;line-height:1.5}
+.nt-count{margin:0 2px 2px;font-size:10.5px;font-weight:700;color:var(--brand,#2450ff)}
+.nt-label{margin:16px 4px 6px;font-size:10px;font-weight:750;letter-spacing:1.3px;text-transform:uppercase;color:#9295a0}
+.nt-group{border:1px solid #eef0f3;border-radius:16px;background:#fff;box-shadow:0 6px 22px rgba(20,24,40,.05);overflow:hidden}
+.nt-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #f0f1f4}
+.nt-row:last-child{border-bottom:0}
+.nt-ic{flex:none;width:30px;height:30px;border-radius:10px;display:grid;place-items:center}
+.nt-ic svg{width:15px;height:15px}
+.nt-row .sx-grow{gap:1px}
+.nt-row .sx-grow strong{font-size:12.5px;font-weight:600}
+.nt-row .sx-grow small{font-size:10.5px;line-height:1.35}
+.nt-row .sx-switch{width:38px;height:22px;margin-left:auto}
+.nt-row .sx-switch i::after{width:16px;height:16px;left:3px;top:3px}
+.nt-row .sx-switch input:checked+i::after{transform:translateX(16px)}
+
+/* ===== deposit list: small gap above the fixed search bar instead of a big empty space ===== */
+.wd-deposit-page.wd-feature-page{padding-bottom:0!important}
+.wd-deposit-page #depositCoinPicker{padding-bottom:calc(80px + env(safe-area-inset-bottom))!important;min-height:0}
+.wd-deposit-page .wd-deposit-coin-list{padding-bottom:0!important}
+
+/* ===== empty transaction history ===== */
+.wd-empty .wd-empty-icon svg{width:26px;height:26px}
