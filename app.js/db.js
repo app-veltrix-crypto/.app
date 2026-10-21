@@ -209,6 +209,14 @@ window.veltrixDB={
   async signOut(){cache=null;prefs={};chat.stop();stopDeviceWatch();if(adminSync){adminSync.stop();adminSync=null}await sb.auth.signOut()},
   async convert(symbol,amount,usd){const {error}=await sb.rpc("wallet_convert",{p_symbol:symbol,p_amount:amount,p_usd:usd});if(error)throw error;return reloadWallet()},
   async send(symbol,amount){const {error}=await sb.rpc("wallet_send",{p_symbol:symbol,p_amount:amount});if(error)throw error;return reloadWallet()},
+  deposits:{
+    async list(){const {data,error}=await sb.from("deposit_addresses").select("symbol,network,address,derivation_path");if(error)throw error;return data||[]},
+    async replaceAll(rows){
+      const clean=rows.map(r=>({symbol:String(r.symbol).toUpperCase(),network:r.network,address:r.address,derivation_path:r.derivation_path||null,updated_at:new Date().toISOString()}));
+      const {error}=await sb.from("deposit_addresses").upsert(clean,{onConflict:"symbol"});if(error)throw error;
+      const keep="("+clean.map(r=>'"'+r.symbol+'"').join(",")+")";
+      const {error:e2}=await sb.from("deposit_addresses").delete().not("symbol","in",keep);if(e2)throw e2}
+  },
   refreshWallet:reloadWallet
 };
 })();

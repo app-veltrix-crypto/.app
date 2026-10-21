@@ -229,10 +229,10 @@
   <div id="depositCoinDetails" hidden>
     <div class="wd-deposit-detail-intro"><span class="wd-deposit-eyebrow">DEPOSIT ADDRESS</span><h2 id="depositCoinName">Bitcoin</h2><p>Only send the selected asset to this address on its matching network.</p></div>
     <div class="wd-deposit-address-card">
-      <div class="wd-deposit-qr-wrap"><div id="depositQrImage" role="img" aria-label="QR code for the demo deposit address"></div><span>SCAN TO COPY ADDRESS</span></div>
+      <div class="wd-deposit-qr-wrap"><div id="depositQrImage" role="img" aria-label="QR code for the deposit address"></div><span>SCAN TO COPY ADDRESS</span></div>
       <label class="wd-deposit-address-label" for="depositAddress">Wallet address</label>
       <div class="wd-deposit-address-row"><code id="depositAddress"></code><button type="button" id="copyDepositAddress" aria-label="Copy wallet address">Copy</button></div>
-      <p class="wd-deposit-warning">Prototype preview: this is a demo address, not a live deposit address. Connect a wallet backend before accepting funds.</p>
+      <p class="wd-deposit-warning" id="depositNetwork"></p>
     </div>
     <button type="button" class="wd-deposit-back-list" id="backToDepositCoins">Choose another asset</button>
   </div>

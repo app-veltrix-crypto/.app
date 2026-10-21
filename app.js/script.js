@@ -484,7 +484,8 @@ const depositPage=document.getElementById("depositPage");
 const depositCoinPicker=document.getElementById("depositCoinPicker");
 const depositCoinDetails=document.getElementById("depositCoinDetails");
 const depositCoinList=document.getElementById("depositCoinList");
-let activeDepositCoin=null;
+let activeDepositCoin=null,depositAddrs={};
+async function loadDepositAddrs(){try{const r=await veltrixDB.deposits.list();depositAddrs=Object.fromEntries(r.map(x=>[String(x.symbol).toUpperCase(),x]))}catch(_){}}
 function openDepositPage(){
  // Close other full-screen sections first, then explicitly reveal the deposit screen.
  closeCryptoSearch();
@@ -496,6 +497,7 @@ function openDepositPage(){
  document.body.classList.add("wd-feature-open");
  const search=document.getElementById("depositCoinSearch");if(search)search.value="";
  renderDepositCoins();
+ loadDepositAddrs();
  refreshDepositMarkets();
 }
 function depositCompact(n){return n==null||!Number.isFinite(Number(n))?null:"$"+new Intl.NumberFormat("en-US",{notation:"compact",maximumFractionDigits:2}).format(Number(n))}
@@ -541,12 +543,13 @@ depositCoinList.addEventListener("click",e=>{
  if(!activeDepositCoin)return;
  const symbol=String(activeDepositCoin.symbol||"COIN").toUpperCase();
  document.getElementById("depositCoinName").innerHTML=`<span class="wd-deposit-selected-coin"><span class="wd-deposit-selected-logo" style="--coin-color:${esc(activeDepositCoin.color||"#30354a")}">${coinLogoHTML(activeDepositCoin)}</span><span>${esc(activeDepositCoin.name)}</span></span>`;
- // Deliberately non-depositable placeholder: never represent this as a real blockchain address.
- const demoAddress=`DEMO-${symbol}-ADDRESS-CONNECT-WALLET-BACKEND`;
- document.getElementById("depositAddress").textContent=demoAddress;
- const qrTarget=document.getElementById("depositQrImage");
- qrTarget.replaceChildren();
- try{VeltrixQR.render(qrTarget,demoAddress,{size:240})}catch(e){qrTarget.textContent="QR unavailable. Copy the address below."}
+ const addrEl=document.getElementById("depositAddress"),netEl=document.getElementById("depositNetwork"),qrTarget=document.getElementById("depositQrImage"),copyBtn=document.getElementById("copyDepositAddress");
+ const showAddr=rec=>{qrTarget.replaceChildren();
+  if(!rec){addrEl.textContent="Deposit address not available yet";netEl.textContent=`${symbol} deposits are not enabled yet. Please choose another asset.`;copyBtn.disabled=true;qrTarget.textContent="—";return}
+  copyBtn.disabled=false;addrEl.textContent=rec.address;netEl.textContent=`Network: ${rec.network}. Only send ${symbol} on this network. Sending anything else, or using another network, can result in permanent loss.`;
+  try{VeltrixQR.render(qrTarget,rec.address,{size:240})}catch(e){qrTarget.textContent="QR unavailable. Copy the address below."}};
+ showAddr(depositAddrs[symbol]);
+ if(!depositAddrs[symbol])loadDepositAddrs().then(()=>{if(String(activeDepositCoin&&activeDepositCoin.symbol).toUpperCase()===symbol)showAddr(depositAddrs[symbol])});
  depositCoinPicker.hidden=true;depositCoinDetails.hidden=false;
  (document.getElementById("depositTitle")||{}).textContent=`Deposit ${symbol}`;
  depositPage.scrollTop=0;
@@ -556,7 +559,7 @@ depositPage.addEventListener("click",e=>{if(e.target===depositPage && !depositCo
 document.addEventListener("keydown",e=>{if(e.key==="Escape" && !depositPage.hidden && !depositCoinDetails.hidden){depositCoinDetails.hidden=true;depositCoinPicker.hidden=false;(document.getElementById("depositTitle")||{}).textContent="Deposit crypto"}});
 document.getElementById("copyDepositAddress").addEventListener("click",async()=>{
  const value=document.getElementById("depositAddress").textContent;
- try{await navigator.clipboard.writeText(value);wdToast("Demo address copied")}catch(_){wdToast("Copy isn't available in this browser")}
+ try{await navigator.clipboard.writeText(value);wdToast("Address copied")}catch(_){wdToast("Copy isn't available in this browser")}
 });
 // Notification and QR scanner are full-screen sections within the same page.
 const notificationPage=document.getElementById("notificationPage");
