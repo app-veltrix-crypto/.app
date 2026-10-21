@@ -162,10 +162,31 @@ const pin={
   async clear(p){const {data,error}=await sb.rpc("pin_clear",{p});return !error&&data===true}
 };
 
-async function boot(){const a=await load();if(a){try{await chat.start(a.id)}catch(e){console.error("Chats could not be loaded",e)}}else chat.stop();fire("veltrix-ready");return a}
+/* ================= linked devices (one row per signed-in session; revoking kills that session) ================= */
+let mySession=null,devChan=null,devTimer=null;
+sb.auth.onAuthStateChange((ev,s)=>{mySession=s;if(ev==="SIGNED_OUT"&&cache){cache=null;prefs={};chat.stop();stopDeviceWatch();fire("veltrix-revoked")}});
+function curSid(){try{const t=mySession&&mySession.access_token;if(!t)return null;return JSON.parse(atob(t.split(".")[1].replace(/-/g,"+").replace(/_/g,"/"))).session_id||null}catch{return null}}
+function detectDevice(){const u=navigator.userAgent;
+  const br=/Edg\//.test(u)?"Microsoft Edge":/OPR\//.test(u)?"Opera":/SamsungBrowser/.test(u)?"Samsung Internet":/Firefox\//.test(u)?"Firefox":/Chrome\//.test(u)?"Google Chrome":/Safari\//.test(u)?"Safari":"Browser";
+  const os=/Windows/.test(u)?"Windows":/Android/.test(u)?"Android":/iPhone|iPad|iPod/.test(u)?"iOS":/Mac OS/.test(u)?"macOS":/Linux/.test(u)?"Linux":"Unknown OS";
+  return{name:br+" ("+os+")",os,icon:/Android|iPhone|iPad|iPod/.test(u)?"phone":"desktop"}}
+function stopDeviceWatch(){clearInterval(devTimer);devTimer=null;if(devChan){sb.removeChannel(devChan);devChan=null}}
+function startDeviceWatch(uid){stopDeviceWatch();
+  devChan=sb.channel("devices-"+uid).on("postgres_changes",{event:"DELETE",schema:"public",table:"devices",filter:"user_id=eq."+uid},p=>{
+    const o=p.old||{};if(o.session_id&&o.session_id===curSid()){veltrixDB.signOut().then(()=>fire("veltrix-revoked"))}}).subscribe();
+  devTimer=setInterval(()=>devices.register(),5*60*1000)}
+const devices={
+  async register(){const d=detectDevice();const {error}=await sb.rpc("register_device",{p_name:d.name,p_platform:d.os,p_icon:d.icon});if(error)console.error("Device registration failed",error)},
+  async list(){const {data,error}=await sb.from("devices").select("*").order("last_active",{ascending:false});if(error)throw error;const sid=curSid();
+    return data.map(x=>({id:x.id,name:x.name,platform:x.platform,icon:x.icon,last:Date.parse(x.last_active),current:x.session_id===sid}))},
+  async rename(id,name){const {error}=await sb.from("devices").update({name}).eq("id",id);if(error)throw error},
+  async revoke(id){const {error}=await sb.rpc("revoke_device",{p_id:id});if(error)throw error}
+};
+
+async function boot(){const a=await load();if(a){await devices.register();startDeviceWatch(a.id);try{await chat.start(a.id)}catch(e){console.error("Chats could not be loaded",e)}}else chat.stop();fire("veltrix-ready");return a}
 
 window.veltrixDB={
-  client:sb,pref,chat,media,admin,pin,
+  client:sb,pref,chat,media,admin,pin,devices,
   get:()=>cache,
   set(a){cache=a;push()},
   restore:boot,
@@ -181,7 +202,7 @@ window.veltrixDB={
     return {needsConfirm:false};
   },
   async signIn(email,password){const {error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;return boot()},
-  async signOut(){cache=null;prefs={};chat.stop();if(adminSync){adminSync.stop();adminSync=null}await sb.auth.signOut()},
+  async signOut(){cache=null;prefs={};chat.stop();stopDeviceWatch();if(adminSync){adminSync.stop();adminSync=null}await sb.auth.signOut()},
   async convert(symbol,amount,usd){const {error}=await sb.rpc("wallet_convert",{p_symbol:symbol,p_amount:amount,p_usd:usd});if(error)throw error;return reloadWallet()},
   async send(symbol,amount){const {error}=await sb.rpc("wallet_send",{p_symbol:symbol,p_amount:amount});if(error)throw error;return reloadWallet()},
   refreshWallet:reloadWallet

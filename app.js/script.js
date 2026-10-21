@@ -1189,3 +1189,6 @@ document.addEventListener("click",function(event){
  document.addEventListener("visibilitychange",()=>{if(document.hidden)hiddenAt=Date.now();else if(hiddenAt&&Date.now()-hiddenAt>=30000){hiddenAt=0;lockNow();const a=getAccount();if(a&&a.fingerprintEnabled&&window.PublicKeyCredential)loginWithFingerprint(true)}else hiddenAt=0});
  window.addEventListener("pageshow",e=>{if(e.persisted){lockNow();const a=getAccount();if(a&&a.fingerprintEnabled&&window.PublicKeyCredential)loginWithFingerprint(true)}});
 })();
+
+/* This device was logged out from another device (Linked devices): leave the dashboard at once. */
+window.addEventListener("veltrix-revoked",()=>{try{closeProfileScreens()}catch{}document.body.classList.remove("wd-feature-open");document.getElementById("loginPassword").value="";showPage("loginPage");showMessage(loginMessage,"This device was logged out of your account. Sign in again to continue.","error")});

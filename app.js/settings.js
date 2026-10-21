@@ -74,21 +74,22 @@
   const br=/Edg\//.test(u)?"Microsoft Edge":/OPR\//.test(u)?"Opera":/SamsungBrowser/.test(u)?"Samsung Internet":/Firefox\//.test(u)?"Firefox":/Chrome\//.test(u)?"Google Chrome":/Safari\//.test(u)?"Safari":"Browser";
   const os=/Windows/.test(u)?"Windows":/Android/.test(u)?"Android":/iPhone|iPad|iPod/.test(u)?"iOS":/Mac OS/.test(u)?"macOS":/Linux/.test(u)?"Linux":"Unknown OS";
   return{name:`${br} (${os})`,os,icon:/Android|iPhone|iPad|iPod/.test(u)?"phone":"desktop"}}
- function devices(){let d=get("veltrixDevices",null);if(!Array.isArray(d)||!d.length){const x=detect();d=[{id:"this",name:x.name,platform:x.os,icon:x.icon,last:Date.now(),current:true}]}
-  const c=d.find(z=>z.current);if(c)c.last=Date.now();set("veltrixDevices",d);return d}
+ let devList=[];
+ async function refreshDevices(){try{devList=await veltrixDB.devices.list()}catch(e){console.error("Could not load devices",e)}}
  const when=t=>{try{return new Date(t).toLocaleString(undefined,{month:"long",day:"numeric",hour:"numeric",minute:"2-digit"})}catch{return""}};
  const esc2=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
- function paintDevices(){const d=devices();$("deviceList").innerHTML=d.map(x=>`<button type="button" class="sx-dev" data-id="${esc2(x.id)}"><span class="sx-dev-ic">${ICON[x.icon]||ICON.desktop}</span><span class="sx-grow"><strong>${esc2(x.name)}${x.current?" · This device":""}</strong><small>Last active ${esc2(when(x.last))}</small></span></button>`).join("")}
- function openDevices(){paintDevices();openPage("devicesPage")}
+ function paintDevices(){const d=devList;$("deviceList").innerHTML=d.map(x=>`<button type="button" class="sx-dev" data-id="${esc2(x.id)}"><span class="sx-dev-ic">${ICON[x.icon]||ICON.desktop}</span><span class="sx-grow"><strong>${esc2(x.name)}${x.current?" · This device":""}</strong><small>Last active ${esc2(when(x.last))}</small></span></button>`).join("")}
+ async function openDevices(){paintDevices();openPage("devicesPage");await refreshDevices();paintDevices()}
  $("settingsDevices").addEventListener("click",openDevices);
  let editing=null;
  $("deviceList").addEventListener("click",e=>{const b=e.target.closest(".sx-dev");if(!b)return;editing=b.dataset.id;paintEdit();openPage("deviceEditPage")});
- function paintEdit(){const x=devices().find(z=>z.id===editing);if(!x)return;$("deviceBigIcon").innerHTML=ICON[x.icon]||ICON.desktop;$("deviceName").textContent=x.name;$("deviceLast").textContent=when(x.last);$("devicePlatform").textContent=x.name}
- $("deviceRename").addEventListener("click",async()=>{const d=devices(),x=d.find(z=>z.id===editing);if(!x)return;const v=await dialog({title:"Rename device",value:x.name,input:true,ok:"Save"});if(v){x.name=v;set("veltrixDevices",d);paintEdit();paintDevices()}});
- $("deviceLogout").addEventListener("click",async()=>{const d=devices(),x=d.find(z=>z.id===editing);if(!x)return;
-  const ok=await dialog({title:"Log out of this device?",msg:x.current?"You will be signed out of Veltrix on this device.":`${x.name} will be signed out of your account.`,ok:"Log out",danger:true});if(!ok)return;
-  if(x.current){closeAll();$("settingsLogout").click()}
-  else{set("veltrixDevices",d.filter(z=>z.id!==editing));back();paintDevices();veltrixNotify("security","Device logged out")}});
+ function paintEdit(){const x=devList.find(z=>z.id===editing);if(!x)return;$("deviceBigIcon").innerHTML=ICON[x.icon]||ICON.desktop;$("deviceName").textContent=x.name;$("deviceLast").textContent=when(x.last);$("devicePlatform").textContent=x.name}
+ $("deviceRename").addEventListener("click",async()=>{const x=devList.find(z=>z.id===editing);if(!x)return;const v=await dialog({title:"Rename device",value:x.name,input:true,ok:"Save"});if(v){try{await veltrixDB.devices.rename(x.id,v);x.name=v;paintEdit();paintDevices()}catch{toast("Couldn't rename this device. Please try again.")}}});
+ $("deviceLogout").addEventListener("click",async()=>{const x=devList.find(z=>z.id===editing);if(!x)return;
+  const ok=await dialog({title:"Log out of this device?",msg:x.current?"You will be signed out of Veltrix on this device.":`${x.name} will be signed out of your account straight away.`,ok:"Log out",danger:true});if(!ok)return;
+  if(x.current){closeAll();$("settingsLogout").click();return}
+  try{await veltrixDB.devices.revoke(x.id);devList=devList.filter(z=>z.id!==x.id);back();paintDevices();veltrixNotify("security","Device logged out")}
+  catch{toast("Couldn't log out that device. Please try again.")}});
  /* link a device: QR in the same card style as the receive-crypto QR */
  let linkTimer=null;
  function linkQrDone(){clearTimeout(linkTimer)}
@@ -107,7 +108,7 @@
  const themeRow=$("settingsTheme");
  const SUN='<svg viewBox="0 0 24 24" style="fill:none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',MOON='<svg viewBox="0 0 24 24" style="fill:none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
  function paintTheme(){const dark=document.documentElement.getAttribute("data-theme")==="dark";$("themeSwitch").classList.toggle("on",dark);themeRow.setAttribute("aria-checked",String(dark));$("themeState").textContent=dark?"Night mode is on":"Day mode is on";$("themeIcon").innerHTML=dark?MOON:SUN;
-  let m=document.querySelector('meta[name="theme-color"]');if(!m){m=document.createElement("meta");m.name="theme-color";document.head.appendChild(m)}m.content=dark?"#000000":"#ffffff"}
+  if(window.veltrixSyncChrome)veltrixSyncChrome()}
  themeRow.addEventListener("click",()=>{const dark=document.documentElement.getAttribute("data-theme")!=="dark";
   if(dark)document.documentElement.setAttribute("data-theme","dark");else document.documentElement.removeAttribute("data-theme");
   veltrixDB.pref.set("theme",dark?"dark":"light");paintTheme()});

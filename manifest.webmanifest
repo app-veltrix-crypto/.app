@@ -1,0 +1,11 @@
+{
+  "name": "Veltrix",
+  "short_name": "Veltrix",
+  "start_url": "app.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "app.assets/splash-logo.png", "sizes": "640x640", "type": "image/png", "purpose": "any" }
+  ]
+}
