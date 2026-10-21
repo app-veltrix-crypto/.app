@@ -363,7 +363,7 @@
       <div class="wd-deposit-qr-wrap"><div id="linkQrImage" role="img" aria-label="QR code to link a device"></div><span>SCAN TO LINK DEVICE</span></div>
       <label class="wd-deposit-address-label">Link code</label>
       <div class="wd-deposit-address-row"><code id="linkCode" translate="no"></code><button type="button" id="copyLinkCode" aria-label="Copy link code">Copy</button></div>
-      <p class="wd-deposit-warning">Never share this code with anyone. It expires when you leave this page.</p>
+      <p class="wd-deposit-warning">Never share this code with anyone. It works once and a new one is made every 2 minutes.</p>
     </div>
   </div>
 </section>
@@ -532,11 +532,12 @@
 </section>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="app.js/supabase-config.js?v=5"></script>
-<script src="app.js/db.js?v=5"></script>
-<script src="app.js/qr.js?v=5"></script>
-<script src="app.js/script.js?v=5"></script>
+<script src="app.js/db.js?v=6"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
+<script src="app.js/qr.js?v=6"></script>
+<script src="app.js/script.js?v=6"></script>
 <script src="app.js/messaging.js?v=5"></script>
-<script src="app.js/settings.js?v=5"></script>
+<script src="app.js/settings.js?v=6"></script>
 <script src="app.js/i18n.js?v=5"></script>
 <script src="app.js/chrome.js?v=5"></script>
 </body>

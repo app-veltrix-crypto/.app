@@ -485,7 +485,20 @@ const depositCoinPicker=document.getElementById("depositCoinPicker");
 const depositCoinDetails=document.getElementById("depositCoinDetails");
 const depositCoinList=document.getElementById("depositCoinList");
 let activeDepositCoin=null,depositAddrs={};
-async function loadDepositAddrs(){try{const r=await veltrixDB.deposits.list();depositAddrs=Object.fromEntries(r.map(x=>[String(x.symbol).toUpperCase(),x]))}catch(_){}}
+let depositAddrsState="loading";/* loading | ready | error */
+let depositLive={};/* live prices for the deposit coins only, keyed by symbol */
+async function loadDepositAddrs(){
+ try{const r=await veltrixDB.deposits.list();depositAddrs=Object.fromEntries(r.map(x=>[String(x.symbol).toUpperCase(),x]));depositAddrsState="ready"}
+ catch(_){if(depositAddrsState!=="ready")depositAddrsState="error"}
+ if(!depositPage.hidden&&!depositCoinPicker.hidden){const s=document.getElementById("depositCoinSearch");renderDepositCoins(s?s.value:"")}
+}
+/* The deposit list = exactly the coins that have an admin-generated address (nothing else is ever shown). */
+function depositCoinsList(){
+ return Object.keys(depositAddrs).map(sym=>{
+  const base=cryptoFallback.find(c=>c.symbol===sym)||{id:sym.toLowerCase(),symbol:sym,name:sym,color:"#34343a"};
+  return {...base,...(depositLive[sym]||{}),id:base.id,color:base.color||"#34343a",name:base.name}
+ }).sort((a,b)=>cryptoFallback.findIndex(c=>c.symbol===a.symbol)-cryptoFallback.findIndex(c=>c.symbol===b.symbol));
+}
 function openDepositPage(){
  // Close other full-screen sections first, then explicitly reveal the deposit screen.
  closeCryptoSearch();
@@ -496,13 +509,14 @@ function openDepositPage(){
  depositCoinPicker.hidden=false;depositCoinDetails.hidden=true;
  document.body.classList.add("wd-feature-open");
  const search=document.getElementById("depositCoinSearch");if(search)search.value="";
+ depositAddrsState=Object.keys(depositAddrs).length?"ready":"loading";
  renderDepositCoins();
  loadDepositAddrs();
  refreshDepositMarkets();
 }
 function depositCompact(n){return n==null||!Number.isFinite(Number(n))?null:"$"+new Intl.NumberFormat("en-US",{notation:"compact",maximumFractionDigits:2}).format(Number(n))}
 function renderDepositCoins(query=""){
- const all=(cryptoMarkets&&cryptoMarkets.length?cryptoMarkets:cryptoFallback).slice(0,20);
+ const all=depositCoinsList();
  const q=query.trim().toLowerCase();
  const coins=all.filter(c=>!q||String(c.name||"").toLowerCase().includes(q)||String(c.symbol||"").toLowerCase().includes(q));
  depositCoinList.innerHTML=coins.map(c=>{
@@ -510,7 +524,7 @@ function renderDepositCoins(query=""){
   const change=hasChange?`${up?"+":""}${Number(c.change).toFixed(2)}%`:"—";
   const vol=depositCompact(c.volume),cap=depositCompact(c.cap);
   const details=[String(c.symbol||"").toUpperCase(),c.rank?`Rank #${c.rank}`:null,cap?`MCap ${cap}`:null,!cap&&vol?`Vol ${vol}`:null].filter(Boolean).join(" · ");
-  return `<button type="button" class="wd-market-row wd-deposit-market-row" role="listitem" data-deposit-id="${esc(c.id)}"><span class="wd-market-coin" style="--coin-color:${esc(c.color||"#333")}">${coinLogoHTML(c)}</span><span class="wd-market-name"><b>${esc(c.name)}</b><small>${esc(details)}</small></span><span class="wd-market-values"><b>${formatMarketPrice(c.price)}</b><small class="${!hasChange?"neutral":up?"up positive":"down negative"}">${change}</small></span></button>`}).join("")||`<div class="wd-deposit-empty">No matching tokens found.</div>`;
+  return `<button type="button" class="wd-market-row wd-deposit-market-row" role="listitem" data-deposit-id="${esc(c.id)}"><span class="wd-market-coin" style="--coin-color:${esc(c.color||"#333")}">${coinLogoHTML(c)}</span><span class="wd-market-name"><b>${esc(c.name)}</b><small>${esc(details)}</small></span><span class="wd-market-values"><b>${formatMarketPrice(c.price)}</b><small class="${!hasChange?"neutral":up?"up positive":"down negative"}">${change}</small></span></button>`}).join("")||`<div class="wd-deposit-empty">${depositAddrsState==="loading"?"Loading deposit options…":depositAddrsState==="error"?"Couldn't load deposit options. Please try again.":q?"No matching tokens found.":"No deposit options are available yet."}</div>`;
  const count=document.getElementById("depositResultCount");if(count)count.textContent=String(coins.length);
 }
 // Live prices for the deposit list: fetched when the screen opens, then refreshed every 30s while it is visible.
@@ -518,12 +532,12 @@ let depositMarketsBusy=false;
 async function refreshDepositMarkets(){
  if(depositMarketsBusy)return;depositMarketsBusy=true;
  try{
-  const response=await fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=20&page=1&sparkline=false",{headers:{accept:"application/json"}});
+  const ids=[...new Set([...cryptoFallback.map(c=>c.id)])].join(",");
+  const response=await fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids="+encodeURIComponent(ids)+"&order=market_cap_desc&per_page=50&page=1&sparkline=false",{headers:{accept:"application/json"}});
   if(!response.ok)throw new Error("Market request failed");
   const data=await response.json();
-  const colors=Object.fromEntries(cryptoFallback.map(c=>[c.symbol,c.color]));
   if(Array.isArray(data)&&data.length){
-   cryptoMarkets=data.slice(0,20).map(c=>({id:c.id,symbol:String(c.symbol||"").toUpperCase(),name:c.name,price:c.current_price,change:c.price_change_percentage_24h,image:c.image,rank:c.market_cap_rank,cap:c.market_cap,volume:c.total_volume,color:colors[String(c.symbol||"").toUpperCase()]||"#34343a"}));
+   depositLive={};data.forEach(c=>{depositLive[String(c.symbol||"").toUpperCase()]={price:c.current_price,change:c.price_change_percentage_24h,image:c.image,rank:c.market_cap_rank,cap:c.market_cap,volume:c.total_volume}});
    if(!depositPage.hidden&&!depositCoinPicker.hidden){const s=document.getElementById("depositCoinSearch");renderDepositCoins(s?s.value:"")}
   }
  }catch(_){}finally{depositMarketsBusy=false}
@@ -538,7 +552,7 @@ if(depositPasteButton)depositPasteButton.addEventListener("click",async()=>{try{
 document.querySelectorAll("[data-deposit-tab]").forEach(tab=>tab.addEventListener("click",()=>{document.querySelectorAll("[data-deposit-tab]").forEach(t=>{const active=t===tab;t.classList.toggle("active",active);t.setAttribute("aria-selected",String(active))});if(tab.dataset.depositTab==="dapps"){wdToast("dApps are not available in the receive list yet");document.querySelector('[data-deposit-tab="tokens"]').click()}}));
 depositCoinList.addEventListener("click",e=>{
  const row=e.target.closest("[data-deposit-id]");if(!row)return;
- const all=(cryptoMarkets&&cryptoMarkets.length?cryptoMarkets:cryptoFallback);
+ const all=depositCoinsList();
  activeDepositCoin=all.find(c=>c.id===row.dataset.depositId)||all.find(c=>c.symbol===row.dataset.depositId);
  if(!activeDepositCoin)return;
  const symbol=String(activeDepositCoin.symbol||"COIN").toUpperCase();
@@ -566,6 +580,7 @@ const notificationPage=document.getElementById("notificationPage");
 const qrScannerPage=document.getElementById("qrScannerPage");
 let qrCameraStream=null,qrScanTimer=null,qrDetector=null,qrTorchTrack=null,qrTorchOn=false,qrLightTimer=null,qrBrightnessCanvas=null,qrBrightnessContext=null;
 function closeFeaturePages(){
+  qrScanning=false;
   notificationPage.hidden=true;qrScannerPage.hidden=true;depositPage.hidden=true;
   if(qrCameraStream){qrCameraStream.getTracks().forEach(track=>track.stop());qrCameraStream=null}
   if(qrLightTimer){clearInterval(qrLightTimer);qrLightTimer=null}
@@ -591,6 +606,52 @@ document.querySelectorAll("[data-notification-range]").forEach(option=>option.ad
 document.getElementById("notificationFilterApply").addEventListener("click",()=>{closeNotificationFilter();/* No notification data is loaded or fabricated yet. */});
 
 
+let qrScanning=false;
+/* Decode a QR from an image file: native BarcodeDetector first, then jsQR (works on iPhone Safari / Firefox too). */
+async function decodeQrFromFile(file){
+  let bitmap;
+  try{bitmap=await createImageBitmap(file)}catch(_){
+    bitmap=await new Promise((res,rej)=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>{res(i)};i.onerror=rej;i.src=u})}
+  const w0=bitmap.width||bitmap.naturalWidth,h0=bitmap.height||bitmap.naturalHeight;
+  if("BarcodeDetector" in window){try{const d=new BarcodeDetector({formats:["qr_code"]});const f=await d.detect(bitmap);if(f.length&&f[0].rawValue)return f[0].rawValue}catch(_){}}
+  if(!window.jsQR)throw new Error("decoder unavailable");
+  for(const max of [1400,800,400]){
+    const k=Math.min(1,max/Math.max(w0,h0)),w=Math.max(1,Math.round(w0*k)),h=Math.max(1,Math.round(h0*k));
+    const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d",{willReadFrequently:true});
+    x.fillStyle="#fff";x.fillRect(0,0,w,h);x.drawImage(bitmap,0,0,w,h);
+    const r=window.jsQR(x.getImageData(0,0,w,h).data,w,h,{inversionAttempts:"attemptBoth"});if(r&&r.data)return r.data;
+  }
+  return "";
+}
+/* One entry point for BOTH scan sources (camera and image):
+   1) account-link QR  -> confirm, then sign this device into that account
+   2) crypto address QR -> Send screen (amount first), address pre-filled on the next step */
+function parseLinkQr(raw){const m=/^veltrix:\/\/link\?(.+)$/i.exec(String(raw||"").trim());if(!m)return null;const p=new URLSearchParams(m[1]);const e=(p.get("e")||"").trim().toLowerCase(),c=(p.get("c")||"").trim().toUpperCase();return e&&c?{email:e,code:c}:null}
+async function handleQrResult(raw){
+  const status=document.getElementById("qrScannerStatus");
+  const link=parseLinkQr(raw);
+  if(link){
+    status.textContent="Account link code detected.";
+    if(veltrixDB.isLinked&&veltrixDB.isLinked()){status.textContent="This device is already signed in through a link. Sign out first to link another account.";return}
+    const ok=window.veltrixDialog?await veltrixDialog({title:"Sign in with this QR code?",msg:"You will be signed out of your own account on this device and signed in to the account that shows this QR code. Only do this for an account you trust.",ok:"Continue",cancel:"Cancel"}):confirm("Sign out of your account and sign in to the account in this QR code?");
+    if(!ok){status.textContent="Link cancelled. Point the camera at a QR code.";if(qrCameraStream&&!qrScannerPage.hidden)setTimeout(rescan,1500);return}
+    status.textContent="Signing in…";
+    try{await veltrixDB.link.login(link.email,link.code);closeFeaturePages();showDashboard();wdToast("Signed in on this device")}
+    catch(e){status.textContent=(e&&e.message)||"This QR code is invalid or has expired. Ask for a new one.";if(qrCameraStream&&!qrScannerPage.hidden)setTimeout(rescan,2000)}
+    return;
+  }
+  const coin=window.veltrixDetectCrypto&&veltrixDetectCrypto(raw);
+  if(coin){
+    status.textContent=`${coin.symbol} address detected.`;
+    closeFeaturePages();
+    openSendSheet({symbol:coin.symbol,address:coin.address});
+    if(coin.evm)wdToast("EVM address detected. ETH is selected, change the token if needed.");
+    return;
+  }
+  status.textContent="This QR code is not a supported wallet address or account link.";
+  if(qrCameraStream&&!qrScannerPage.hidden)setTimeout(rescan,1800);
+}
+let rescan=()=>{};
 document.getElementById("scanButton").addEventListener("click",async()=>{
   closeFeaturePages();qrScannerPage.hidden=false;document.body.classList.add("wd-feature-open");
   const status=document.getElementById("qrScannerStatus"),video=document.getElementById("qrCameraVideo");
@@ -619,12 +680,35 @@ document.getElementById("scanButton").addEventListener("click",async()=>{
         }catch(_){/* Unsupported or denied torch changes are silently ignored. */}finally{checking=false}
       },900);
     }
-    if("BarcodeDetector" in window){try{qrDetector=new BarcodeDetector({formats:["qr_code"]});const scanFrame=async()=>{if(qrScannerPage.hidden||!qrCameraStream)return;try{const found=await qrDetector.detect(video);if(found.length){status.textContent="QR code detected.";status.setAttribute("data-result",found[0].rawValue||"");return}}catch(_){}qrScanTimer=setTimeout(scanFrame,450)};scanFrame()}catch(_){status.textContent="Camera ready. Align the QR code inside the frame."}}
-    else status.textContent="Camera ready. QR auto-detection is not supported in this browser yet.";
+    qrScanning=true;qrDetector=null;
+    if("BarcodeDetector" in window){try{qrDetector=new BarcodeDetector({formats:["qr_code"]})}catch(_){qrDetector=null}}
+    const frameCanvas=document.createElement("canvas"),frameCtx=frameCanvas.getContext("2d",{willReadFrequently:true});
+    const scanFrame=async()=>{
+      if(qrScannerPage.hidden||!qrCameraStream||!qrScanning)return;
+      try{
+        let raw="";
+        if(qrDetector&&video.readyState>=2){const found=await qrDetector.detect(video);if(found.length)raw=found[0].rawValue||""}
+        if(!raw&&window.jsQR&&video.readyState>=2&&video.videoWidth){
+          const k=Math.min(1,720/video.videoWidth);frameCanvas.width=Math.round(video.videoWidth*k);frameCanvas.height=Math.round(video.videoHeight*k);
+          frameCtx.drawImage(video,0,0,frameCanvas.width,frameCanvas.height);
+          const img=frameCtx.getImageData(0,0,frameCanvas.width,frameCanvas.height);const r=window.jsQR(img.data,img.width,img.height,{inversionAttempts:"attemptBoth"});if(r)raw=r.data||"";
+        }
+        if(raw){qrScanning=false;handleQrResult(raw);return}
+      }catch(_){}
+      qrScanTimer=setTimeout(scanFrame,qrDetector?300:200);
+    };
+    rescan=()=>{if(qrScannerPage.hidden||!qrCameraStream)return;qrScanning=true;scanFrame()};
+    if(!qrDetector&&!window.jsQR)status.textContent="Camera ready. QR auto-detection could not load. Check your connection or choose a QR image instead.";
+    scanFrame();
   }catch(error){qrScannerPage.classList.remove("wd-loading");status.textContent=error?.name==="NotAllowedError"?"Camera permission was denied. Allow camera access or choose a QR image instead.":"Unable to start the camera. Use HTTPS and check camera permissions, or choose a QR image instead."}
 });
 document.getElementById("qrUploadButton").addEventListener("click",()=>document.getElementById("qrImageInput").click());
-document.getElementById("qrImageInput").addEventListener("change",async event=>{const file=event.target.files?.[0];if(!file)return;const status=document.getElementById("qrScannerStatus");if(!("BarcodeDetector" in window)){status.textContent="QR image scanning is not supported by this browser. Try the live camera on a supported browser.";return}try{const detector=new BarcodeDetector({formats:["qr_code"]});const bitmap=await createImageBitmap(file);const codes=await detector.detect(bitmap);bitmap.close?.();status.textContent=codes.length?"QR code detected in image.":"No QR code found in that image.";if(codes.length)status.setAttribute("data-result",codes[0].rawValue||"")}catch(_){status.textContent="Could not read that image. Please try another QR image."}event.target.value=""});
+document.getElementById("qrImageInput").addEventListener("change",async event=>{
+  const file=event.target.files?.[0];event.target.value="";if(!file)return;
+  const status=document.getElementById("qrScannerStatus");status.textContent="Reading QR image…";
+  try{const raw=await decodeQrFromFile(file);if(raw)handleQrResult(raw);else status.textContent="No QR code found in that image. Try a clearer or cropped image."}
+  catch(_){status.textContent="Could not read that image. Please try another QR image."}
+});
 // Prevent page zoom gestures where the browser allows page-level control.
 (function disablePageZoom(){
  const viewport=document.querySelector('meta[name="viewport"]');if(viewport)viewport.setAttribute("content","width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover");
@@ -647,7 +731,7 @@ document.getElementById("settingsBack").addEventListener("click",closeProfileScr
 document.getElementById("settingsAvatarButton").addEventListener("click",openProfileDetails);
 document.getElementById("editProfileShortcut").addEventListener("click",openProfileDetails);
 document.getElementById("profileDetailsBack").addEventListener("click",()=>{detailsPage.hidden=true;settingsPage.hidden=false;updateProfileScreens()});
-async function doLogout(){closeProfileScreens();const a=getAccount();if(a&&a.fingerprintEnabled&&window.PublicKeyCredential){lockToLogin(a);return}await veltrixDB.signOut();showPage("loginPage");if(a)document.getElementById("loginEmail").value=a.email||""}
+async function doLogout(){closeProfileScreens();const a=getAccount();if(a&&a.fingerprintEnabled&&window.PublicKeyCredential&&!(veltrixDB.isLinked&&veltrixDB.isLinked())){lockToLogin(a);return}await veltrixDB.signOut();showPage("loginPage");if(a)document.getElementById("loginEmail").value=a.email||""}
 document.getElementById("settingsLogout").addEventListener("click",doLogout);
 document.addEventListener("click",()=>{accountMenu.classList.add("hidden");avatarBtn.setAttribute("aria-expanded","false")});
 const editDialog=document.getElementById("profileEditDialog"),editInput=document.getElementById("profileEditInput"),editLabel=document.getElementById("profileEditLabel");let activeProfileField="name";
@@ -1031,10 +1115,20 @@ document.addEventListener("click",function(event){
   {symbol:"XRP",name:"XRP",price:0.55,amount:800,net:"XRP Ledger",re:new RegExp("^r"+B58+"{24,34}$"),ex:"r…"},
   {symbol:"DOGE",name:"Dogecoin",price:0.15,amount:5000,net:"Dogecoin",re:new RegExp("^[DA9]"+B58+"{33}$"),ex:"D…"},
   {symbol:"TRX",name:"TRON",price:0.12,amount:3000,net:"TRON (TRC-20)",re:new RegExp("^T"+B58+"{33}$"),ex:"T…"},
-  {symbol:"TON",name:"Toncoin",price:6,amount:100,net:"TON",re:/^(EQ|UQ)[A-Za-z0-9_-]{46}$/,ex:"EQ… or UQ…"}
+  {symbol:"TON",name:"Toncoin",price:6,amount:100,net:"TON",re:/^(EQ|UQ)[A-Za-z0-9_-]{46}$/,ex:"EQ… or UQ…"},
+  {symbol:"ADA",name:"Cardano",price:0.45,amount:1000,net:"Cardano",re:/^addr1[a-z0-9]{50,110}$/,ex:"addr1…"},
+  {symbol:"AVAX",name:"Avalanche",price:30,amount:50,net:"Avalanche C-Chain",re:/^0x[a-fA-F0-9]{40}$/,ex:"0x…"},
+  {symbol:"SHIB",name:"Shiba Inu",price:0.00002,amount:10000000,net:"Ethereum (ERC-20)",re:/^0x[a-fA-F0-9]{40}$/,ex:"0x…"},
+  {symbol:"LINK",name:"Chainlink",price:15,amount:100,net:"Ethereum (ERC-20)",re:/^0x[a-fA-F0-9]{40}$/,ex:"0x…"},
+  {symbol:"XLM",name:"Stellar",price:0.11,amount:3000,net:"Stellar",re:/^G[A-Z2-7]{55}$/,ex:"G…"},
+  {symbol:"BCH",name:"Bitcoin Cash",price:400,amount:2,net:"Bitcoin Cash",re:/^(bitcoincash:)?[qp][a-z0-9]{41}$/i,ex:"bitcoincash:q… or q…"},
+  {symbol:"SUI",name:"Sui",price:1.5,amount:200,net:"Sui",re:/^0x[a-fA-F0-9]{64}$/,ex:"0x… (64 hex characters)"},
+  {symbol:"HBAR",name:"Hedera",price:0.07,amount:5000,net:"Hedera (EVM address)",re:/^0x[a-fA-F0-9]{40}$/,ex:"0x…"},
+  {symbol:"LTC",name:"Litecoin",price:70,amount:10,net:"Litecoin",re:new RegExp("^(ltc1[a-z0-9]{25,62}|[LM]"+B58+"{26,33})$"),ex:"ltc1… or L… / M…"},
+  {symbol:"DOT",name:"Polkadot",price:6,amount:150,net:"Polkadot",re:new RegExp("^1"+B58+"{46,47}$"),ex:"1…"}
  ];
  const sheet=$("sdSheet"),views=["sdAmountView","sdPickView","sdAddrView","sdAuthView","sdSetupView","sdDoneView"];
- let sel="BTC",val="",coins=[],list=COINS,confettiRaf=0;
+ let sel="BTC",val="",coins=[],list=COINS,confettiRaf=0,scanAddr="";
  const num=v=>{const n=parseFloat(v);return isFinite(n)&&n>0?n:0};
  const cur=()=>coins.find(c=>c.symbol===sel)||coins[0];
  const trim=v=>(+v).toFixed(8).replace(/\.?0+$/,"")||"0";
@@ -1059,13 +1153,31 @@ document.addEventListener("click",function(event){
   $("sdAmtErr").hidden=!over;$("sdAmtErr").textContent="Insufficient balance";
   $("sdContinue").disabled=!(n>0&&!over);
  }
- function open(){
-  build();val="";chip();render();show("sdAmountView");
+ function open(opts){
+  build();val="";scanAddr="";
+  if(opts&&opts.symbol&&coins.some(c=>c.symbol===opts.symbol))sel=opts.symbol;
+  if(opts&&opts.address)scanAddr=String(opts.address).trim();
+  chip();render();show("sdAmountView");
   sheet.setAttribute("aria-hidden","false");requestAnimationFrame(()=>requestAnimationFrame(()=>sheet.classList.add("open")));
   document.body.style.overflow="hidden";
  }
- function close(){cancelAnimationFrame(confettiRaf);resetPin();sheet.classList.remove("open");sheet.setAttribute("aria-hidden","true");document.body.style.overflow=""}
+ function close(){scanAddr="";cancelAnimationFrame(confettiRaf);resetPin();sheet.classList.remove("open");sheet.setAttribute("aria-hidden","true");document.body.style.overflow=""}
  window.openSendSheet=open;
+ /* Recognise a scanned crypto QR (plain address or a payment URI such as bitcoin:addr?amount=…) -> {symbol,address,evm} or null */
+ const SCHEMES={bitcoin:"BTC",ethereum:"ETH",litecoin:"LTC",dogecoin:"DOGE",tron:"TRX",solana:"SOL",ripple:"XRP",xrp:"XRP",stellar:"XLM",bitcoincash:"BCH",cardano:"ADA",ton:"TON",polkadot:"DOT",sui:"SUI",hedera:"HBAR",bnb:"BNB",avalanche:"AVAX",chainlink:"LINK"};
+ const ORDER=["BTC","LTC","BCH","ADA","XLM","SUI","TON","TRX","XRP","DOGE","DOT","ETH","SOL"];
+ window.veltrixDetectCrypto=function(raw){
+  let t=String(raw||"").trim();if(!t||t.length>300)return null;
+  let hint=null;
+  const m=/^([a-z][a-z0-9+.-]*):(.*)$/i.exec(t);
+  if(m&&SCHEMES[m[1].toLowerCase()]){hint=SCHEMES[m[1].toLowerCase()];t=m[1].toLowerCase()==="bitcoincash"?t:m[2]}
+  t=t.replace(/^\/\//,"").split(/[?#@\/]/)[0].trim();
+  if(!t)return null;
+  const byRe=sym=>{const c=COINS.find(z=>z.symbol===sym);return c&&c.re.test(t)};
+  if(hint&&byRe(hint))return{symbol:hint,address:t};
+  for(const sym of ORDER)if(byRe(sym))return{symbol:sym,address:t,evm:sym==="ETH"};
+  return null;
+ };
  $("sdClose").addEventListener("click",close);
  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&sheet.classList.contains("open"))close()});
  // keypad
@@ -1092,7 +1204,7 @@ document.addEventListener("click",function(event){
   const c=cur(),n=num(val);if(!(n>0&&n<=c.amount+1e-12))return;
   $("sdSumAmt").textContent=`${val} ${c.symbol}`;$("sdSumUsd").textContent=`≈ ${usd(n*c.price)} · ${c.name} · ${c.net}`;
   $("sdAddrLabel").textContent=`${c.name} (${c.symbol}) wallet address`;
-  $("sdAddr").value="";$("sdAddr").placeholder=`Enter ${c.symbol} address (${c.ex})`;checkAddr();show("sdAddrView");
+  $("sdAddr").value=scanAddr;$("sdAddr").placeholder=`Enter ${c.symbol} address (${c.ex})`;checkAddr();show("sdAddrView");
  });
  $("sdAddrBack").addEventListener("click",()=>show("sdAmountView"));
  function checkAddr(){

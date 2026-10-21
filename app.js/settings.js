@@ -29,6 +29,7 @@
   d.addEventListener("click",e=>{if(e.target===d)done(null)});
   document.body.appendChild(d);if(inp)setTimeout(()=>{inp.focus();inp.select()},40);
  })}
+ window.veltrixDialog=dialog;
  /* ---- two-step verification ---- */
  const sw=$("twoStepSwitch");let pinMode="create";
  const tfa=()=>get("veltrixTwoStep",{on:false});
@@ -78,8 +79,10 @@
  async function refreshDevices(){devErr="";try{await veltrixDB.devices.register();devList=await veltrixDB.devices.list()}catch(e){devErr=(e&&e.message)||"unknown error";console.error("Could not load devices",e)}}
  const when=t=>{try{return new Date(t).toLocaleString(undefined,{month:"long",day:"numeric",hour:"numeric",minute:"2-digit"})}catch{return""}};
  const esc2=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
- function paintDevices(){const d=devList;if(devErr){$("deviceList").innerHTML=`<p style="padding:16px;line-height:1.5">Couldn't load your devices (${esc2(devErr)}). Make sure schema_phase3_devices.sql has been run in Supabase.</p>`;return}$("deviceList").innerHTML=d.map(x=>`<button type="button" class="sx-dev" data-id="${esc2(x.id)}"><span class="sx-dev-ic">${ICON[x.icon]||ICON.desktop}</span><span class="sx-grow"><strong>${esc2(x.name)}${x.current?" · This device":""}</strong><small>Last active ${esc2(when(x.last))}</small></span></button>`).join("")}
- async function openDevices(){paintDevices();openPage("devicesPage");await refreshDevices();paintDevices()}
+ function paintDevices(){const d=devList;if(devErr){$("deviceList").innerHTML=`<p style="padding:16px;line-height:1.5">Couldn't load your devices (${esc2(devErr)}). Make sure schema_phase3_devices.sql has been run in Supabase.</p>`;return}$("deviceList").innerHTML=d.map(x=>`<button type="button" class="sx-dev" data-id="${esc2(x.id)}"><span class="sx-dev-ic">${ICON[x.icon]||ICON.desktop}</span><span class="sx-grow"><strong>${esc2(x.name)}${x.current?" · This device":""}${x.linked?" · Linked":""}</strong><small>${x.linked&&x.expires?"Linked session ends "+esc2(when(x.expires)):"Last active "+esc2(when(x.last))}</small></span></button>`).join("")}
+ let devPoll=null;
+ async function openDevices(){paintDevices();openPage("devicesPage");await refreshDevices();paintDevices();
+  clearInterval(devPoll);devPoll=setInterval(async()=>{if($("devicesPage").hidden){clearInterval(devPoll);return}await refreshDevices();paintDevices()},20000)}
  $("settingsDevices").addEventListener("click",openDevices);
  let editing=null;
  $("deviceList").addEventListener("click",e=>{const b=e.target.closest(".sx-dev");if(!b)return;editing=b.dataset.id;paintEdit();openPage("deviceEditPage")});
@@ -90,15 +93,33 @@
   if(x.current){closeAll();$("settingsLogout").click();return}
   try{await veltrixDB.devices.revoke(x.id);devList=devList.filter(z=>z.id!==x.id);back();paintDevices();veltrixNotify("security","Device logged out")}
   catch{toast("Couldn't log out that device. Please try again.")}});
- /* link a device: QR in the same card style as the receive-crypto QR */
- let linkTimer=null;
- function linkQrDone(){clearTimeout(linkTimer)}
+ /* link a device: QR in the same card style as the receive-crypto QR.
+    The QR carries this account's email + a one-time code (valid 2 minutes, replaced automatically). */
+ let linkTimer=null,linkTick=null,linkGen=0;
+ function linkQrDone(){clearTimeout(linkTimer);clearInterval(linkTick);linkGen++}
+ async function showLinkQr(){
+  const gen=++linkGen,t=$("linkQrImage");clearTimeout(linkTimer);clearInterval(linkTick);
+  $("linkCode").textContent="…";
+  try{
+   const {email,code}=await veltrixDB.link.create();
+   if(gen!==linkGen)return;
+   $("linkCode").textContent=code.replace(/(.{4})(?=.)/g,"$1-");$("linkCode").dataset.raw=code;
+   t.replaceChildren();VeltrixQR.render(t,"veltrix://link?e="+encodeURIComponent(email)+"&c="+code,{size:240});
+   const end=Date.now()+2*60*1000;
+   const tick=()=>{const left=Math.max(0,Math.round((end-Date.now())/1000));const el=$("linkExpiry");if(el)el.textContent="New code in "+Math.floor(left/60)+":"+String(left%60).padStart(2,"0")};
+   tick();linkTick=setInterval(tick,1000);
+   linkTimer=setTimeout(()=>{if(!$("linkQrPage").hidden)showLinkQr()},end-Date.now());
+  }catch(e){
+   if(gen!==linkGen)return;t.textContent="Couldn't create a link code. Make sure schema_phase5_link_login.sql has been run in Supabase.";console.error("link code",e);
+  }
+ }
  $("linkDeviceBtn").addEventListener("click",()=>{
-  const code="VLX-"+[...crypto.getRandomValues(new Uint8Array(8))].map(b=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b%32]).join("");
-  $("linkCode").textContent=code;const t=$("linkQrImage");t.replaceChildren();openPage("linkQrPage");
-  try{VeltrixQR.render(t,"veltrix://link?code="+code,{size:240})}catch(e){t.textContent="QR unavailable. Use the link code below."}
+  if(veltrixDB.isLinked&&veltrixDB.isLinked()){toast("A device signed in by QR can't link other devices");return}
+  const t=$("linkQrImage");t.replaceChildren();
+  if(!$("linkExpiry")){const p=document.createElement("p");p.id="linkExpiry";p.style.cssText="margin:8px 0 0;font-size:12px;color:#7b7d85;text-align:center";$("linkCode").parentElement.insertAdjacentElement("afterend",p)}
+  openPage("linkQrPage");showLinkQr();
  });
- $("copyLinkCode").addEventListener("click",async()=>{try{await navigator.clipboard.writeText($("linkCode").textContent);toast("Link code copied")}catch{toast("Copy not supported")}});
+ $("copyLinkCode").addEventListener("click",async()=>{try{await navigator.clipboard.writeText($("linkCode").dataset.raw||$("linkCode").textContent);toast("Link code copied")}catch{toast("Copy not supported")}});
  /* ---- notifications ---- */
  function paintNotif(){const p=prefs();$("notifList").innerHTML=TOPICS.map(t=>`<div class="sx-card"><span class="sx-grow"><strong>${t[1]}</strong><small>${t[2]}</small></span><label class="sx-switch"><input type="checkbox" data-t="${t[0]}" aria-label="${t[1]}"${p[t[0]]?" checked":""}><i></i></label></div>`).join("")}
  $("settingsNotifications").addEventListener("click",()=>{paintNotif();openPage("notifPage")});

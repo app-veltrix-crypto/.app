@@ -6,8 +6,17 @@
 "use strict";
 const cfg=window.VELTRIX_SUPABASE||{};
 const memStore=(()=>{const m=new Map();return{getItem:k=>m.has(k)?m.get(k):null,setItem:(k,v)=>{m.set(k,v)},removeItem:k=>{m.delete(k)}}})();
+/* Linked sessions (signed in by scanning another account's QR) must leave NOTHING behind: while linkedMode is on, the
+   sign-in token lives in memory only, so closing or refreshing the page signs that device out. */
+let linkedMode=false;
+const authStore={
+  getItem:k=>linkedMode?memStore.getItem(k):localStorage.getItem(k),
+  setItem:(k,v)=>{if(linkedMode)memStore.setItem(k,v);else localStorage.setItem(k,v)},
+  removeItem:k=>{memStore.removeItem(k);try{localStorage.removeItem(k)}catch{}}
+};
 const sb=window.supabase.createClient(cfg.url,cfg.anonKey,{auth:{persistSession:cfg.keepSignedIn!==false,autoRefreshToken:true,
-  storage:cfg.keepSignedIn===false?memStore:undefined}});
+  storage:cfg.keepSignedIn===false?memStore:authStore}});
+let linkExpiryTimer=null,linkSuppress=false;
 const fire=n=>window.dispatchEvent(new Event(n));
 
 /* ================= account / wallet ================= */
@@ -164,12 +173,12 @@ const pin={
 
 /* ================= linked devices (one row per signed-in session; revoking kills that session) ================= */
 let mySession=null,devChan=null,devTimer=null;
-sb.auth.onAuthStateChange((ev,s)=>{mySession=s;if(ev==="SIGNED_OUT"&&cache){cache=null;prefs={};chat.stop();stopDeviceWatch();fire("veltrix-revoked")}});
+sb.auth.onAuthStateChange((ev,s)=>{mySession=s;if(ev==="SIGNED_OUT"&&cache&&!linkSuppress){cache=null;prefs={};chat.stop();stopDeviceWatch();fire("veltrix-revoked")}});
 function curSid(){try{const t=mySession&&mySession.access_token;if(!t)return null;return JSON.parse(atob(t.split(".")[1].replace(/-/g,"+").replace(/_/g,"/"))).session_id||null}catch{return null}}
 /* A random id that identifies THIS browser/phone, so signing in again updates its row instead of adding a new one.
    (The only thing kept in the browser besides the sign-in token; it contains no user data.) */
 let memKey=null;
-function deviceKey(){try{let k=localStorage.getItem("veltrixDeviceKey");if(!k){k=crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);localStorage.setItem("veltrixDeviceKey",k)}return k}catch{return memKey||(memKey=Math.random().toString(36).slice(2)+Date.now().toString(36))}}
+function deviceKey(){if(linkedMode)return memKey||(memKey=Math.random().toString(36).slice(2)+Date.now().toString(36)+Math.random().toString(36).slice(2));try{let k=localStorage.getItem("veltrixDeviceKey");if(!k){k=crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);localStorage.setItem("veltrixDeviceKey",k)}return k}catch{return memKey||(memKey=Math.random().toString(36).slice(2)+Date.now().toString(36))}}
 function detectDevice(){const u=navigator.userAgent;
   const br=/Edg\//.test(u)?"Microsoft Edge":/OPR\//.test(u)?"Opera":/SamsungBrowser/.test(u)?"Samsung Internet":/Firefox\//.test(u)?"Firefox":/Chrome\//.test(u)?"Google Chrome":/Safari\//.test(u)?"Safari":"Browser";
   const os=/Windows/.test(u)?"Windows":/Android/.test(u)?"Android":/iPhone|iPad|iPod/.test(u)?"iOS":/Mac OS/.test(u)?"macOS":/Linux/.test(u)?"Linux":"Unknown OS";
@@ -182,15 +191,47 @@ function startDeviceWatch(uid){stopDeviceWatch();
 const devices={
   async register(){const d=detectDevice();const {error}=await sb.rpc("register_device",{p_key:deviceKey(),p_name:d.name,p_platform:d.os,p_icon:d.icon});if(error){console.error("Device registration failed",error);throw error}},
   async list(){const {data,error}=await sb.from("devices").select("*").order("last_active",{ascending:false});if(error)throw error;const sid=curSid();
-    return data.map(x=>({id:x.id,name:x.name,platform:x.platform,icon:x.icon,last:Date.parse(x.last_active),current:x.session_id===sid}))},
+    return data.map(x=>({id:x.id,name:x.name,platform:x.platform,icon:x.icon,last:Date.parse(x.last_active),current:x.session_id===sid,linked:!!x.linked,expires:x.expires_at?Date.parse(x.expires_at):0}))},
   async rename(id,name){const {error}=await sb.from("devices").update({name}).eq("id",id);if(error)throw error},
   async revoke(id){const {error}=await sb.rpc("revoke_device",{p_id:id});if(error)throw error}
+};
+
+/* ================= link a device by QR ================= */
+function endLinkedSession(){clearTimeout(linkExpiryTimer);linkExpiryTimer=null}
+const link={
+  /* on the account that SHOWS the QR: a fresh one-time code (valid ~2 minutes) tied to this account */
+  async create(){const {data,error}=await sb.rpc("create_link_code");if(error)throw error;return {email:cache&&cache.email,code:data}},
+  /* on the device that SCANS: the server checks email + code; only if both are right is the device signed in */
+  async login(email,code){
+    let res,j={};
+    try{res=await fetch(cfg.url+"/functions/v1/link-login",{method:"POST",headers:{"Content-Type":"application/json",apikey:cfg.anonKey,Authorization:"Bearer "+cfg.anonKey},body:JSON.stringify({email,code})});j=await res.json().catch(()=>({}))}
+    catch{throw new Error("Could not reach the server. Check your connection and try again.")}
+    if(!res.ok||!j.token_hash)throw new Error(j.error||"This QR code is invalid or has expired. Ask for a new one.");
+    /* verified: now (and only now) leave the current account on this device and switch to the linked one */
+    linkSuppress=true;
+    try{
+      cache=null;prefs={};chat.stop();stopDeviceWatch();if(adminSync){adminSync.stop();adminSync=null}
+      try{await sb.auth.signOut({scope:"local"})}catch{}
+      linkedMode=true;
+      try{Object.keys(localStorage).filter(k=>k.startsWith("sb-")).forEach(k=>localStorage.removeItem(k))}catch{}
+      const {error}=await sb.auth.verifyOtp({token_hash:j.token_hash,type:"magiclink"});
+      if(error){linkedMode=false;throw new Error("Sign-in failed. Ask for a new QR code.")}
+      const a=await load();if(!a){linkedMode=false;throw new Error("Sign-in failed. Ask for a new QR code.")}
+      let exp=0;try{const d=detectDevice();const {data:ex,error:e2}=await sb.rpc("register_linked_device",{p_key:deviceKey(),p_name:d.name,p_platform:d.os,p_icon:d.icon});if(e2)throw e2;exp=ex?Date.parse(ex):0}
+      catch(e){console.error("Linked device registration failed",e);await sb.auth.signOut({scope:"local"}).catch(()=>{});linkedMode=false;cache=null;throw new Error("Could not register this device. Ask for a new QR code.")}
+      startDeviceWatch(a.id);
+      try{await chat.start(a.id)}catch(e){console.error("Chats could not be loaded",e)}
+      if(exp){clearTimeout(linkExpiryTimer);linkExpiryTimer=setTimeout(async()=>{try{await sb.rpc("purge_expired_devices")}catch{}await veltrixDB.signOut();fire("veltrix-revoked")},Math.max(1000,exp-Date.now()))}
+      fire("veltrix-ready");
+      return a;
+    }finally{linkSuppress=false}
+  }
 };
 
 async function boot(){const a=await load();if(a){try{await devices.register()}catch{}startDeviceWatch(a.id);try{await chat.start(a.id)}catch(e){console.error("Chats could not be loaded",e)}}else chat.stop();fire("veltrix-ready");return a}
 
 window.veltrixDB={
-  client:sb,pref,chat,media,admin,pin,devices,
+  client:sb,pref,chat,media,admin,pin,devices,link,isLinked:()=>linkedMode,
   get:()=>cache,
   set(a){cache=a;push()},
   restore:boot,
@@ -206,7 +247,7 @@ window.veltrixDB={
     return {needsConfirm:false};
   },
   async signIn(email,password){const {error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;return boot()},
-  async signOut(){cache=null;prefs={};chat.stop();stopDeviceWatch();if(adminSync){adminSync.stop();adminSync=null}await sb.auth.signOut()},
+  async signOut(){cache=null;prefs={};chat.stop();stopDeviceWatch();endLinkedSession();if(adminSync){adminSync.stop();adminSync=null}await sb.auth.signOut();linkedMode=false},
   async convert(symbol,amount,usd){const {error}=await sb.rpc("wallet_convert",{p_symbol:symbol,p_amount:amount,p_usd:usd});if(error)throw error;return reloadWallet()},
   async send(symbol,amount){const {error}=await sb.rpc("wallet_send",{p_symbol:symbol,p_amount:amount});if(error)throw error;return reloadWallet()},
   deposits:{
