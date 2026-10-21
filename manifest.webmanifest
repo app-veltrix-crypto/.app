@@ -1,7 +1,7 @@
 {
   "name": "Veltrix",
   "short_name": "Veltrix",
-  "start_url": "app.html",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",

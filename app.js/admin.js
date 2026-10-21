@@ -357,7 +357,7 @@ function gate(){return new Promise(res=>{
  document.body.appendChild(g);const form=g.querySelector("form"),msg=g.querySelector("p");
  form.addEventListener("submit",async e=>{e.preventDefault();msg.textContent="";
   try{const a=await veltrixDB.signInOnly(form.e.value.trim().toLowerCase(),form.p.value);
-   if(!a)return;if(!a.isAdmin){location.replace("app.html");return}
+   if(!a)return;if(!a.isAdmin){location.replace("index.html");return}
    g.remove();res()}catch{msg.textContent="The email address or password is incorrect."}})})}
 async function startAdmin(){
  await veltrixDB.admin.start();dirCache=await veltrixDB.admin.directory();
@@ -368,7 +368,7 @@ async function startAdmin(){
  try{
   document.body.style.visibility="hidden";
   let a=null;try{a=await veltrixDB.restoreAccount()}catch(e){console.error(e)}
-  if(a&&!a.isAdmin){location.replace("app.html");return}       /* signed in but not an administrator: send them away before anything shows */
+  if(a&&!a.isAdmin){location.replace("index.html");return}       /* signed in but not an administrator: send them away before anything shows */
   if(window.__splash)window.__splash.release("boot");
   document.body.style.visibility="";
   if(!a)await gate();
