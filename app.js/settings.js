@@ -7,7 +7,7 @@
  /* ---- notification gate used by the rest of the app ---- */
  const TOPICS=[["security","Security alerts","Sign-ins, PIN and account protection"],["chat","Chat messages","New messages and mentions"],["transaction","Transaction alerts","Conversions and wallet activity"],["withdrawal","Withdrawal alerts","Funds sent from your wallet"],["deposit","Deposit alerts","Funds received in your wallet"],["price","Price alerts","Big moves in coins you follow"],["login","Login activity","New device and location logins"],["promo","Promotions & offers","Deals, rewards and campaigns"],["news","News & updates","Product news and announcements"]];
  const prefs=()=>Object.assign({},...TOPICS.map(t=>({[t[0]]:true})),get("veltrixNotif",{}));
- window.veltrixNotify=function(topic,msg){if(prefs()[topic]===false)return false;toast(msg);return true};
+ window.veltrixNotify=function(topic,msg,title){if(prefs()[topic]===false)return false;toast(msg);if(window.veltrixActivity)veltrixActivity.push(topic,msg,title);return true};
  /* ---- navigation ---- */
  const stack=[];
  const pages=["twoStepPage","pinPage","devicesPage","linkQrPage","deviceEditPage","notifPage"];

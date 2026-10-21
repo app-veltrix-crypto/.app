@@ -183,8 +183,13 @@ function detectDevice(){const u=navigator.userAgent;
   const br=/Edg\//.test(u)?"Microsoft Edge":/OPR\//.test(u)?"Opera":/SamsungBrowser/.test(u)?"Samsung Internet":/Firefox\//.test(u)?"Firefox":/Chrome\//.test(u)?"Google Chrome":/Safari\//.test(u)?"Safari":"Browser";
   const os=/Windows/.test(u)?"Windows":/Android/.test(u)?"Android":/iPhone|iPad|iPod/.test(u)?"iOS":/Mac OS/.test(u)?"macOS":/Linux/.test(u)?"Linux":"Unknown OS";
   return{name:br+" ("+os+")",os,icon:/Android|iPhone|iPad|iPod/.test(u)?"phone":"desktop"}}
-function stopDeviceWatch(){clearInterval(devTimer);devTimer=null;if(devChan){sb.removeChannel(devChan);devChan=null}}
-function startDeviceWatch(uid){stopDeviceWatch();
+let notifChan=null;
+function stopDeviceWatch(){clearInterval(devTimer);devTimer=null;if(devChan){sb.removeChannel(devChan);devChan=null}if(notifChan){sb.removeChannel(notifChan);notifChan=null}}
+function startNotifWatch(uid){
+  if(notifChan){sb.removeChannel(notifChan);notifChan=null}
+  notifChan=sb.channel("notif-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"notifications",filter:"user_id=eq."+uid},p=>{
+    window.dispatchEvent(new CustomEvent("veltrix-notif",{detail:{type:p.eventType,row:p.new&&p.new.id?p.new:null,old:p.old||null}}))}).subscribe()}
+function startDeviceWatch(uid){stopDeviceWatch();startNotifWatch(uid);
   devChan=sb.channel("devices-"+uid).on("postgres_changes",{event:"DELETE",schema:"public",table:"devices",filter:"user_id=eq."+uid},p=>{
     const o=p.old||{};if(o.session_id&&o.session_id===curSid()){veltrixDB.signOut().then(()=>fire("veltrix-revoked"))}}).subscribe();
   devTimer=setInterval(()=>devices.register(),5*60*1000)}
@@ -194,6 +199,29 @@ const devices={
     return data.map(x=>({id:x.id,name:x.name,platform:x.platform,icon:x.icon,last:Date.parse(x.last_active),current:x.session_id===sid,linked:!!x.linked,expires:x.expires_at?Date.parse(x.expires_at):0}))},
   async rename(id,name){const {error}=await sb.from("devices").update({name}).eq("id",id);if(error)throw error},
   async revoke(id){const {error}=await sb.rpc("revoke_device",{p_id:id});if(error)throw error}
+};
+
+/* ================= notifications, watchlist, transaction history ================= */
+const uuid=()=>crypto.randomUUID?crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==="x"?r:(r&3|8)).toString(16)});
+const notif={
+  async list(){const {data,error}=await sb.from("notifications").select("*").order("created_at",{ascending:false}).limit(300);if(error)throw error;return data||[]},
+  /* the server checks the user's Notification settings; returns null when that topic is switched off */
+  async push(topic,title,body,id){const {data,error}=await sb.rpc("notify_me",{p_id:id||uuid(),p_topic:topic,p_title:title,p_body:body});if(error)throw error;return data},
+  async remove(id){const {error}=await sb.from("notifications").delete().eq("id",id);if(error)throw error},
+  async markRead(id){const {error}=await sb.from("notifications").update({read:true}).eq("id",id);if(error)throw error},
+  async markAllRead(){const {error}=await sb.from("notifications").update({read:true}).eq("read",false);if(error)throw error},
+  uuid
+};
+const watch={
+  async list(){const {data,error}=await sb.from("watchlist").select("symbol,coin_id,name,base_price");if(error)throw error;return data||[]},
+  async add(r){const {error}=await sb.from("watchlist").upsert({user_id:cache.id,symbol:r.symbol,coin_id:r.coin_id,name:r.name||null,base_price:r.base_price});if(error)throw error},
+  async remove(symbol){const {error}=await sb.from("watchlist").delete().eq("symbol",symbol);if(error)throw error},
+  async rebase(symbol,price){const {error}=await sb.from("watchlist").update({base_price:price}).eq("symbol",symbol);if(error)throw error}
+};
+const tx={
+  async list(wallet,limit){let q=sb.from("transactions").select("*").eq("wallet",wallet).order("created_at",{ascending:false});if(limit)q=q.limit(limit);const {data,error}=await q;if(error)throw error;return data||[]},
+  /* demo ("test balance") transactions only: real ones are written by the server when money moves */
+  async logTest(r){const {error}=await sb.from("transactions").insert({...r,user_id:cache.id,test:true});if(error)throw error}
 };
 
 /* ================= link a device by QR ================= */
@@ -231,7 +259,7 @@ const link={
 async function boot(){const a=await load();if(a){try{await devices.register()}catch{}startDeviceWatch(a.id);try{await chat.start(a.id)}catch(e){console.error("Chats could not be loaded",e)}}else chat.stop();fire("veltrix-ready");return a}
 
 window.veltrixDB={
-  client:sb,pref,chat,media,admin,pin,devices,link,isLinked:()=>linkedMode,
+  client:sb,pref,chat,media,admin,pin,devices,notif,watch,tx,deviceInfo:detectDevice,link,isLinked:()=>linkedMode,
   get:()=>cache,
   set(a){cache=a;push()},
   restore:boot,
@@ -248,8 +276,8 @@ window.veltrixDB={
   },
   async signIn(email,password){const {error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;return boot()},
   async signOut(){cache=null;prefs={};chat.stop();stopDeviceWatch();endLinkedSession();if(adminSync){adminSync.stop();adminSync=null}await sb.auth.signOut();linkedMode=false},
-  async convert(symbol,amount,usd){const {error}=await sb.rpc("wallet_convert",{p_symbol:symbol,p_amount:amount,p_usd:usd});if(error)throw error;return reloadWallet()},
-  async send(symbol,amount){const {error}=await sb.rpc("wallet_send",{p_symbol:symbol,p_amount:amount});if(error)throw error;return reloadWallet()},
+  async convert(symbol,amount,usd,ref){const {error}=await sb.rpc("wallet_convert",{p_symbol:symbol,p_amount:amount,p_usd:usd,p_ref:ref||null});if(error)throw error;return reloadWallet()},
+  async send(symbol,amount,meta){meta=meta||{};const {error}=await sb.rpc("wallet_send",{p_symbol:symbol,p_amount:amount,p_to:meta.to||null,p_net:meta.net||null,p_ref:meta.ref||null,p_usd:meta.usd==null?null:meta.usd});if(error)throw error;return reloadWallet()},
   deposits:{
     async list(){const {data,error}=await sb.from("deposit_addresses").select("symbol,network,address,derivation_path");if(error)throw error;return data||[]},
     async replaceAll(rows){
