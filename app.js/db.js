@@ -166,6 +166,10 @@ const pin={
 let mySession=null,devChan=null,devTimer=null;
 sb.auth.onAuthStateChange((ev,s)=>{mySession=s;if(ev==="SIGNED_OUT"&&cache){cache=null;prefs={};chat.stop();stopDeviceWatch();fire("veltrix-revoked")}});
 function curSid(){try{const t=mySession&&mySession.access_token;if(!t)return null;return JSON.parse(atob(t.split(".")[1].replace(/-/g,"+").replace(/_/g,"/"))).session_id||null}catch{return null}}
+/* A random id that identifies THIS browser/phone, so signing in again updates its row instead of adding a new one.
+   (The only thing kept in the browser besides the sign-in token; it contains no user data.) */
+let memKey=null;
+function deviceKey(){try{let k=localStorage.getItem("veltrixDeviceKey");if(!k){k=crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);localStorage.setItem("veltrixDeviceKey",k)}return k}catch{return memKey||(memKey=Math.random().toString(36).slice(2)+Date.now().toString(36))}}
 function detectDevice(){const u=navigator.userAgent;
   const br=/Edg\//.test(u)?"Microsoft Edge":/OPR\//.test(u)?"Opera":/SamsungBrowser/.test(u)?"Samsung Internet":/Firefox\//.test(u)?"Firefox":/Chrome\//.test(u)?"Google Chrome":/Safari\//.test(u)?"Safari":"Browser";
   const os=/Windows/.test(u)?"Windows":/Android/.test(u)?"Android":/iPhone|iPad|iPod/.test(u)?"iOS":/Mac OS/.test(u)?"macOS":/Linux/.test(u)?"Linux":"Unknown OS";
@@ -176,7 +180,7 @@ function startDeviceWatch(uid){stopDeviceWatch();
     const o=p.old||{};if(o.session_id&&o.session_id===curSid()){veltrixDB.signOut().then(()=>fire("veltrix-revoked"))}}).subscribe();
   devTimer=setInterval(()=>devices.register(),5*60*1000)}
 const devices={
-  async register(){const d=detectDevice();const {error}=await sb.rpc("register_device",{p_name:d.name,p_platform:d.os,p_icon:d.icon});if(error){console.error("Device registration failed",error);throw error}},
+  async register(){const d=detectDevice();const {error}=await sb.rpc("register_device",{p_key:deviceKey(),p_name:d.name,p_platform:d.os,p_icon:d.icon});if(error){console.error("Device registration failed",error);throw error}},
   async list(){const {data,error}=await sb.from("devices").select("*").order("last_active",{ascending:false});if(error)throw error;const sid=curSid();
     return data.map(x=>({id:x.id,name:x.name,platform:x.platform,icon:x.icon,last:Date.parse(x.last_active),current:x.session_id===sid}))},
   async rename(id,name){const {error}=await sb.from("devices").update({name}).eq("id",id);if(error)throw error},
