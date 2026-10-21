@@ -2,7 +2,7 @@ const ACCOUNT_KEY="veltrixAccount",SESSION_KEY="veltrixLoggedIn";
 const loginPage=document.getElementById("loginPage"),signupPage=document.getElementById("signupPage"),dashboardPage=document.getElementById("dashboardPage");
 const signupForm=document.getElementById("signupForm"),loginForm=document.getElementById("loginForm"),profilePicture=document.getElementById("profilePicture"),profilePreview=document.getElementById("profilePreview"),locationInput=document.getElementById("location"),locationButton=document.getElementById("locationButton"),locationStatus=document.getElementById("locationStatus"),locationNotice=document.getElementById("locationNotice"),fingerprintToggle=document.getElementById("fingerprintToggle"),fingerprintStatus=document.getElementById("fingerprintStatus"),fingerprintLoginButton=document.getElementById("fingerprintLoginButton"),signupMessage=document.getElementById("signupMessage"),loginMessage=document.getElementById("loginMessage");
 
-document.addEventListener("DOMContentLoaded",async()=>{try{const account=await veltrixDB.restore();if(account){if(account.fingerprintEnabled&&window.PublicKeyCredential){lockToLogin(account);loginWithFingerprint(true)}else showDashboard()}else showPage("loginPage")}catch(e){console.error(e);showPage("loginPage")}finally{if(window.__splash)window.__splash.release("boot")}});
+document.addEventListener("DOMContentLoaded",async()=>{try{const account=await veltrixDB.restore();if(account){lockToLogin(account);if(account.fingerprintEnabled&&window.PublicKeyCredential)loginWithFingerprint(true)}else showPage("loginPage")}catch(e){console.error(e);showPage("loginPage")}finally{if(window.__splash)window.__splash.release("boot")}});
 function showPage(id){loginPage.classList.add("hidden");signupPage.classList.add("hidden");dashboardPage.classList.add("hidden");document.getElementById(id).classList.remove("hidden");if(id==="signupPage"&&typeof showSignupStep==="function")showSignupStep(1);window.scrollTo({top:0,behavior:"smooth"})}
 function getAccount(){return veltrixDB.get()}
 function saveAccount(a){veltrixDB.set(a)}
@@ -176,7 +176,7 @@ function convertImageToDataURL(file,max=400){return new Promise((resolve,reject)
 loginForm.addEventListener("submit",async e=>{e.preventDefault();clearMessage(loginMessage);const email=document.getElementById("loginEmail").value.trim().toLowerCase(),password=document.getElementById("loginPassword").value;try{await veltrixDB.signIn(email,password);showDashboard()}catch{showMessage(loginMessage,"The email address or password is incorrect.","error")}});
 
 fingerprintLoginButton.addEventListener("click",loginWithFingerprint);
-function lockToLogin(a){showPage("loginPage");document.getElementById("loginEmail").value=a.email||"";document.getElementById("loginPassword").value="";showMessage(loginMessage,"Welcome back. Use your fingerprint to continue.","success")}
+function lockToLogin(a){try{closeProfileScreens()}catch{}document.body.classList.remove("wd-feature-open");showPage("loginPage");document.getElementById("loginEmail").value=a.email||"";document.getElementById("loginPassword").value="";showMessage(loginMessage,a.fingerprintEnabled&&window.PublicKeyCredential?"Welcome back. Use your fingerprint, or your email and password, to continue.":"Welcome back. Enter your password to continue.","success")}
 async function loginWithFingerprint(auto){if(auto!==true)clearMessage(loginMessage);const account=getAccount();if(!account)return showMessage(loginMessage,"Sign in with your email and password first.","error");if(!account.fingerprintEnabled)return showMessage(loginMessage,"Fingerprint login has not been enabled for this account.","error");if(!window.PublicKeyCredential)return showMessage(loginMessage,"Biometric authentication is not supported by this browser.","error");try{const challenge=crypto.getRandomValues(new Uint8Array(32));await navigator.credentials.get({publicKey:{challenge,userVerification:"required",timeout:60000}});showDashboard()}catch{if(auto!==true)showMessage(loginMessage,"Biometric authentication was cancelled or could not be completed.","error")}}
 
 function showDashboard(){const a=getAccount();if(!a)return showPage("loginPage");populateDashboard(a);showPage("dashboardPage")}
@@ -656,7 +656,6 @@ editDialog.addEventListener("click",e=>{if(e.target===editDialog)editDialog.hidd
 function chooseProfilePhoto(){document.getElementById("profileDetailsPhotoInput").click()}
 document.getElementById("editProfileAvatarButton").addEventListener("click",chooseProfilePhoto);
 document.getElementById("profileDetailsPhotoInput").addEventListener("change",async e=>{const file=e.target.files?.[0];if(!file)return;if(!file.type.startsWith("image/"))return;try{const image=await convertImageToDataURL(file);const a=getAccount();if(!a)return;a.profileImage=image;saveAccount(a);updateProfileScreens();populateDashboard(a)}catch{const reader=new FileReader();reader.onload=()=>{const a=getAccount();if(a){a.profileImage=reader.result;saveAccount(a);updateProfileScreens();populateDashboard(a)}};reader.readAsDataURL(file)}e.target.value=""});
-document.getElementById("settingsLogout").addEventListener("click",doLogout);
 document.getElementById("profileSettingsPage").addEventListener("keydown",e=>{if(e.key==="Escape")closeProfileScreens()});
 document.getElementById("profileDetailsPage").addEventListener("keydown",e=>{if(e.key==="Escape"){detailsPage.hidden=true;settingsPage.hidden=false}});
 function formatDate(s){if(!s)return"Not provided";const d=new Date(`${s}T00:00:00`);return Number.isNaN(d.getTime())?s:d.toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"})}
@@ -1181,4 +1180,12 @@ document.addEventListener("click",function(event){
    P.forEach(p=>{p.vy+=.3;p.vx*=.99;p.x+=p.vx;p.y+=p.vy;p.a+=p.va;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.a);ctx.globalAlpha=Math.max(0,1-t/150);ctx.font=p.s+"px serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("😌",0,0);ctx.restore()});
    if(t<150)confettiRaf=requestAnimationFrame(step);else ctx.clearRect(0,0,r.width,r.height)})();
  }
+})();
+
+
+/* Leaving the page locks the app: coming back (restored tab, back/forward cache, or away for 30 s+) asks for fingerprint / password again. */
+(()=>{let hiddenAt=0;
+ const lockNow=()=>{const a=getAccount();if(a&&!dashboardPage.classList.contains("hidden"))lockToLogin(a)};
+ document.addEventListener("visibilitychange",()=>{if(document.hidden)hiddenAt=Date.now();else if(hiddenAt&&Date.now()-hiddenAt>=30000){hiddenAt=0;lockNow();const a=getAccount();if(a&&a.fingerprintEnabled&&window.PublicKeyCredential)loginWithFingerprint(true)}else hiddenAt=0});
+ window.addEventListener("pageshow",e=>{if(e.persisted){lockNow();const a=getAccount();if(a&&a.fingerprintEnabled&&window.PublicKeyCredential)loginWithFingerprint(true)}});
 })();
