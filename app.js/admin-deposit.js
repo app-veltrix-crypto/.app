@@ -9,7 +9,7 @@ const BTN="padding:12px 16px;border:0;border-radius:10px;font-size:15px;font-wei
 let pending=null;
 function open(){
  const g=document.createElement("div");
- g.style.cssText="position:fixed;inset:0;z-index:9998;background:#fff;color:#111;overflow:auto;padding:max(20px,env(safe-area-inset-top)) 20px 40px";
+ g.style.cssText="position:fixed;inset:0;z-index:2147483000;background:#fff;color:#111;overflow:auto;padding:max(20px,env(safe-area-inset-top)) 20px 40px";
  g.innerHTML=`<div style="max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:12px">
   <div style="display:flex;justify-content:space-between;align-items:center"><h1 style="margin:0;font-size:22px">Deposit wallet</h1><button type="button" id="dwClose" style="${BTN};background:#eee;color:#111">Close</button></div>
   <p style="margin:0;font-size:14px;line-height:1.45">Enter the recovery phrase of the wallet that should receive deposits. One address is generated per coin and shown to users on their Deposit screen. <b>Use a test wallet only.</b> The phrase is not saved, only the addresses are.</p>
@@ -17,9 +17,10 @@ function open(){
   <button type="button" id="dwGen" style="${BTN}">Generate addresses</button>
   <p id="dwMsg" style="margin:0;font-size:14px;color:#b00020"></p>
   <div id="dwOut"></div></div>`;
+ const app=document.getElementById("adminApp");if(app)app.style.display="none";
  document.body.appendChild(g);
  const $=id=>g.querySelector("#"+id),msg=$("dwMsg"),out=$("dwOut");
- $("dwClose").onclick=()=>{pending=null;$("dwPhrase").value="";g.remove()};
+ $("dwClose").onclick=()=>{pending=null;$("dwPhrase").value="";g.remove();if(app)app.style.display=""};
  const table=(rows,title)=>`<div style="font-weight:700;margin:6px 0">${title}</div>`+rows.map(r=>`<div style="padding:10px 0;border-top:1px solid #e3e4ea"><b>${esc(r.symbol)}</b> <small style="opacity:.7">· ${esc(r.network)}</small><div style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;word-break:break-all;margin-top:3px">${esc(r.address)}</div><small style="opacity:.55">${esc(r.derivation_path||"")}</small></div>`).join("");
  veltrixDB.deposits.list().then(r=>{if(r.length&&!pending)out.innerHTML=table(r.sort((a,b)=>a.symbol.localeCompare(b.symbol)),`Currently saved (${r.length} coins)`)}).catch(()=>{});
  $("dwGen").onclick=async()=>{msg.textContent="";const b=$("dwGen");b.disabled=true;b.textContent="Generating…";
