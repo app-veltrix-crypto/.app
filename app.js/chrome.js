@@ -15,12 +15,18 @@ function topColor(){
   for(;el;el=el.parentElement){const c=parse(getComputedStyle(el).backgroundColor);if(c&&c.a>.95)return c}
   return{r:255,g:255,b:255,a:1};
 }
+/* Some browsers (newer iPhone Safari) ignore <meta theme-color> and take the colour of the fixed element touching the top edge.
+   This invisible strip carries the same colour, so every browser ends up with the page colour. In night mode the strip gets the
+   same inverse filter the app's own colour-protected parts use, so its stored colour and its shown colour are both the night colour. */
+const strip=document.createElement("div");strip.id="veltrixChromeStrip";strip.setAttribute("aria-hidden","true");
+strip.style.cssText="position:fixed;top:0;left:0;right:0;height:max(env(safe-area-inset-top,0px),3px);pointer-events:none;z-index:2147483000";
+document.body?document.body.appendChild(strip):document.addEventListener("DOMContentLoaded",()=>document.body.appendChild(strip));
 let last="";
 function sync(){
   let c;try{c=topColor()}catch{c={r:255,g:255,b:255,a:1}}
   const isDark=document.documentElement.getAttribute("data-theme")==="dark";
   const out=hex(isDark?night(c):[c.r,c.g,c.b]);
-  if(out!==last){last=out;meta.setAttribute("content",out)}
+  if(out!==last){last=out;meta.setAttribute("content",out);strip.style.background=out;strip.style.filter=isDark?"hue-rotate(180deg) invert(1)":"none"}
 }
 let t=null;const later=(ms=60)=>{clearTimeout(t);t=setTimeout(sync,ms)};
 window.veltrixSyncChrome=()=>{sync();later(80);later(700)};

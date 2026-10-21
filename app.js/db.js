@@ -176,14 +176,14 @@ function startDeviceWatch(uid){stopDeviceWatch();
     const o=p.old||{};if(o.session_id&&o.session_id===curSid()){veltrixDB.signOut().then(()=>fire("veltrix-revoked"))}}).subscribe();
   devTimer=setInterval(()=>devices.register(),5*60*1000)}
 const devices={
-  async register(){const d=detectDevice();const {error}=await sb.rpc("register_device",{p_name:d.name,p_platform:d.os,p_icon:d.icon});if(error)console.error("Device registration failed",error)},
+  async register(){const d=detectDevice();const {error}=await sb.rpc("register_device",{p_name:d.name,p_platform:d.os,p_icon:d.icon});if(error){console.error("Device registration failed",error);throw error}},
   async list(){const {data,error}=await sb.from("devices").select("*").order("last_active",{ascending:false});if(error)throw error;const sid=curSid();
     return data.map(x=>({id:x.id,name:x.name,platform:x.platform,icon:x.icon,last:Date.parse(x.last_active),current:x.session_id===sid}))},
   async rename(id,name){const {error}=await sb.from("devices").update({name}).eq("id",id);if(error)throw error},
   async revoke(id){const {error}=await sb.rpc("revoke_device",{p_id:id});if(error)throw error}
 };
 
-async function boot(){const a=await load();if(a){await devices.register();startDeviceWatch(a.id);try{await chat.start(a.id)}catch(e){console.error("Chats could not be loaded",e)}}else chat.stop();fire("veltrix-ready");return a}
+async function boot(){const a=await load();if(a){try{await devices.register()}catch{}startDeviceWatch(a.id);try{await chat.start(a.id)}catch(e){console.error("Chats could not be loaded",e)}}else chat.stop();fire("veltrix-ready");return a}
 
 window.veltrixDB={
   client:sb,pref,chat,media,admin,pin,devices,

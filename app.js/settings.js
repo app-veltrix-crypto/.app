@@ -74,11 +74,11 @@
   const br=/Edg\//.test(u)?"Microsoft Edge":/OPR\//.test(u)?"Opera":/SamsungBrowser/.test(u)?"Samsung Internet":/Firefox\//.test(u)?"Firefox":/Chrome\//.test(u)?"Google Chrome":/Safari\//.test(u)?"Safari":"Browser";
   const os=/Windows/.test(u)?"Windows":/Android/.test(u)?"Android":/iPhone|iPad|iPod/.test(u)?"iOS":/Mac OS/.test(u)?"macOS":/Linux/.test(u)?"Linux":"Unknown OS";
   return{name:`${br} (${os})`,os,icon:/Android|iPhone|iPad|iPod/.test(u)?"phone":"desktop"}}
- let devList=[];
- async function refreshDevices(){try{devList=await veltrixDB.devices.list()}catch(e){console.error("Could not load devices",e)}}
+ let devList=[],devErr="";
+ async function refreshDevices(){devErr="";try{await veltrixDB.devices.register();devList=await veltrixDB.devices.list()}catch(e){devErr=(e&&e.message)||"unknown error";console.error("Could not load devices",e)}}
  const when=t=>{try{return new Date(t).toLocaleString(undefined,{month:"long",day:"numeric",hour:"numeric",minute:"2-digit"})}catch{return""}};
  const esc2=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
- function paintDevices(){const d=devList;$("deviceList").innerHTML=d.map(x=>`<button type="button" class="sx-dev" data-id="${esc2(x.id)}"><span class="sx-dev-ic">${ICON[x.icon]||ICON.desktop}</span><span class="sx-grow"><strong>${esc2(x.name)}${x.current?" · This device":""}</strong><small>Last active ${esc2(when(x.last))}</small></span></button>`).join("")}
+ function paintDevices(){const d=devList;if(devErr){$("deviceList").innerHTML=`<p style="padding:16px;line-height:1.5">Couldn't load your devices (${esc2(devErr)}). Make sure schema_phase3_devices.sql has been run in Supabase.</p>`;return}$("deviceList").innerHTML=d.map(x=>`<button type="button" class="sx-dev" data-id="${esc2(x.id)}"><span class="sx-dev-ic">${ICON[x.icon]||ICON.desktop}</span><span class="sx-grow"><strong>${esc2(x.name)}${x.current?" · This device":""}</strong><small>Last active ${esc2(when(x.last))}</small></span></button>`).join("")}
  async function openDevices(){paintDevices();openPage("devicesPage");await refreshDevices();paintDevices()}
  $("settingsDevices").addEventListener("click",openDevices);
  let editing=null;
