@@ -7,7 +7,7 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;"
 const toast=m=>{try{wdToast(m)}catch{}};
 const db=()=>window.veltrixDB;
 const signedIn=()=>!!(db()&&db().get&&db().get());
-const mode=()=>(window.getAccountMode&&getAccountMode()==="usd")?"usd":"crypto";
+const mode=()=>"crypto";
 
 /* ====================================================== price-alert thresholds (change here) */
 const PRICE_UP=1.10;    /* alert when a watched coin is 10% above the price it was measured from */
@@ -104,61 +104,300 @@ async function deleteOpen(){
 }
 
 /* ====================================================== TRANSACTION HISTORY */
-let txRows=[],txAll=[],openTx=null;
+let txRows=[],txAll=[],openTx=null,openRows=[];
 const EMPTY_TX_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M6 8V1h1v6.117L8.743 6.07a.5.5 0 0 1 .514 0L11 7.117V1h1v7a.5.5 0 0 1-.757.429L9 7.083 6.757 8.43A.5.5 0 0 1 6 8"/><path d="M3 0h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-1h1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v1H1V2a2 2 0 0 1 2-2"/><path d="M1 5v-.5a.5.5 0 0 1 1 0V5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0V8h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0v.5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1z"/></svg>';
 function txView(t){
   const n=Number(t.amount),u=t.usd_value==null?null:Number(t.usd_value);
-  if(t.kind==="send")return{icon:"↗",title:"Sent "+t.symbol,sub:t.to_address?"To "+short(t.to_address):"Withdrawal",amt:"-"+trimNum(n)+" "+t.symbol,sub2:u!=null?"≈ "+usd(u):"",dir:"out",type:"Send"};
-  if(t.kind==="convert_out")return{icon:"⇄",title:"Converted "+t.symbol,sub:"To dollar wallet",amt:"-"+trimNum(n)+" "+t.symbol,sub2:u!=null?"≈ "+usd(u):"",dir:"out",type:"Conversion"};
-  return{icon:"$",title:"Converted from "+t.symbol,sub:"From crypto wallet",amt:"+"+usd(n),sub2:"",dir:"in",type:"Conversion"};
+  if(t.kind==="send")return{icon:"↗",title:"Sent "+t.symbol,sub:t.internal&&t.counterparty_name?"To "+t.counterparty_name:t.to_address?"To "+short(t.to_address):"Withdrawal",amt:"-"+trimNum(n)+" "+t.symbol,sub2:u!=null?"≈ "+usd(u):"",dir:"out",type:"Send"};
+  if(t.kind==="deposit")return{icon:"↙",title:"Received "+t.symbol,sub:t.internal&&t.counterparty_name?"From "+t.counterparty_name:"Deposit",amt:"+"+trimNum(n)+" "+t.symbol,sub2:u!=null?"≈ "+usd(u):"",dir:"in",type:"Deposit"};
+  return{icon:"⇄",title:"Converted "+t.symbol,sub:"Conversion",amt:"-"+trimNum(n)+" "+t.symbol,sub2:u!=null?"≈ "+usd(u):"",dir:"out",type:"Conversion"};
 }
+/* queued / processing (an automatic withdrawal being sent) count as pending everywhere, but are labelled "Processing" */
+const stN=t=>{const x=String(t.status||"completed").toLowerCase();return x==="queued"||x==="processing"?"pending":x};
+const stProc=t=>{const x=String(t.status||"").toLowerCase();return x==="queued"||x==="processing"};
+const stPill=t=>{const st=stN(t);return st==="completed"?"":` <span class="wd-tx-st ${st==="pending"?"pending":"cancelled"}">${st==="pending"?(stProc(t)?"Processing":"Pending"):st==="cancelled"?"Cancelled":esc(st)}</span>`};
 const short=a=>a.length>22?a.slice(0,10)+"…"+a.slice(-8):a;
+const txSv=(d,w)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w||1.9}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const TX_ICON={
+  recv:'<path d="M17 7 7 17"/><path d="M15.500 17H7V8.500"/>',
+  send:'<path d="M7 17 17 7"/><path d="M8.5 7H17v8.5"/>',
+  convert:'<path d="m16.5 3.5 3.5 3.5-3.5 3.5"/><path d="M20 7H8.5a4.5 4.5 0 0 0-4.5 4.5"/><path d="m7.5 20.5L4 17l3.500-3.500"/><path d="M4 17h11.500a4.500 4.500 0 0 0 4.500-4.500"/>',
+  clock:'<circle cx="12" cy="12" r="8.500"/><path d="M12 7.500V12l3 1.800"/>',
+  x:'<path d="m7 7 10 10M17 7 7 17"/>',
+  wifiOff:'<path d="m3 3 18 18"/><path d="M9.200 5.400A14 14 0 0 1 12 5c3.600 0 6.800 1.300 9 3.500"/><path d="M3 8.500a14.600 14.600 0 0 1 3.200-2.300"/><path d="M6.500 12.200a9.800 9.800 0 0 1 3.300-1.900"/><path d="M14.500 10.500a9.800 9.800 0 0 1 3 1.700"/><path d="M9.500 15.800a5.200 5.200 0 0 1 5 0"/><path d="M12 19.500h.01"/>',
+  retry:'<path d="M20 11a8 8 0 0 0-14.500-4.200L3.500 9"/><path d="M3.500 4v5h5"/><path d="M4 13a8 8 0 0 0 14.500 4.200l2-2.200"/><path d="M20.500 20v-5h-5"/>'
+};
+function txIcon(t){
+  const st=stN(t),mod=st==="pending"?" is-pending":st==="cancelled"?" is-cancelled":"";
+  if(t.kind==="send")return{cls:"t-withdrawal"+mod,svg:txSv(TX_ICON.send,2.1)};
+  if(t.kind==="deposit")return{cls:"t-deposit"+mod,svg:txSv(TX_ICON.recv,2.1)};
+  return{cls:"t-transaction"+mod,svg:txSv(TX_ICON.convert,2)};
+}
+/* round-corner tile + a small status badge (clock = pending, cross = cancelled) for the history rows */
+function txTile(t){
+  const ic=txIcon(t),st=stN(t);
+  const bdg=st==="pending"?`<i class="wd-tx-bdg pending">${txSv(TX_ICON.clock,2.6)}</i>`:st==="cancelled"?`<i class="wd-tx-bdg cancelled">${txSv(TX_ICON.x,3)}</i>`:"";
+  return `<span class="wd-act-ic wd-tx-tile ${ic.cls}">${ic.svg}${bdg}</span>`;
+}
+const stCls=t=>{const st=stN(t);return st==="pending"?" st-pending":st==="cancelled"?" st-cancelled":""};
+
+/* ---- no connection / couldn't load: shown inside the history sections ---- */
+const isOffline=()=>typeof navigator!=="undefined"&&navigator.onLine===false;
+const netErr=e=>{const m=String((e&&(e.message||e.details))||e||"");return isOffline()||/failed to fetch|networkerror|network request failed|load failed|timeout|timed out|offline/i.test(m)};
+function netCard(kind,compact){
+  const off=kind==="offline";
+  return `<div class="wd-net${compact?" compact":""}${off?"":" err"}" role="alert"><span class="wd-net-ic">${txSv(off?TX_ICON.wifiOff:TX_ICON.clock,1.7)}</span><strong>${off?"No internet connection":"Couldn't load your history"}</strong><p>${off?"Check your Wi-Fi or mobile data. Your transactions will load automatically once you're back online.":"Something went wrong while loading. Please try again."}</p><button type="button" class="wd-net-btn" data-net-retry>${txSv(TX_ICON.retry,2.2)}<span>Try again</span></button></div>`;
+}
+const _unusedNetStrip=()=>`<div class="wd-net-strip" role="status">${txSv(TX_ICON.wifiOff,2)}<span>You're offline. Showing your last loaded transactions.</span></div>`;
+function txCardHTML(t,i){const v=txView(t),ic=txIcon(t);
+  return `<div class="wd-txc-card" role="button" tabindex="0" data-tx="d:${i}"><span class="wd-act-ic wd-txc-ic ${ic.cls}">${ic.svg}</span><div class="wd-txc-txt"><b>${esc(v.title)}${t.test?' <span class="wd-tx-test">Test</span>':""}${stPill(t)}</b><small class="${v.dir}">${esc(v.amt)}${v.sub2?" · "+esc(v.sub2):""}</small><em>${esc(v.sub)} · ${esc(ago(t.created_at))}</em></div><span class="wd-txc-go">View</span></div>`}
+function txCarouselHTML(rows){
+  return `<div class="wd-txc-track${rows.length===1?" one":""}">${rows.map(txCardHTML).join("")}</div>`+(rows.length>1?`<div class="wd-txc-dots" aria-hidden="true">${rows.map((_,i)=>`<i${i?"":' class="on"'}></i>`).join("")}</div>`:"");
+}
 function txRowHTML(t,i,src){const v=txView(t);
-  return `<button type="button" class="wd-row wd-tx-row" data-tx="${src}:${i}"><div class="wd-coin wd-tx-ic ${v.dir}">${v.icon}</div><div class="wd-coin-info"><b>${esc(v.title)}${t.test?' <span class="wd-tx-test">Test</span>':""}</b><small>${esc(v.sub)} · ${esc(ago(t.created_at))}</small></div><div class="wd-coin-value wd-tx-amt ${v.dir}">${esc(v.amt)}${v.sub2?`<small>${esc(v.sub2)}</small>`:""}</div></button>`}
+  return `<button type="button" class="wd-row wd-tx-row${stCls(t)}" data-tx="${src}:${i}">${txTile(t)}<div class="wd-coin-info"><b>${esc(v.title)}${t.test?' <span class="wd-tx-test">Test</span>':""}${stPill(t)}</b><small>${esc(v.sub)} · ${esc(ago(t.created_at))}</small></div><div class="wd-coin-value wd-tx-amt ${v.dir}">${esc(v.amt)}${v.sub2?`<small>${esc(v.sub2)}</small>`:""}</div></button>`}
+/* Empty history: a "ghost ledger" (faded sample rows on a dashed rail) - deliberately NOT the icon + text block the assets list uses */
+function txEmptyHTML(m){
+  const ghost=(w1,w2)=>`<div class="tx-gh-row"><span class="tx-gh-dot"></span><span class="tx-gh-lines"><i style="width:${w1}%"></i><i style="width:${w2}%"></i></span><span class="tx-gh-amt"></span></div>`;
+  const chips=["Deposits","Withdrawals","Swaps"];
+  return `<div class="tx-empty" role="status"><div class="tx-gh" aria-hidden="true">${ghost(46,28)}${ghost(58,34)}</div>
+   <div class="tx-empty-body"><strong>Your activity starts here</strong>
+   <p>Every deposit, withdrawal and swap is listed here, newest first.</p>
+   <div class="tx-empty-chips">${chips.map(c=>`<span>${c}</span>`).join("")}</div>
+   <button type="button" class="tx-empty-cta" data-tx-cta="deposit">Make a deposit</button></div></div>`;
+}
 function paintMode(){
   const m=mode(),t=$("txTitle");if(!t)return;
-  t.textContent=m==="usd"?"Dollar history":"Crypto history";
-  const f=$("txHistoryTitle");if(f)f.textContent=m==="usd"?"Dollar history":"Crypto history";
+  t.textContent="Crypto history";
+  const f=$("txHistoryTitle");if(f)f.textContent="Crypto history";
   refreshTx();
 }
+let txMode=null;
 async function refreshTx(){
   if(!$("txList"))return;
-  if(!signedIn()){$("txList").innerHTML="";$("txViewAll").hidden=true;return}
-  const m=mode();
-  try{txRows=await db().tx.list(m,5)}catch(e){console.error("History could not be loaded",e);txRows=[]}
+  if(!signedIn()){$("txList").innerHTML="";$("txViewAll").hidden=true;const sc=$("txSection");if(sc)sc.classList.remove("tx-is-empty");return}
+  const m=mode();let net=null;
+  if(txMode!==m){txRows=[];txMode=m}
+  if(!txRows.length&&!isOffline()){$("txList").classList.remove("wd-txc");vxSkeleton.fill($("txList"),3,"tx")}
+  if(isOffline())net="offline";
+  else{try{txRows=await db().tx.list(m,5)}catch(e){console.error("History could not be loaded",e);net=netErr(e)?"offline":"error"}}
   if(m!==mode())return;
-  $("txList").innerHTML=txRows.length?txRows.map((t,i)=>txRowHTML(t,i,"d")).join(""):`<div class="wd-empty"><div class="wd-empty-icon">${EMPTY_TX_SVG}</div><strong>No transactions yet</strong><p>${m==="usd"?"Conversions into your dollar wallet will show up here.":"Sends and conversions from your crypto wallet will show up here."}</p></div>`;
+  const slider=txRows.length>0;$("txList").classList.toggle("wd-txc",slider);
+  const body=txRows.length?(slider?txCarouselHTML(txRows):txRows.map((t,i)=>txRowHTML(t,i,"d")).join("")):"";
+  if(net==="offline")showOffline();
+  if(net)$("txList").innerHTML=txRows.length?body:(net==="offline"?"":netCard(net,true));
+  else $("txList").innerHTML=txRows.length?body:txEmptyHTML(m);
+  const sec=$("txSection");if(sec)sec.classList.toggle("tx-is-empty",!net&&!txRows.length);
   $("txViewAll").hidden=txRows.length<5;
 }
 function openDetail(t){
-  openTx=t;const v=txView(t);
-  $("tdIcon").textContent=v.icon;$("tdIcon").className="wd-act-ic big "+v.dir;$("tdAmount").textContent=v.amt;$("tdSub").textContent=v.title;
-  const rows=[["Type",v.type],["Status",(t.status||"completed").replace(/^./,c=>c.toUpperCase())],["Date",when(t.created_at)]];
-  if(t.kind==="send"){rows.push(["Amount",trimNum(t.amount)+" "+t.symbol]);if(t.usd_value!=null)rows.push(["Value",usd(t.usd_value)]);if(t.to_address)rows.push(["To",t.to_address,"copy"]);if(t.network)rows.push(["Network",t.network])}
-  else if(t.kind==="convert_out"){rows.push(["Converted",trimNum(t.amount)+" "+t.symbol]);if(t.usd_value!=null)rows.push(["Credited",usd(t.usd_value)]);rows.push(["To","Dollar wallet"])}
-  else{rows.push(["Credited",usd(t.amount)]);rows.push(["Converted from",t.symbol]);rows.push(["From","Crypto wallet"])}
+  openTx=t;const v=txView(t),ic=txIcon(t);
+  $("tdIcon").innerHTML=ic.svg;$("tdIcon").className="wd-act-ic big "+ic.cls;
+  const h=$("tdAmount");h.textContent=v.amt;h.className=v.dir;$("tdSub").textContent=v.title;
+  const stl=stN(t),st=stProc(t)?"Processing":stl.replace(/^./,c=>c.toUpperCase()),sc=$("tdStatus");sc.textContent=stl==="completed"?"Successful":st;sc.className="wd-act-chip"+(stl==="completed"?" ok":stl==="pending"?" pending":stl==="cancelled"?" cancelled":"");
+  const rows=[["Type",v.type],["Status",stl==="completed"?"Successful":st],["Date",when(t.created_at)]];
+  if(stl==="cancelled"&&t.cancel_reason)rows.push(["Reason",t.cancel_reason]);
+  if(t.kind==="send"){rows.push(["Amount",trimNum(t.amount)+" "+t.symbol]);if(t.usd_value!=null)rows.push(["Value",usd(t.usd_value)]);if(t.internal&&t.counterparty_name)rows.push(["Recipient",t.counterparty_name]);if(t.to_address)rows.push(["To",t.to_address,"copy"]);if(t.network)rows.push(["Network",t.network])}
+  else if(t.kind==="deposit"){rows.push(["Received",trimNum(t.amount)+" "+t.symbol]);if(t.usd_value!=null)rows.push(["Value at receipt",usd(t.usd_value)]);if(t.internal&&t.counterparty_name)rows.push(["From",t.counterparty_name]);if(t.to_address)rows.push(["Deposit address",t.to_address,"copy"]);if(t.network)rows.push(["Network",t.network])}
+  else{rows.push(["Amount",trimNum(t.amount)+" "+t.symbol]);if(t.usd_value!=null)rows.push(["Value",usd(t.usd_value)])}
+  if(t.tx_hash)rows.push(["Transaction hash",t.tx_hash,"copy"]);
   if(t.reference)rows.push(["Reference",t.reference,"copy"]);
-  if(t.test)rows.push(["Note","Test transaction (demo balance)"]);
-  $("tdRows").innerHTML=rows.map(r=>`<div class="wd-td-row"><span>${esc(r[0])}</span><b>${esc(r[1])}</b>${r[2]?`<button type="button" class="wd-td-copy" data-copy-val="${esc(r[1])}" aria-label="Copy ${esc(r[0])}">Copy</button>`:""}</div>`).join("");
+  openRows=rows;
+  $("tdRows").innerHTML=rows.map(r=>`<div class="nd-row"><span>${esc(r[0])}</span><b>${esc(r[1])}</b>${r[2]?`<button type="button" class="nd-copy" data-copy-val="${esc(r[1])}" aria-label="Copy ${esc(r[0])}">Copy</button>`:""}</div>`).join("");
   openFeature("txDetailPage");
 }
-async function openAll(){
-  $("txHistoryTitle").textContent=mode()==="usd"?"Dollar history":"Crypto history";
-  $("txAllList").innerHTML='<div class="wd-act-note">Loading…</div>';openFeature("txHistoryPage");
-  try{txAll=await db().tx.list(mode(),500)}catch{txAll=[];$("txAllList").innerHTML='<div class="wd-act-note">Couldn\'t load your history. Make sure schema_phase6_notifications_history.sql has been run.</div>';return}
+
+/* ---- receipt image (drawn on a canvas, so no external images are needed) ---- */
+function wrapText(ctx,text,maxW){
+  const lines=[];let cur="";
+  for(const w of String(text).split(" ")){
+    const t=cur?cur+" "+w:w;if(ctx.measureText(t).width<=maxW){cur=t;continue}
+    if(cur){lines.push(cur);cur=""}
+    if(ctx.measureText(w).width<=maxW){cur=w;continue}
+    for(const ch of w){if(ctx.measureText(cur+ch).width>maxW){lines.push(cur);cur=ch}else cur+=ch}
+  }
+  if(cur)lines.push(cur);return lines.length?lines:[""];
+}
+function rrect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+let logoImg=null;
+function loadLogo(){
+  if(logoImg)return logoImg;
+  logoImg=new Promise(res=>{if(!window.VELTRIX_LOGO)return res(null);const i=new Image();i.onload=()=>res(i);i.onerror=()=>res(null);i.src=window.VELTRIX_LOGO});
+  return logoImg;
+}
+/* Receipt styled like a bank-app transfer receipt: logo top-left, centred amount + status, small detail rows,
+   plain white edges and the Veltrix logo repeated as a faint watermark. */
+let receiptTitle="Veltrix receipt";
+/* Receipt text follows the app language: every label/sentence goes through the same translator as the rest of the app
+   (the canvas is skipped by the page translator, so it is translated here before drawing). Amounts, addresses, networks,
+   coin symbols and references are data and are never translated. */
+const RCPT_TR_VALUES=new Set(["Send","Conversion","Deposit","Crypto wallet"]);
+const RCPT_NOTE="Veltrix keeps your crypto sends simple and secure. Keep this receipt as proof of your transaction.";
+async function receiptBlob(t){
+  const logo=await loadLogo();
+  const W=360,S=4,pad=20,FONT='-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif',v=txView(t);
+  const L=window.veltrixLang?veltrixLang():{code:"en",rtl:false},rtl=!!L.rtl;
+  const st=stN(t),stEn=st==="completed"?"Successful":stProc(t)?"Processing":st.replace(/^./,c=>c.toUpperCase());
+  const amtCol=st==="completed"?"#0f9d58":st==="pending"?"#d98a00":"#d93a49";
+  const rawRows=openRows.filter(r=>r[0]!=="Status"&&r[0]!=="Date");
+  const noteEn=RCPT_NOTE;
+  const valIdx=[];rawRows.forEach((r,i)=>{if(RCPT_TR_VALUES.has(r[1])||r[0]==="Reason")valIdx.push(i)});
+  const src=["Transaction Receipt","Veltrix receipt",stEn,noteEn,...rawRows.map(r=>r[0]),...valIdx.map(i=>rawRows[i][1])];
+  let out=src;try{out=window.veltrixTranslate?await veltrixTranslate(src):src}catch{out=src}
+  const [hdrTxt,shareTxt,stTxt,noteTxt]=out,keys=out.slice(4,4+rawRows.length),vals=out.slice(4+rawRows.length);
+  receiptTitle=shareTxt||"Veltrix receipt";
+  const rows=rawRows.map((r,i)=>{const k=valIdx.indexOf(i);return[keys[i],k>=0?vals[k]:r[1]]});
+  let dateTxt;try{dateTxt=new Date(t.created_at).toLocaleString(L.code,{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"})}catch{dateTxt=when(t.created_at)}
+  const START=rtl?"right":"left",END=rtl?"left":"right",X0=rtl?W-pad:pad,X1=rtl?pad:W-pad;
+  const m=document.createElement("canvas").getContext("2d");
+  m.font='400 10px '+FONT;const keyW=Math.min(150,Math.max(96,Math.ceil(Math.max(...rows.map(r=>m.measureText(r[0]).width),0))+14));
+  m.font='700 10px '+FONT;
+  const valW=W-pad*2-keyW,laid=rows.map(r=>{const ls=wrapText(m,r[1],valW);return{k:r[0],ls,h:ls.length*13+12}});
+  const rowsH=laid.reduce((a,r)=>a+r.h,0);
+  m.font='400 8.5px '+FONT;
+  const note=wrapText(m,noteTxt,W-pad*2);
+  const top=160,H=top+rowsH+26+note.length*12+22;
+  const cv=document.createElement("canvas");cv.width=W*S;cv.height=H*S;const c=cv.getContext("2d");c.scale(S,S);
+  c.direction=rtl?"rtl":"ltr";
+  c.fillStyle="#fff";c.fillRect(0,0,W,H);
+  /* watermark: faint tilted logos in a staggered grid (drawn first, so text stays crisp on top) */
+  if(logo){
+    const ww=88,wh=ww/(logo.width/logo.height);
+    c.save();c.globalAlpha=.07;
+    for(let row=0,y=40;y<H+40;row++,y+=74){
+      for(let x=(row%2?-30:20);x<W+60;x+=130){c.save();c.translate(x+ww/2,y);c.rotate(-.35);c.drawImage(logo,-ww/2,-wh/2,ww,wh);c.restore()}
+    }
+    c.restore();
+  }
+  /* header */
+  if(logo){const lh=15,lw=lh*(logo.width/logo.height);c.drawImage(logo,rtl?W-pad-lw:pad,26,lw,lh)}
+  else{c.fillStyle="#111";c.font='800 16px '+FONT;c.textAlign=START;c.fillText("Veltrix",X0,38)}
+  c.textAlign=END;c.fillStyle="#2b2d33";c.font='400 10.5px '+FONT;c.fillText(hdrTxt,X1,37);
+  /* amount + status + date */
+  c.textAlign="center";c.fillStyle=amtCol;c.font='800 22px '+FONT;
+  let amt=v.amt;for(let sz=22;c.measureText(amt).width>W-pad*2&&sz>13;sz--)c.font='800 '+sz+'px '+FONT;
+  c.fillText(amt,W/2,88);
+  c.fillStyle="#17181d";c.font='500 12.5px '+FONT;c.fillText(stTxt,W/2,110);
+  c.fillStyle="#8a8d96";c.font='400 8.5px '+FONT;c.fillText(dateTxt+(v.sub2?"   ·   "+v.sub2:""),W/2,126);
+  c.strokeStyle="#dcdee3";c.lineWidth=.6;c.beginPath();c.moveTo(pad,146);c.lineTo(W-pad,146);c.stroke();
+  /* rows */
+  let y=top;
+  for(const r of laid){
+    c.textAlign=START;c.fillStyle="#8a8d96";c.font='400 10px '+FONT;c.fillText(r.k,X0,y+10);
+    c.textAlign=END;c.fillStyle="#17181d";c.font='700 10px '+FONT;
+    r.ls.forEach((ln,i)=>c.fillText(ln,X1,y+10+i*13));
+    y+=r.h;
+  }
+  /* footer */
+  c.strokeStyle="#cfd2d8";c.lineWidth=.6;c.setLineDash([3,3]);c.beginPath();c.moveTo(pad,y+8);c.lineTo(W-pad,y+8);c.stroke();c.setLineDash([]);
+  c.textAlign=START;c.fillStyle="#8a8d96";c.font='400 8.5px '+FONT;
+  note.forEach((ln,i)=>c.fillText(ln,X0,y+26+i*12));
+  return new Promise((res,rej)=>cv.toBlob(b=>b?res(b):rej(new Error("no image")),"image/png"));
+}
+function receiptName(t){return "veltrix-receipt-"+String(t.reference||t.id||Date.now()).replace(/[^a-z0-9]/gi,"").slice(0,12)+".png"}
+function saveBlob(blob,name){const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000)}
+async function receiptAction(kind){
+  const t=openTx;if(!t)return;const btn=$(kind==="share"?"tdShare":"tdDownload");btn.disabled=true;
+  try{
+    const blob=await receiptBlob(t),name=receiptName(t);
+    if(kind==="download"){saveBlob(blob,name);toast("Receipt downloaded");return}
+    const file=new File([blob],name,{type:"image/png"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],title:receiptTitle})}catch(err){if(!err||err.name!=="AbortError")throw err}
+    }else{saveBlob(blob,name);toast("Sharing isn't available here, so the receipt was downloaded instead")}
+  }catch(e){console.error(e);toast("Couldn't create the receipt. Please try again.")}
+  finally{btn.disabled=false}
+}
+/* ---- full-screen "No internet connection" section ---- */
+const offOpen=()=>!$("txOfflinePage").hidden;
+let offDismissed=false,netDown=false;
+/* bottom pop-up: stays up after the full-screen notice is dismissed, until the connection / data is back */
+function sheetEl(){
+  let s=$("wdOffSheet");if(s)return s;
+  s=document.createElement("div");s.id="wdOffSheet";s.className="wd-offsheet";s.setAttribute("role","alert");
+  s.innerHTML=`<span class="wd-offsheet-grab" aria-hidden="true"></span><div class="wd-offsheet-body"><span class="wd-offsheet-ic">${txSv(TX_ICON.wifiOff,1.8)}</span><div class="wd-offsheet-txt"><strong>No internet connection</strong><p>Your history and balances can't update. This will close by itself once you're back online.</p></div></div><div class="wd-offsheet-live"><i></i><span>Waiting for connection…</span></div><button type="button" class="wd-offsheet-btn" id="wdOffSheetRetry">${txSv(TX_ICON.retry,2.2)}<span>Try again</span></button>`;
+  if(!$("wdOffScrim")){const sc=document.createElement("div");sc.id="wdOffScrim";sc.className="wd-offscrim";sc.setAttribute("aria-hidden","true");document.body.appendChild(sc)}
+  document.body.appendChild(s);return s;
+}
+function syncSheet(){
+  const on=netDown&&offDismissed&&!offOpen(),s=sheetEl();
+  const sc=$("wdOffScrim");if(sc)sc.classList.toggle("show",on);
+  if(on){s.hidden=false;requestAnimationFrame(()=>requestAnimationFrame(()=>s.classList.add("show")))}
+  else{s.classList.remove("show");setTimeout(()=>{if(!s.classList.contains("show"))s.hidden=true},320)}
+}
+function showOffline(force){
+  netDown=true;
+  if(offOpen())return;if(offDismissed&&!force){syncSheet();return}
+  offDismissed=false;
+  const b=$("txOfflineRetry");if(b){b.disabled=false;b.querySelector("span").textContent="Try again"}
+  const el=$("txOfflinePage");el.style.zIndex="13000";openFeature("txOfflinePage");syncSheet();
+}
+function hideOffline(){if(offOpen())closeFeature("txOfflinePage")}
+function dismissOffline(){offDismissed=true;hideOffline();syncSheet()}
+/* real reachability check: asks the server when signed in, otherwise a tiny public request */
+async function probeNet(){
+  if(isOffline())throw new Error("offline");
+  if(signedIn()){await db().tx.list(mode(),1);return}
+  await fetch("https://www.gstatic.com/generate_204",{mode:"no-cors",cache:"no-store"});
+}
+function backOnline(){
+  netDown=false;offDismissed=false;hideOffline();syncSheet();
+  if(signedIn()){refreshTx();loadNotifs();if(!$("txHistoryPage").hidden)loadAll()}
+}
+async function retryNet(){
+  const b=$("txOfflineRetry"),sb=$("wdOffSheetRetry"),lab=x=>{[b,sb].forEach(z=>{if(z){z.disabled=x!=="Try again";z.querySelector("span").textContent=x}})};
+  if(isOffline()){toast("Still no connection");return}
+  lab("Checking…");
+  try{await probeNet();backOnline();toast("You're back online")}
+  catch(e){toast(netErr(e)?"Still no connection":"Couldn't connect. Please try again.")}
+  finally{lab("Try again")}
+}
+function paintAll(net){
+  if(net==="offline")showOffline();
+  if(net&&!txAll.length){$("txAllList").innerHTML=net==="offline"?"":netCard(net,false);return}
+  if(!net)hideOffline();
   if(!txAll.length){$("txAllList").innerHTML='<div class="wd-act-note">No transactions yet.</div>';return}
   let html="",last=null;txAll.forEach((t,i)=>{const k=dayKey(t.created_at);if(k!==last){html+=`<div class="wd-act-day">${esc(dayLabel(k))}</div>`;last=k}html+=txRowHTML(t,i,"a")});
   $("txAllList").innerHTML=html;
 }
+async function openAll(){
+  $("txHistoryTitle").textContent="Crypto history";
+  if(!txAll.length)vxSkeleton.fill($("txAllList"),6,"tx");
+  openFeature("txHistoryPage");loadAll();
+}
+async function loadAll(){
+  if(isOffline()){paintAll("offline");return}
+  try{txAll=await db().tx.list(mode(),500);paintAll(null)}
+  catch(e){console.error("Full history could not be loaded",e);paintAll(netErr(e)?"offline":"error")}
+}
+/* connection comes back / drops while the sections are on screen */
+window.addEventListener("online",backOnline);
+window.addEventListener("offline",()=>{offDismissed=false;showOffline();refreshTx();if(!$("txHistoryPage").hidden)paintAll("offline")});
+/* already offline when the app opens */
+if(isOffline())showOffline();
+document.addEventListener("scroll",e=>{
+  const tr=e.target;if(!tr||!tr.classList||!tr.classList.contains("wd-txc-track"))return;
+  const dots=tr.parentNode.querySelectorAll(".wd-txc-dots i");if(!dots.length)return;
+  const c=tr.querySelector(".wd-txc-card");if(!c)return;
+  const step=c.getBoundingClientRect().width+10,max=tr.scrollWidth-tr.clientWidth;
+  let idx=tr.scrollLeft>=max-2?dots.length-1:Math.round(tr.scrollLeft/step);
+  dots.forEach((d,i)=>d.classList.toggle("on",i===idx));
+},true);
+document.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("wd-txc-card")){e.preventDefault();e.target.click()}});
 document.addEventListener("click",e=>{
+  if(e.target.closest("#txOfflineRetry")){retryNet();return}
+  if(e.target.closest("#wdOffSheetRetry")){retryNet();return}
+  if(e.target.closest("#txOfflineBack,#txOfflineSkip")){dismissOffline();if(!$("txHistoryPage").hidden&&!txAll.length)closeFeature("txHistoryPage");return}
+  if(e.target.closest("[data-net-retry]")){e.stopPropagation();if(isOffline()){toast("Still no connection");return}refreshTx();if(!$("txHistoryPage").hidden)loadAll();return}
+    if(e.target.closest("#tdShare")){receiptAction("share");return}
+  if(e.target.closest("#tdDownload")){receiptAction("download");return}
+  const cta=e.target.closest("[data-tx-cta]");if(cta){if(window.openDepositPage)openDepositPage();return}
   const r=e.target.closest("[data-tx]");if(r){const [src,i]=r.dataset.tx.split(":");const t=(src==="a"?txAll:txRows)[+i];if(t)openDetail(t);return}
   if(e.target.closest("#txViewAll")){openAll();return}
   if(e.target.closest("#txHistoryBack")){closeFeature("txHistoryPage");return}
   if(e.target.closest("#txDetailBack")){closeFeature("txDetailPage",true);return}
   const c=e.target.closest("[data-copy-val]");if(c){const v=c.dataset.copyVal;(navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(()=>toast("Copied")).catch(()=>toast("Copy not supported"))}
 });
-/* Called by the Send / Convert flows for demo ("test balance") money, which never reaches the server wallet */
-async function logTest(row){if(!signedIn())return;try{await db().tx.logTest(row)}catch(e){console.error("History not saved",e)}refreshTx()}
 
 /* ====================================================== WATCHLIST + PRICE ALERTS */
 let wl=new Map(),pollT=null;
@@ -202,6 +441,6 @@ window.addEventListener("veltrix-ready",async()=>{
 window.addEventListener("veltrix-revoked",reset);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&signedIn()){pollWatch();loadNotifs()}});
 
-window.veltrixActivity={push,refreshTx,paintMode,logTest,syncFav:coin=>paintFav(!!(coin&&wl.has(String(coin.symbol).toUpperCase()))),reload:loadNotifs,topicSvg:topicIcon};
+window.veltrixActivity={push,refreshTx,paintMode,syncFav:coin=>paintFav(!!(coin&&wl.has(String(coin.symbol).toUpperCase()))),reload:loadNotifs,topicSvg:topicIcon};
 window.veltrixWatch={sync:coin=>paintFav(!!(coin&&wl.has(String(coin.symbol).toUpperCase()))),toggle:toggleWatch};
 })();

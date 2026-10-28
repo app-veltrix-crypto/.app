@@ -130,6 +130,7 @@ async function handleSignup(e){
     const r=await veltrixDB.signUp({email,password,fullName,location,dateOfBirth,profileImage,fingerprintEnabled:fingerprintToggle.checked&&fingerprintToggle.dataset.enabled==="true"});
     if(r.needsConfirm){showMessage(signupMessage,"Account created. Check your email to confirm it, then sign in.","success");return}
     showMessage(signupMessage,"Your account has been created successfully.","success");
+    if(window.veltrixWelcomeSupport)window.veltrixWelcomeSupport();
     setTimeout(showDashboard,700);
   }catch(err){
     // Give a useful message for common browser/storage failures instead of hiding
@@ -179,7 +180,7 @@ fingerprintLoginButton.addEventListener("click",loginWithFingerprint);
 function lockToLogin(a){try{closeProfileScreens()}catch{}document.body.classList.remove("wd-feature-open");showPage("loginPage");document.getElementById("loginEmail").value=a.email||"";document.getElementById("loginPassword").value="";showMessage(loginMessage,a.fingerprintEnabled&&window.PublicKeyCredential?"Welcome back. Use your fingerprint, or your email and password, to continue.":"Welcome back. Enter your password to continue.","success")}
 async function loginWithFingerprint(auto){if(auto!==true)clearMessage(loginMessage);const account=getAccount();if(!account)return showMessage(loginMessage,"Sign in with your email and password first.","error");if(!account.fingerprintEnabled)return showMessage(loginMessage,"Fingerprint login has not been enabled for this account.","error");if(!window.PublicKeyCredential)return showMessage(loginMessage,"Biometric authentication is not supported by this browser.","error");try{const challenge=crypto.getRandomValues(new Uint8Array(32));await navigator.credentials.get({publicKey:{challenge,userVerification:"required",timeout:60000}});showDashboard()}catch{if(auto!==true)showMessage(loginMessage,"Biometric authentication was cancelled or could not be completed.","error")}}
 
-function showDashboard(){const a=getAccount();if(!a)return showPage("loginPage");populateDashboard(a);showPage("dashboardPage")}
+function showDashboard(){const a=getAccount();if(!a)return showPage("loginPage");populateDashboard(a);showPage("dashboardPage");if(window.veltrixSpeak)window.veltrixSpeak(`Hello ${a.fullName||"there"}, welcome to Veltrix, your gateway to clean, smooth cryptocurrency transactions.`)}
 
 /* =========================================================
    DASHBOARD (crypto wallet home)
@@ -188,32 +189,33 @@ function showDashboard(){const a=getAccount();if(!a)return showPage("loginPage")
    crypto assets. New accounts have no assets, so the list is empty.
    Asset shape: {symbol, name, amount, price, change}  (change in %)
 ========================================================= */
-let dashboardAssets=[],dashboardUsd=0,balanceHidden=false;
-let accountMode="crypto";
-window.addEventListener("veltrix-ready",()=>{accountMode=veltrixDB.pref.get("accountMode","crypto")==="usd"?"usd":"crypto"});
-function applyAccountModeUI(){
-  document.body.classList.toggle("wd-usd-mode",accountMode==="usd");
-  const l=document.getElementById("balanceLabel"),t=document.getElementById("assetsTabLabel");
-  if(l)l.textContent=accountMode==="usd"?"Dollar Balance":"Total Assets";
-  if(t)t.textContent="Assets";
-  if(window.veltrixActivity)veltrixActivity.paintMode();
-}
-function setAccountMode(m){
-  accountMode=m==="usd"?"usd":"crypto";veltrixDB.pref.set("accountMode",accountMode);
-  applyAccountModeUI();renderBalance();renderAssets("");
-}
-window.setAccountMode=setAccountMode;window.getAccountMode=()=>accountMode;
+let dashboardAssets=[],balanceHidden=false;
 const fmt=(n,d=2)=>Number(n).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
+/* Live prices (CoinGecko) for the coins the user actually holds. Total balance = sum of amount x live price. */
+let assetPrices={},assetPriceAt=0,assetPriceBusy=false;
+function pricedAssets(list){return list.map(x=>{const p=assetPrices[String(x.symbol).toUpperCase()]||{};return {...x,price:Number(p.price)||0,change:Number(p.change)||0}})}
+async function refreshAssetPrices(force){
+  if(assetPriceBusy||!dashboardAssets.length)return;
+  if(!force&&Date.now()-assetPriceAt<20000)return;
+  const ids={};dashboardAssets.forEach(x=>{const sym=String(x.symbol).toUpperCase();const c=cryptoFallback.find(k=>k.symbol===sym);if(c)ids[c.id]=sym});
+  const list=Object.keys(ids);if(!list.length)return;
+  assetPriceBusy=true;
+  try{const r=await fetch("https://api.coingecko.com/api/v3/simple/price?ids="+list.join(",")+"&vs_currencies=usd&include_24hr_change=true",{headers:{accept:"application/json"},cache:"no-store"});
+   if(r.ok){const d=await r.json();list.forEach(id=>{if(d[id]&&d[id].usd!=null)assetPrices[ids[id]]={price:d[id].usd,change:d[id].usd_24h_change||0}});assetPriceAt=Date.now();
+    dashboardAssets=pricedAssets(dashboardAssets);renderBalance();renderAssets(document.getElementById("assetSearch")?document.getElementById("assetSearch").value:"")}}
+  catch(_){}finally{assetPriceBusy=false}
+}
+setInterval(()=>{if(!document.hidden)refreshAssetPrices(true)},30000);
 function populateDashboard(a){
-  applyAccountModeUI();
   const avatar=document.getElementById("dashboardAvatar");
   avatar.innerHTML=a.profileImage?`<img src="${a.profileImage}" alt="Profile picture">`:`<span>${getInitials(a.fullName)}</span>`;
-  dashboardAssets=Array.isArray(a.assets)?a.assets:[];dashboardUsd=Math.max(0,Number(a.usdBalance)||0);
+  dashboardAssets=pricedAssets(Array.isArray(a.assets)?a.assets:[]);
+  refreshAssetPrices();
   document.getElementById("assetSearch").value="";
   renderBalance();renderAssets("");
 }
 function renderBalance(){
-  const total=accountMode==="usd"?dashboardUsd:dashboardAssets.reduce((s,x)=>s+x.amount*x.price,0);
+  const total=dashboardAssets.reduce((s,x)=>s+x.amount*x.price,0);
   const pnl=dashboardAssets.reduce((s,x)=>{const v=x.amount*x.price;return s+v-v/(1+(x.change||0)/100)},0);
   const pct=total-pnl>0?pnl/(total-pnl)*100:0;
   const pnlEl=document.getElementById("pnlValue");
@@ -230,12 +232,10 @@ function renderBalance(){
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function renderAssets(query){
   const list=document.getElementById("assetList"),q=query.trim().toLowerCase();
-  if(accountMode==="usd"){list.innerHTML="";return}
   if(!dashboardAssets.length){list.innerHTML='<div class="wd-empty"><div class="wd-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M6 8V1h1v6.117L8.743 6.07a.5.5 0 0 1 .514 0L11 7.117V1h1v7a.5.5 0 0 1-.757.429L9 7.083 6.757 8.43A.5.5 0 0 1 6 8"/><path d="M3 0h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-1h1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v1H1V2a2 2 0 0 1 2-2"/><path d="M1 5v-.5a.5.5 0 0 1 1 0V5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0V8h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0v.5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1z"/></svg></div><strong>No assets yet</strong><p>Crypto you receive will show up here.</p></div>';return}
   const rows=dashboardAssets.filter(x=>!q||x.symbol.toLowerCase().includes(q)||(x.name||"").toLowerCase().includes(q));
-  const usdRow="";
-  if(!rows.length&&!usdRow){list.innerHTML='<div class="wd-empty"><strong>No results</strong><p>No asset matches your search.</p></div>';return}
-  list.innerHTML=usdRow+rows.map(x=>{const up=(x.change||0)>=0;return `<div class="wd-row"><div class="wd-coin">${esc(x.symbol[0])}</div><div class="wd-coin-info"><b>${esc(x.symbol)}<span>/USDT</span></b><small>${fmt(x.amount,4)} ${esc(x.symbol)}</small></div><div class="wd-coin-value">${fmt(x.amount*x.price)}</div><div class="wd-pill ${up?"up":"down"}">${up?"+":"-"}${fmt(Math.abs(x.change||0))}%</div></div>`}).join("");
+  if(!rows.length){list.innerHTML='<div class="wd-empty"><strong>No results</strong><p>No asset matches your search.</p></div>';return}
+  list.innerHTML=rows.map(x=>{const up=(x.change||0)>=0;return `<div class="wd-row"><div class="wd-coin">${esc(x.symbol[0])}</div><div class="wd-coin-info"><b>${esc(x.symbol)}<span>/USDT</span></b><small>${fmt(x.amount,4)} ${esc(x.symbol)}</small></div><div class="wd-coin-value">${fmt(x.amount*x.price)}</div><div class="wd-pill ${up?"up":"down"}">${up?"+":"-"}${fmt(Math.abs(x.change||0))}%</div></div>`}).join("");
 }
 const assetSearchInput=document.getElementById("assetSearch");
 const cryptoSearchPanel=document.getElementById("cryptoSearchPanel");
@@ -265,12 +265,15 @@ const cryptoFallback=[
 ];
 let cryptoMarkets=cryptoFallback.map(c=>({...c}));
 function formatMarketPrice(n){if(n==null||!Number.isFinite(Number(n)))return "—";const v=Number(n);return "$"+v.toLocaleString("en-US",{minimumFractionDigits:v>=1?2:4,maximumFractionDigits:v>=1?2:6})}
-function coinLogoHTML(c){const sym=String(c.symbol||"?").toUpperCase();const icon=`https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/svg/color/${esc(sym.toLowerCase())}.svg`;return `<img src="${esc(c.image||icon)}" alt="" loading="lazy" data-fallback="${icon}" data-letter="${esc(sym.slice(0,1))}" onerror="coinLogoError(this)">`}
+function coinLogoHTML(c){const sym=String(c.symbol||"?").toUpperCase();const local=(window.VX_LOCAL_LOGOS||{})[sym];const icon=local||`https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/svg/color/${esc(sym.toLowerCase())}.svg`;return `<img src="${esc(local||c.image||icon)}" alt="" loading="lazy" data-fallback="${icon}" data-letter="${esc(sym.slice(0,1))}" onerror="coinLogoError(this)">`}
 function coinLogoError(img){if(img.dataset.fallback&&img.src!==img.dataset.fallback&&!img.dataset.tried){img.dataset.tried="1";img.src=img.dataset.fallback;return}const s=document.createElement("span");s.textContent=img.dataset.letter||"?";img.replaceWith(s)}
 function renderCryptoLoading(){
- cryptoMarketList.innerHTML=Array.from({length:7},()=>'<div class="wd-market-loading" aria-hidden="true"><span class="wd-market-skeleton coin"></span><span class="wd-market-skeleton lines"></span><span class="wd-market-skeleton price"></span></div>').join("");
+ vxSkeleton.fill(cryptoMarketList,8,"market");
 }
+let cryptoMarketsReady=false;
 function renderCryptoMarkets(query=""){
+ if(!cryptoMarketsReady){renderCryptoLoading();return}
+ cryptoMarketList.removeAttribute("aria-busy");
  const q=query.trim().toLowerCase();
  const rows=cryptoMarkets.filter(c=>c.name.toLowerCase().includes(q)||c.symbol.toLowerCase().includes(q));
  if(!rows.length){cryptoMarketList.innerHTML='<div class="wd-market-empty">No cryptocurrencies match your search.</div>';return}
@@ -305,9 +308,9 @@ async function loadCryptoMarkets(){
   if(!response.ok)throw new Error("Market request failed");
   const data=await response.json();
   const colors=Object.fromEntries(cryptoFallback.map(c=>[c.symbol,c.color]));
-  if(Array.isArray(data)&&data.length){cryptoMarkets=data.slice(0,20).map(c=>({id:c.id,symbol:String(c.symbol||"").toUpperCase(),name:c.name,price:c.current_price,change:c.price_change_percentage_24h,image:c.image,rank:c.market_cap_rank,cap:c.market_cap,volume:c.total_volume,color:colors[String(c.symbol||"").toUpperCase()]||"#34343a"}));cryptoSearchStatus.textContent="Live prices · USD";renderCryptoMarkets(assetSearchInput.value)}
+  if(Array.isArray(data)&&data.length){cryptoMarkets=data.slice(0,20).map(c=>({id:c.id,symbol:String(c.symbol||"").toUpperCase(),name:c.name,price:c.current_price,change:c.price_change_percentage_24h,image:c.image,rank:c.market_cap_rank,cap:c.market_cap,volume:c.total_volume,color:colors[String(c.symbol||"").toUpperCase()]||"#34343a"}));await vxSkeleton.logos(cryptoMarkets,2200);cryptoMarketsReady=true;cryptoSearchStatus.textContent="Live prices · USD";renderCryptoMarkets(assetSearchInput.value)}
   else throw new Error("No market data");
- }catch(_){cryptoSearchStatus.textContent="Market prices unavailable";renderCryptoMarkets(assetSearchInput.value)}
+ }catch(_){cryptoMarketsReady=true;cryptoSearchStatus.textContent="Market prices unavailable";renderCryptoMarkets(assetSearchInput.value)}
 }
 assetSearchInput.addEventListener("focus",openCryptoSearch);
 assetSearchInput.addEventListener("click",openCryptoSearch);
@@ -329,14 +332,14 @@ function openMarketDetail(coin){
  document.getElementById("marketDetailSymbol").textContent=coin.symbol;
  document.getElementById("marketDetailName").innerHTML="";
  document.getElementById("marketDetailName").append(document.createTextNode(coin.name+" "));
- const copy=document.createElement("button");copy.type="button";copy.id="copyMarketSymbol";copy.setAttribute("aria-label","Copy cryptocurrency symbol");copy.textContent="▢";document.getElementById("marketDetailName").append(copy);
+ const copy=document.createElement("button");copy.type="button";copy.id="copyMarketSymbol";copy.setAttribute("aria-label","Copy cryptocurrency symbol");copy.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H16"/></svg>';document.getElementById("marketDetailName").append(copy);
  document.getElementById("marketDetailBalanceSymbol").textContent=coin.symbol;
  document.getElementById("marketAboutName").textContent=coin.name;
  document.getElementById("marketAboutCopy").hidden=true;
  document.getElementById("marketDetailPrice").textContent=formatMarketPrice(coin.price);
  const change=document.getElementById("marketDetailChange");change.textContent=coin.change==null?"Loading market data…":`${Number(coin.change)>=0?"+":""}${Number(coin.change).toFixed(2)}%`;change.classList.toggle("down",Number(coin.change)<0);
  document.querySelectorAll("[data-market-range]").forEach(b=>b.classList.toggle("active",b.dataset.marketRange===marketChartRange));
- document.getElementById("marketChartLoading").classList.remove("loaded");drawMarketChart([]);
+ marketDetailPage.classList.add("vx-busy");document.getElementById("marketChartLoading").classList.remove("loaded");drawMarketChart([]);
  loadMarketDetailData();if(marketRefreshTimer)clearInterval(marketRefreshTimer);marketRefreshTimer=setInterval(()=>{if(!marketDetailPage.hidden)loadMarketDetailData(true)},30000);
 }
 async function loadMarketDetailData(quiet=false){
@@ -359,9 +362,9 @@ async function loadMarketDetailData(quiet=false){
    const ch=document.getElementById("marketDetailChange");ch.textContent=pct==null?"Market data":`${pct>=0?"+":""}${pct.toFixed(2)}%`;ch.classList.toggle("down",pct<0);
    document.getElementById("marketChartPricePill").textContent=formatMarketPrice(current);drawMarketChart(marketChartPoints);
   }else throw new Error("No chart points");
-  loading.classList.add("loaded");
+  loading.classList.add("loaded");marketDetailPage.classList.remove("vx-busy");
  }catch(_){
-  loading.classList.add("loaded");
+  loading.classList.add("loaded");marketDetailPage.classList.remove("vx-busy");
   if(!marketChartPoints.length){drawMarketChart([]);document.getElementById("marketDetailChange").textContent="Chart data unavailable";}
  }
 }
@@ -387,7 +390,7 @@ document.getElementById("marketDetailPage").addEventListener("click",e=>{const r
 /* watchlist heart: handled by activity.js (saved in the database, drives price alerts) */
 document.getElementById("marketDetailPage").addEventListener("click",e=>{if(e.target.closest("#copyMarketSymbol")){navigator.clipboard?.writeText(activeMarketCoin?.symbol||"").then(()=>wdToast("Symbol copied")).catch(()=>wdToast(activeMarketCoin?.symbol||""))}});
 document.getElementById("marketAboutToggle").addEventListener("click",()=>{const p=document.getElementById("marketAboutCopy");p.hidden=!p.hidden});
-document.getElementById("marketBuyButton").addEventListener("click",()=>wdToast("Buying will be available when trading is connected"));
+document.getElementById("marketBuyButton").addEventListener("click",()=>{if(window.veltrixBuyBrowser)veltrixBuyBrowser.open(activeMarketCoin);else wdToast("Buying is not available right now")});
 window.addEventListener("resize",()=>{if(!marketDetailPage.hidden)drawMarketChart(marketChartPoints)});
 document.getElementById("toggleBalance").addEventListener("click",()=>{balanceHidden=!balanceHidden;renderBalance()});
 
@@ -473,10 +476,9 @@ document.getElementById("toggleBalance").addEventListener("click",()=>{balanceHi
   paintStack();
 })();
 let toastTimer;
-function wdToast(msg){const t=document.getElementById("wdToast");t.textContent=msg;t.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove("show"),1800)}
+function wdToast(msg){const t=document.getElementById("wdToast");t.textContent=msg;t.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove("show"),Math.min(6500,Math.max(1800,1300+String(msg||"").length*48)))}
 document.querySelectorAll("#dashboardPage [data-action]").forEach(b=>b.addEventListener("click",()=>{
  if(b.dataset.action==="Deposit"){openDepositPage();return}
- if(b.dataset.action==="Convert"){openConvertSheet();return}
  if(b.dataset.action==="Send"){openSendSheet();return}
  wdToast(`${b.dataset.action} is coming soon`)
 }));
@@ -484,16 +486,17 @@ document.querySelectorAll("#dashboardPage [data-action]").forEach(b=>b.addEventL
 const depositPage=document.getElementById("depositPage");
 const depositCoinPicker=document.getElementById("depositCoinPicker");
 const depositCoinDetails=document.getElementById("depositCoinDetails");
+let depositDappsMode=false;
 const depositCoinList=document.getElementById("depositCoinList");
 let activeDepositCoin=null,depositAddrs={};
 let depositAddrsState="loading";/* loading | ready | error */
-let depositLive={};/* live prices for the deposit coins only, keyed by symbol */
+let depositLive={},depositLiveState="loading";/* loading | ready | error *//* live prices for the deposit coins only, keyed by symbol */
 async function loadDepositAddrs(){
- try{const r=await veltrixDB.deposits.list();depositAddrs=Object.fromEntries(r.map(x=>[String(x.symbol).toUpperCase(),x]));depositAddrsState="ready"}
+ try{let w=await veltrixDB.wallet.info();if(!(w&&w.exists)&&window.veltrixWallet){await veltrixWallet.ensure();w=await veltrixDB.wallet.info()}const r=(w&&w.exists&&Array.isArray(w.addresses))?w.addresses:[];depositAddrs=Object.fromEntries(r.map(x=>[String(x.symbol).toUpperCase(),x]));depositAddrsState="ready"}
  catch(_){if(depositAddrsState!=="ready")depositAddrsState="error"}
  if(!depositPage.hidden&&!depositCoinPicker.hidden){const s=document.getElementById("depositCoinSearch");renderDepositCoins(s?s.value:"")}
 }
-/* The deposit list = exactly the coins that have an admin-generated address (nothing else is ever shown). */
+/* The deposit list = exactly the coins that have an address derived from THIS user's own wallet phrase. */
 function depositCoinsList(){
  return Object.keys(depositAddrs).map(sym=>{
   const base=cryptoFallback.find(c=>c.symbol===sym)||{id:sym.toLowerCase(),symbol:sym,name:sym,color:"#34343a"};
@@ -511,6 +514,7 @@ function openDepositPage(){
  document.body.classList.add("wd-feature-open");
  const search=document.getElementById("depositCoinSearch");if(search)search.value="";
  depositAddrsState=Object.keys(depositAddrs).length?"ready":"loading";
+ depositLiveState=Object.keys(depositLive).length?"ready":"loading";
  renderDepositCoins();
  loadDepositAddrs();
  refreshDepositMarkets();
@@ -520,13 +524,15 @@ function renderDepositCoins(query=""){
  const all=depositCoinsList();
  const q=query.trim().toLowerCase();
  const coins=all.filter(c=>!q||String(c.name||"").toLowerCase().includes(q)||String(c.symbol||"").toLowerCase().includes(q));
- depositCoinList.innerHTML=coins.map(c=>{
+ if(depositAddrsState==="loading"||depositLiveState==="loading"){vxSkeleton.fill(depositCoinList,9,"market");const cnt=document.getElementById("depositResultCount");if(cnt)cnt.textContent="…";return}
+ const paintDeposit=()=>{depositCoinList.innerHTML=coins.map(c=>{
   const hasChange=c.change!=null&&Number.isFinite(Number(c.change));const up=Number(c.change)>=0;
   const change=hasChange?`${up?"+":""}${Number(c.change).toFixed(2)}%`:"—";
   const vol=depositCompact(c.volume),cap=depositCompact(c.cap);
   const details=[String(c.symbol||"").toUpperCase(),c.rank?`Rank #${c.rank}`:null,cap?`MCap ${cap}`:null,!cap&&vol?`Vol ${vol}`:null].filter(Boolean).join(" · ");
-  return `<button type="button" class="wd-market-row wd-deposit-market-row" role="listitem" data-deposit-id="${esc(c.id)}"><span class="wd-market-coin" style="--coin-color:${esc(c.color||"#333")}">${coinLogoHTML(c)}</span><span class="wd-market-name"><b>${esc(c.name)}</b><small>${esc(details)}</small></span><span class="wd-market-values"><b>${formatMarketPrice(c.price)}</b><small class="${!hasChange?"neutral":up?"up positive":"down negative"}">${change}</small></span></button>`}).join("")||`<div class="wd-deposit-empty">${depositAddrsState==="loading"?"Loading deposit options…":depositAddrsState==="error"?"Couldn't load deposit options. Please try again.":q?"No matching tokens found.":"No deposit options are available yet."}</div>`;
- const count=document.getElementById("depositResultCount");if(count)count.textContent=String(coins.length);
+  return `<button type="button" class="wd-market-row wd-deposit-market-row" role="listitem" data-deposit-id="${esc(c.id)}"><span class="wd-market-coin" style="--coin-color:${esc(c.color||"#333")}">${coinLogoHTML(c)}</span><span class="wd-market-name"><b>${esc(c.name)}</b><small>${esc(details)}</small></span><span class="wd-market-values"><b>${formatMarketPrice(c.price)}</b><small class="${!hasChange?"neutral":up?"up positive":"down negative"}">${change}</small></span></button>`}).join("")||`<div class="wd-deposit-empty">${depositAddrsState==="loading"?"Loading deposit options…":depositAddrsState==="error"?"Couldn't load deposit options. Please try again.":q?"No matching tokens found.":"No deposit options are available yet."}</div>`};
+ vxSkeleton.render(depositCoinList,coins,paintDeposit,"market",9);
+ const count=document.getElementById("depositResultCount");if(count)count.textContent=String(depositDappsMode?0:coins.length);
 }
 // Live prices for the deposit list: fetched when the screen opens, then refreshed every 30s while it is visible.
 let depositMarketsBusy=false;
@@ -539,9 +545,14 @@ async function refreshDepositMarkets(){
   const data=await response.json();
   if(Array.isArray(data)&&data.length){
    depositLive={};data.forEach(c=>{depositLive[String(c.symbol||"").toUpperCase()]={price:c.current_price,change:c.price_change_percentage_24h,image:c.image,rank:c.market_cap_rank,cap:c.market_cap,volume:c.total_volume}});
+   /* any coin the id lookup missed (e.g. an id CoinGecko renamed) is looked up by its symbol instead */
+   try{const missing=Object.keys(depositAddrs).filter(sym=>!depositLive[sym]);
+    if(missing.length){const r2=await fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&symbols="+encodeURIComponent(missing.join(",").toLowerCase())+"&order=market_cap_desc&per_page=250&page=1&sparkline=false",{headers:{accept:"application/json"}});
+     if(r2.ok){(await r2.json()).forEach(c=>{const k=String(c.symbol||"").toUpperCase();if(missing.includes(k)&&!depositLive[k])depositLive[k]={price:c.current_price,change:c.price_change_percentage_24h,image:c.image,rank:c.market_cap_rank,cap:c.market_cap,volume:c.total_volume}})}}}catch(_){}
+   depositLiveState="ready";
    if(!depositPage.hidden&&!depositCoinPicker.hidden){const s=document.getElementById("depositCoinSearch");renderDepositCoins(s?s.value:"")}
-  }
- }catch(_){}finally{depositMarketsBusy=false}
+  }else throw new Error("No market data");
+ }catch(_){if(depositLiveState!=="ready"){depositLiveState="error";if(!depositPage.hidden&&!depositCoinPicker.hidden){const s=document.getElementById("depositCoinSearch");renderDepositCoins(s?s.value:"")}}}finally{depositMarketsBusy=false}
 }
 setInterval(()=>{if(!depositPage.hidden&&!depositCoinPicker.hidden)refreshDepositMarkets()},30000);
 const depositSearch=document.getElementById("depositCoinSearch");
@@ -550,13 +561,21 @@ const clearDepositSearch=document.getElementById("clearDepositSearch");
 if(clearDepositSearch)clearDepositSearch.addEventListener("click",()=>{closeFeaturePages();});
 const depositPasteButton=document.getElementById("depositPasteButton");
 if(depositPasteButton)depositPasteButton.addEventListener("click",async()=>{try{depositSearch.value=await navigator.clipboard.readText();renderDepositCoins(depositSearch.value);depositSearch.focus()}catch(_){wdToast("Clipboard access isn't available")}});
-document.querySelectorAll("[data-deposit-tab]").forEach(tab=>tab.addEventListener("click",()=>{document.querySelectorAll("[data-deposit-tab]").forEach(t=>{const active=t===tab;t.classList.toggle("active",active);t.setAttribute("aria-selected",String(active))});if(tab.dataset.depositTab==="dapps"){wdToast("dApps are not available in the receive list yet");document.querySelector('[data-deposit-tab="tokens"]').click()}}));
+/* Tokens / dApps tabs: dApps swaps the coin list for a "none available" screen; Tokens brings the list back. */
+document.querySelectorAll("[data-deposit-tab]").forEach(tab=>tab.addEventListener("click",()=>{
+  document.querySelectorAll("[data-deposit-tab]").forEach(t=>{const active=t===tab;t.classList.toggle("active",active);t.setAttribute("aria-selected",String(active))});
+  depositDappsMode=tab.dataset.depositTab==="dapps";
+  document.getElementById("depositCoinPicker").classList.toggle("dapps-mode",depositDappsMode);
+  const cnt=document.getElementById("depositResultCount");
+  if(depositDappsMode){if(cnt)cnt.textContent="0"}else renderDepositCoins(depositSearch?depositSearch.value:"");
+}));
 depositCoinList.addEventListener("click",e=>{
  const row=e.target.closest("[data-deposit-id]");if(!row)return;
  const all=depositCoinsList();
  activeDepositCoin=all.find(c=>c.id===row.dataset.depositId)||all.find(c=>c.symbol===row.dataset.depositId);
  if(!activeDepositCoin)return;
  const symbol=String(activeDepositCoin.symbol||"COIN").toUpperCase();
+ const paintDepositDetail=()=>{depositCoinDetails.classList.remove("vx-dep-busy");
  document.getElementById("depositCoinName").innerHTML=`<span class="wd-deposit-selected-coin"><span class="wd-deposit-selected-logo" style="--coin-color:${esc(activeDepositCoin.color||"#30354a")}">${coinLogoHTML(activeDepositCoin)}</span><span>${esc(activeDepositCoin.name)}</span></span>`;
  const addrEl=document.getElementById("depositAddress"),netEl=document.getElementById("depositNetwork"),qrTarget=document.getElementById("depositQrImage"),copyBtn=document.getElementById("copyDepositAddress");
  const showAddr=rec=>{qrTarget.replaceChildren();
@@ -565,6 +584,9 @@ depositCoinList.addEventListener("click",e=>{
   try{VeltrixQR.render(qrTarget,rec.address,{size:240})}catch(e){qrTarget.textContent="QR unavailable. Copy the address below."}};
  showAddr(depositAddrs[symbol]);
  if(!depositAddrs[symbol])loadDepositAddrs().then(()=>{if(String(activeDepositCoin&&activeDepositCoin.symbol).toUpperCase()===symbol)showAddr(depositAddrs[symbol])});
+ };
+ if(vxSkeleton.cached([activeDepositCoin]))paintDepositDetail();
+ else{depositCoinDetails.classList.add("vx-dep-busy");document.getElementById("depositCoinName").innerHTML='<span class="vx" style="display:inline-block;width:130px;height:18px;border-radius:7px"></span>';document.getElementById("depositAddress").textContent="loading address";document.getElementById("depositNetwork").textContent="loading network details loading network details";document.getElementById("depositQrImage").replaceChildren();document.getElementById("copyDepositAddress").disabled=true;const want=activeDepositCoin;vxSkeleton.logos([want],1800).then(()=>{if(activeDepositCoin===want)paintDepositDetail()})}
  depositCoinPicker.hidden=true;depositCoinDetails.hidden=false;
  (document.getElementById("depositTitle")||{}).textContent=`Deposit ${symbol}`;
  depositPage.scrollTop=0;
@@ -858,37 +880,6 @@ backStepButton.addEventListener("click", () => {
 
 showSignupStep(1);
 
-/* Centered currency picker for the dashboard balance. */
-(()=>{
- const trigger=document.getElementById('currencySelector'),overlay=document.getElementById('currencyOverlay');
- if(!trigger||!overlay)return;
- const list=document.getElementById('currencyList'),search=document.getElementById('currencySearch'),close=document.getElementById('closeCurrencyModal'),codeLabel=document.getElementById('selectedCurrencyCode');
- let selected='USD';
- codeLabel.textContent=selected;
- const fallback=['AED','ARS','AUD','BDT','BRL','CAD','CHF','CLP','CNY','COP','CZK','DKK','EGP','EUR','GBP','GHS','HKD','HUF','IDR','ILS','INR','JPY','KES','KRW','MAD','MXN','MYR','NGN','NOK','NZD','PEN','PHP','PKR','PLN','QAR','RON','RUB','SAR','SEK','SGD','THB','TRY','TWD','TZS','UAH','UGX','USD','VND','ZAR'];
- let codes=[];try{codes=typeof Intl.supportedValuesOf==='function'?Intl.supportedValuesOf('currency'):fallback}catch{codes=fallback}
- codes=[...new Set([...codes,...fallback])].sort();
- const names=new Intl.DisplayNames(['en'],{type:'currency'});
- const regions={USD:'United States',EUR:'Eurozone',GBP:'United Kingdom',NGN:'Nigeria',CAD:'Canada',AUD:'Australia',JPY:'Japan',CNY:'China',INR:'India',GHS:'Ghana',KES:'Kenya',ZAR:'South Africa',CHF:'Switzerland',NZD:'New Zealand',SGD:'Singapore',AED:'United Arab Emirates',SAR:'Saudi Arabia',BRL:'Brazil',MXN:'Mexico',EGP:'Egypt',PKR:'Pakistan',BDT:'Bangladesh',IDR:'Indonesia',KRW:'South Korea',TRY:'Türkiye',XOF:'West African CFA zone',XAF:'Central African CFA zone',XCD:'Eastern Caribbean'};
- const flags={USD:'🇺🇸',EUR:'🇪🇺',GBP:'🇬🇧',NGN:'🇳🇬',CAD:'🇨🇦',AUD:'🇦🇺',JPY:'🇯🇵',CNY:'🇨🇳',INR:'🇮🇳',GHS:'🇬🇭',KES:'🇰🇪',ZAR:'🇿🇦',CHF:'🇨🇭',NZD:'🇳🇿',SGD:'🇸🇬',AED:'🇦🇪',SAR:'🇸🇦',BRL:'🇧🇷',MXN:'🇲🇽',EGP:'🇪🇬',PKR:'🇵🇰',BDT:'🇧🇩',IDR:'🇮🇩',KRW:'🇰🇷',TRY:'🇹🇷'};
- function render(){
-  const usd=window.getAccountMode&&getAccountMode()==='usd';
-  list.innerHTML='';const b=document.createElement('button');b.type='button';b.className='wd-currency-option';b.setAttribute('role','option');
-  const logo=usd?'<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 13v1.25c0 .138.112.25.25.25h1a.25.25 0 0 0 .25-.25V13h.5v1.25c0 .138.112.25.25.25h1a.25.25 0 0 0 .25-.25V13h.084c1.992 0 3.416-1.033 3.416-2.82 0-1.502-1.007-2.323-2.186-2.44v-.088c.97-.242 1.683-.974 1.683-2.19C11.997 3.93 10.847 3 9.092 3H9V1.75a.25.25 0 0 0-.25-.25h-1a.25.25 0 0 0-.25.25V3h-.573V1.75a.25.25 0 0 0-.25-.25H5.75a.25.25 0 0 0-.25.25V3l-1.998.011a.25.25 0 0 0-.25.25v.989c0 .137.11.25.248.25l.755-.005a.75.75 0 0 1 .745.75v5.505a.75.75 0 0 1-.75.75l-.748.011a.25.25 0 0 0-.25.25v1c0 .138.112.25.25.25zm1.427-8.513h1.719c.906 0 1.438.498 1.438 1.312 0 .871-.575 1.362-1.877 1.362h-1.28zm0 4.051h1.84c1.137 0 1.756.58 1.756 1.524 0 .953-.626 1.45-2.158 1.45H6.927z"/></svg>':'<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1zm7 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4"/><path d="M0 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1zm3 0a2 2 0 0 1-2 2v4a2 2 0 0 1 2 2h10a2 2 0 0 1 2-2V7a2 2 0 0 1-2-2z"/></svg>';
-  b.innerHTML='<span class="wd-currency-flag" style="flex:none;width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#3a4170,#20243a);color:#fff;font-size:24px;font-weight:800;line-height:1;display:grid;place-items:center;box-shadow:0 4px 12px rgba(32,36,58,.25)">'+logo+'</span><span class="wd-currency-info"><strong>'+(usd?'Switch to crypto account':'Switch to dollar account')+'</strong><small>'+(usd?'Crypto wallet':'USD wallet')+'</small></span><span class="wd-currency-code">'+(usd?'CRYPTO':'USD')+'</span>';
-  b.addEventListener('click',()=>{const next=usd?'crypto':'usd';closeModal();setAccountMode(next);setTimeout(()=>wdToast(next==='usd'?'Switched to your dollar account':'Switched to your crypto account'),150)});
-  list.appendChild(b);
- }
- function openModal(){
-  overlay.hidden=false;overlay.style.display='flex';overlay.setAttribute('aria-hidden','false');
-  trigger.setAttribute('aria-expanded','true');document.body.classList.add('wd-currency-open');
-  search.value='';render();setTimeout(()=>search.focus({preventScroll:true}),40)
- }
- function closeModal(){overlay.hidden=true;overlay.style.display='none';overlay.setAttribute('aria-hidden','true');trigger.setAttribute('aria-expanded','false');document.body.classList.remove('wd-currency-open');trigger.focus({preventScroll:true})}
- window.openVeltrixCurrencyModal=openModal;window.closeVeltrixCurrencyModal=closeModal;
- trigger.addEventListener('click',openModal);close.addEventListener('click',closeModal);search.addEventListener('input',()=>render(search.value));overlay.addEventListener('click',e=>{if(e.target===overlay)closeModal()});document.addEventListener('keydown',e=>{if(!overlay.hidden&&e.key==='Escape')closeModal()});
-})();
-
 
 /* Resilient entry points for the two controls reported as unresponsive. */
 document.addEventListener("click",function(event){
@@ -896,215 +887,6 @@ document.addEventListener("click",function(event){
  if(depositButton){event.preventDefault();openDepositPage();return}
 
 });
-
-/* ===== Convert bottom sheet: sell crypto for cash in the user's preferred currency (live rates) ===== */
-(function(){
- const FEE=0.0011,POLL_MS=15000;
- const FX_FALLBACK={USD:1,EUR:.92,GBP:.79,NGN:1500,CAD:1.37,AUD:1.52,JPY:150,CNY:7.2,INR:83,GHS:15,KES:129,ZAR:18.5,CHF:.88,NZD:1.65,SGD:1.35,AED:3.67,SAR:3.75,BRL:5.1,MXN:17.5,EGP:48,PKR:278,BDT:110,IDR:15700,KRW:1350,TRY:32};
- const NAMES={BTC:"Bitcoin",ETH:"Ethereum",USDT:"Tether",BNB:"BNB",SOL:"Solana",XRP:"XRP",USDC:"USDC",DOGE:"Dogecoin",TRX:"TRON",TON:"Toncoin"};
- const IDS={BTC:"bitcoin",ETH:"ethereum",USDT:"tether",BNB:"binancecoin",SOL:"solana",XRP:"ripple",USDC:"usd-coin",DOGE:"dogecoin",TRX:"tron",TON:"the-open-network"};
- try{if(typeof cryptoFallback!=="undefined")cryptoFallback.forEach(c=>{if(c.symbol&&c.id)IDS[String(c.symbol).toUpperCase()]=c.id})}catch{}
- // Shown for now even when not owned; replaced by real assets once the back end is connected.
- const DEMO=[{symbol:"BTC",name:"Bitcoin",price:60000,amount:0.5},{symbol:"ETH",name:"Ethereum",price:3000,amount:5},{symbol:"USDT",name:"Tether",price:1,amount:1000}];
- const $=id=>document.getElementById(id);
- const sheet=$("cvSheet"),backdrop=$("cvBackdrop"),amountEl=$("cvAmount"),slider=$("cvSlider"),slide=$("cvSlide"),knob=$("cvKnob");
- const pick=$("cvPicker"),pickBack=$("cvPickBack"),pickSearch=$("cvPickSearch"),pickList=$("cvPickList");
- let mode="cash",coins=[],sel="",busy=false,cur="USD",fx=1,live={},liveAt=0,timer=null;
- const num=v=>{const n=parseFloat(String(v).replace(/,/g,""));return isFinite(n)&&n>0?n:0};
- const group=raw=>{raw=String(raw).replace(/[^0-9.]/g,"");const d=raw.indexOf(".");let i=d<0?raw:raw.slice(0,d),f=d<0?null:raw.slice(d+1).replace(/\./g,"");i=i.replace(/^0+(?=\d)/,"");i=i.replace(/\B(?=(\d{3})+(?!\d))/g,",");const max=mode==="cash"?2:8;return f===null?i:i+"."+f.slice(0,max)};
- const trim=v=>fmt(v,8).replace(/\.?0+$/,"")||"0";
- const money=v=>{try{return new Intl.NumberFormat(undefined,{style:"currency",currency:cur}).format(v)}catch{return fmt(v)+" "+cur}};
- const symbol=()=>{try{return new Intl.NumberFormat(undefined,{style:"currency",currency:cur,currencyDisplay:"narrowSymbol"}).formatToParts(0).find(x=>x.type==="currency").value}catch{return cur}};
- const from=()=>coins.find(c=>c.symbol===sel);
- const isLive=c=>c&&live[c.symbol]!=null&&Date.now()-liveAt<60000;
- const unitCash=()=>{const f=from();if(!f)return 0;return live[f.symbol]!=null?live[f.symbol]:f.price*fx};
- const coinAmt=()=>{const u=unitCash();if(!from()||!u)return 0;const v=num(amountEl.value);return mode==="cash"?v/u:v};
- const cashVal=()=>coinAmt()*unitCash();
- const prefCurrency=()=>"USD";
- function loadFx(){
-  cur=prefCurrency();fx=cur==="USD"?1:(FX_FALLBACK[cur]||1);
-  let cache=window.__fxCache||null;
-  if(cache&&cache.rates&&cache.rates[cur])fx=cache.rates[cur];
-  if(cur==="USD"||(cache&&Date.now()-cache.t<3600e3))return;
-  fetch("https://open.er-api.com/v6/latest/USD").then(r=>r.json()).then(d=>{if(d&&d.rates){window.__fxCache={t:Date.now(),rates:d.rates};if(d.rates[cur]){fx=d.rates[cur];update()}}}).catch(()=>{});
- }
- async function fetchLive(){
-  const ids=[...new Set(coins.map(c=>c.id||IDS[c.symbol]).filter(Boolean))];if(!ids.length)return;
-  const cl=cur.toLowerCase(),vs=cl==="usd"?"usd":cl+",usd";
-  try{
-   const r=await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(",")}&vs_currencies=${vs}`,{headers:{accept:"application/json"},cache:"no-store"});
-   if(!r.ok)throw new Error("rate");
-   const d=await r.json();let got=false;
-   coins.forEach(c=>{const o=d[c.id||IDS[c.symbol]];if(!o)return;const p=o[cl]!=null?o[cl]:(o.usd!=null?o.usd*fx:null);if(p!=null){live[c.symbol]=p;got=true}});
-   if(got)liveAt=Date.now();
-  }catch{}
-  if(sheet.classList.contains("open"))update();
- }
- const logoBox=(c,lg)=>`<span class="cv-logo${lg?" lg":""}">${coinLogoHTML(c)}</span>`;
- function buildCoins(){
-  const real=(dashboardAssets||[]).filter(a=>a.amount>0).map(a=>({...a,name:a.name||NAMES[a.symbol]||a.symbol}));
-  const test=DEMO.filter(d=>!real.some(r=>r.symbol===d.symbol)).map(d=>({...d,test:true}));
-  coins=[...real,...test];
-  if(!coins.some(c=>c.symbol===sel))sel=coins[0]?coins[0].symbol:"";
- }
- function update(){
-  const f=from(),max=f?f.amount:0,ca=coinAmt(),v=num(amountEl.value);
-  $("cvFromDisp").innerHTML=f?`${logoBox(f)}<span class="cv-cname">${esc(f.name)} <small>${esc(f.symbol)}</small></span>`:"";
-  $("cvCur").textContent=mode==="cash"?symbol():(f?f.symbol:"");
-  $("cvCur").style.fontSize=mode==="cash"?(symbol().length>1?"18px":""):"16px";
-  $("cvAmount").parentElement.classList.toggle("filled",v>0);
-  amountEl.style.width=Math.max(1,(amountEl.value||"0").length)+"ch";
-  $("cvSize").textContent=mode==="cash"?`${trim(ca)} ${f?f.symbol:""}`:money(cashVal());
-  $("cvAvail").textContent=f?`${f.test?"Test balance":"Available"} ${trim(f.amount)}`:"";
-  $("cvTo").textContent="Dollar wallet (USD)";
-  $("cvRate").textContent=f?`1 ${f.symbol} ≈ ${money(unitCash())}`:"—";
-  const lv=isLive(f);const tag=$("cvLive");tag.textContent=lv?"Live":"Estimated";tag.classList.toggle("on",!!lv);
-  const recv=cashVal()*(1-FEE);
-  $("cvRecv").textContent=recv>0?money(recv):"—";
-  const pct=max>0?Math.min(100,ca/max*100):0;
-  slider.value=pct;slider.style.setProperty("--p",pct+"%");
-  document.querySelectorAll("#cvPct button").forEach(b=>b.classList.toggle("on",+b.dataset.p===Math.round(pct)));
-  const ok=ca>0&&ca<=max+1e-12&&!!f;
-  slide.classList.toggle("ready",ok);slide.setAttribute("aria-disabled",String(!ok));
-  $("cvSlideTxt").textContent=ca>max+1e-12?"Insufficient balance":"Slide to Convert";
-  return ok;
- }
- function setPct(p){
-  const f=from();if(!f)return;
-  const c=f.amount*p/100;
-  amountEl.value=p===0?"":group(mode==="cash"?String(Math.floor(c*unitCash()*100)/100):String(+c.toFixed(8)));
-  update();
- }
- function open(){
-  resetFlow();loadFx();live={};liveAt=0;buildCoins();amountEl.value="";mode="cash";knob.style.transform="";$("cvSlideTxt").style.opacity=1;update();
-  fetchLive();clearInterval(timer);timer=setInterval(fetchLive,POLL_MS);
-  backdrop.hidden=false;sheet.setAttribute("aria-hidden","false");
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{sheet.classList.add("open");backdrop.classList.add("show")}));
-  document.body.style.overflow="hidden";
- }
- function close(){
-  resetFlow();closePick();clearInterval(timer);timer=null;
-  sheet.classList.remove("open");backdrop.classList.remove("show");sheet.setAttribute("aria-hidden","true");
-  document.body.style.overflow="";setTimeout(()=>{if(!sheet.classList.contains("open"))backdrop.hidden=true},450);
- }
- window.openConvertSheet=open;
- // Crypto picker pop-up
- function renderPick(q){
-  q=(q||"").trim().toLowerCase();
-  const rows=coins.filter(c=>!q||c.name.toLowerCase().includes(q)||c.symbol.toLowerCase().includes(q));
-  if(!rows.length){pickList.innerHTML='<div class="cv-pick-empty">No matching crypto found.</div>';return}
-  pickList.innerHTML=rows.map(c=>`<button type="button" class="cv-pick-row${c.symbol===sel?" sel":""}" data-s="${esc(c.symbol)}" role="option" aria-selected="${c.symbol===sel}">${logoBox(c,true)}<span class="cv-pick-info"><b>${esc(c.name)}</b><small>${esc(c.symbol)}</small></span><span class="cv-pick-bal">${trim(c.amount)}<small>${c.test?"Test balance":"Available"}</small></span></button>`).join("");
- }
- function openPick(){pickSearch.value="";renderPick("");pickBack.hidden=false;requestAnimationFrame(()=>requestAnimationFrame(()=>{pick.classList.add("open");pickBack.classList.add("show")}))}
- function closePick(){pick.classList.remove("open");pickBack.classList.remove("show");setTimeout(()=>{if(!pick.classList.contains("open"))pickBack.hidden=true},350)}
- $("cvFromBtn").addEventListener("click",openPick);
- $("cvPickClose").addEventListener("click",closePick);pickBack.addEventListener("click",closePick);
- pickSearch.addEventListener("input",()=>renderPick(pickSearch.value));
- pickList.addEventListener("click",e=>{const b=e.target.closest(".cv-pick-row");if(!b)return;sel=b.dataset.s;amountEl.value="";update();closePick()});
- amountEl.addEventListener("input",()=>{const pos=amountEl.selectionStart||0;const n=amountEl.value.slice(0,pos).replace(/[^0-9.]/g,"").length;const v=group(amountEl.value);amountEl.value=v;let k=0,c=0;while(k<v.length&&c<n){if(v[k]!==",")c++;k++}try{amountEl.setSelectionRange(k,k)}catch{}update()});
- slider.addEventListener("input",()=>setPct(+slider.value));
- $("cvPct").addEventListener("click",e=>{const b=e.target.closest("button[data-p]");if(b)setPct(+b.dataset.p)});
- $("cvSizeBtn").addEventListener("click",()=>{const f=from();if(!f)return;const ca=coinAmt();mode=mode==="cash"?"coin":"cash";amountEl.value=ca>0?group(mode==="cash"?String(Math.floor(ca*unitCash()*100)/100):String(+ca.toFixed(8))):"";update()});
- $("cvClose").addEventListener("click",close);backdrop.addEventListener("click",close);
- document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(pick.classList.contains("open"))closePick();else if(sheet.classList.contains("open"))close()});
- let drag=false,startX=0,maxX=0;
- knob.addEventListener("pointerdown",e=>{if(busy||!update())return;drag=true;startX=e.clientX;maxX=slide.clientWidth-knob.offsetWidth-8;knob.setPointerCapture(e.pointerId);slide.classList.remove("done")});
- knob.addEventListener("pointermove",e=>{if(!drag)return;const x=Math.max(0,Math.min(maxX,e.clientX-startX));knob.style.transform=`translateX(${x}px)`;$("cvSlideTxt").style.opacity=1-x/maxX});
- const end=()=>{if(!drag)return;drag=false;const m=new DOMMatrix(getComputedStyle(knob).transform).m41;slide.classList.add("done");
-  if(m>=maxX*.9){knob.style.transform=`translateX(${maxX}px)`;execute()}else{knob.style.transform="";$("cvSlideTxt").style.opacity=1}};
- knob.addEventListener("pointerup",end);knob.addEventListener("pointercancel",end);
- function finish(msg){setTimeout(()=>{close();(window.veltrixNotify?veltrixNotify("transaction",msg):wdToast(msg));busy=false;knob.style.transform="";$("cvSlideTxt").style.opacity=1},350)}
- function execute(){
-  busy=true;
-  pending={f:from(),ca:coinAmt(),recv:cashVal()*(1-FEE),rate:unitCash()};   // quote locked at the moment of the slide
-  setTimeout(()=>{
-   if(!(window.veltrixTwoStep&&veltrixTwoStep.isOn())){showV("cvSetupView");return}
-   openAuth();
-  },250);
- }
- /* ---- 2FA -> credit dollar wallet -> receipt ---- */
- let pending=null,tries=0,lockUntil=0,lockTimer=0,confRaf=0,lastRef="",lastReceipt="";
- const VIEWS=["cvAuthView","cvSetupView","cvDoneView"];
- const showV=id=>VIEWS.forEach(v=>{$(v).hidden=v!==id});
- const pins=[...document.querySelectorAll("#cvPin input")];
- const pinVal=()=>pins.map(i=>i.value).join("");
- function resetKnob(){busy=false;knob.style.transform="";$("cvSlideTxt").style.opacity=1;slide.classList.remove("done")}
- function resetPin(){pins.forEach(i=>{i.value="";i.classList.remove("filled")});$("cvPin").classList.remove("bad");$("cvPinErr").hidden=true;$("cvProceed").disabled=true}
- function resetFlow(){cancelAnimationFrame(confRaf);clearInterval(lockTimer);showV(null);resetPin();resetKnob();pending=null}
- $("cvSetupBack").addEventListener("click",()=>{showV(null);resetKnob()});
- $("cvSetupLater").addEventListener("click",()=>{showV(null);resetKnob()});
- $("cvSetupGo").addEventListener("click",()=>{close();setTimeout(()=>{if(window.veltrixTwoStep)veltrixTwoStep.setup()},250)});
- function openAuth(){
-  const p=pending;$("cvAuthAmt").textContent=`${trim(p.ca)} ${p.f.symbol}`;$("cvAuthTo").textContent=`≈ ${money(p.recv)} · to your dollar wallet`;
-  resetPin();showV("cvAuthView");if(Date.now()<lockUntil)startLock();setTimeout(()=>pins[0].focus(),150);
- }
- $("cvAuthBack").addEventListener("click",()=>{resetPin();showV(null);resetKnob()});
- function pinCheck(){if(Date.now()<lockUntil)return;$("cvProceed").disabled=pinVal().length!==4;$("cvPinErr").hidden=true;$("cvPin").classList.remove("bad")}
- pins.forEach((b,i)=>{
-  b.addEventListener("input",()=>{b.value=b.value.replace(/\D/g,"").slice(-1);b.classList.toggle("filled",!!b.value);if(b.value&&i<3)pins[i+1].focus();pinCheck()});
-  b.addEventListener("keydown",e=>{if(e.key==="Backspace"&&!b.value&&i>0){pins[i-1].value="";pins[i-1].classList.remove("filled");pins[i-1].focus();pinCheck()}if(e.key==="Enter"&&pinVal().length===4)$("cvProceed").click()});
-  b.addEventListener("paste",e=>{const t=(e.clipboardData.getData("text")||"").replace(/\D/g,"").slice(0,4);if(!t)return;e.preventDefault();pins.forEach((x,k)=>{x.value=t[k]||"";x.classList.toggle("filled",!!x.value)});pins[Math.min(t.length,3)].focus();pinCheck()});
- });
- function startLock(){
-  clearInterval(lockTimer);
-  const tick=()=>{const s=Math.ceil((lockUntil-Date.now())/1000);
-   if(s<=0){clearInterval(lockTimer);tries=0;$("cvPinErr").hidden=true;pinCheck();return}
-   $("cvPinErr").hidden=false;$("cvPinErr").textContent=`Too many attempts. Try again in ${s}s.`;$("cvProceed").disabled=true};
-  tick();lockTimer=setInterval(tick,1000);
- }
- $("cvProceed").addEventListener("click",async()=>{
-  if(Date.now()<lockUntil)return;const pin=pinVal();if(pin.length!==4)return;
-  const btn=$("cvProceed");btn.disabled=true;btn.textContent="Verifying…";
-  let ok=false;try{ok=await veltrixTwoStep.verify(pin)}catch{}
-  btn.textContent="Proceed";
-  if(!ok){
-   tries++;const box=$("cvPin");box.classList.add("bad");box.classList.remove("shake");void box.offsetWidth;box.classList.add("shake");
-   pins.forEach(i=>{i.value="";i.classList.remove("filled")});
-   if(tries>=5){lockUntil=Date.now()+30000;startLock()}
-   else{$("cvPinErr").hidden=false;$("cvPinErr").textContent=`Incorrect 2FA code. ${5-tries} ${5-tries===1?"attempt":"attempts"} left.`;btn.disabled=true;pins[0].focus()}
-   return;
-  }
-  tries=0;complete();
- });
- let convRef="";
- function genRef(){const b=new Uint8Array(5);(crypto.getRandomValues?crypto.getRandomValues(b):b.forEach((_,i)=>b[i]=Math.random()*256|0));return "CV-"+[...b].map(x=>x.toString(16).padStart(2,"0")).join("").toUpperCase()}
- function complete(){
-  const p=pending;if(!p)return;const f=p.f;
-  const acc=getAccount();if(!acc){wdToast("Something went wrong. Please try again.");resetFlow();return}
-  if(!f.test){
-   const a=Array.isArray(acc.assets)?acc.assets.find(x=>x.symbol===f.symbol):null;
-   if(!a||a.amount<p.ca-1e-12){wdToast("Insufficient balance");resetFlow();return}
-   convRef=genRef();veltrixDB.convert(f.symbol,p.ca,p.recv,convRef).then(r=>{populateDashboard(r);if(window.veltrixActivity)veltrixActivity.refreshTx()}).catch(()=>{wdToast("Conversion failed. Please try again.");veltrixDB.refreshWallet().then(populateDashboard)});
-  }else{
-   acc.usdBalance=+((Number(acc.usdBalance)||0)+p.recv).toFixed(2);   // demo "test balance" stays local-only
-   populateDashboard(acc);
-   convRef=genRef();
-   if(window.veltrixActivity){veltrixActivity.logTest({wallet:"crypto",kind:"convert_out",symbol:f.symbol,amount:p.ca,usd_value:+p.recv.toFixed(2),reference:convRef});veltrixActivity.logTest({wallet:"usd",kind:"convert_in",symbol:f.symbol,amount:+p.recv.toFixed(2),usd_value:+p.recv.toFixed(2),reference:convRef})}
-  }
-  const b=new Uint8Array(5);(crypto.getRandomValues?crypto.getRandomValues(b):b.forEach((_,i)=>b[i]=Math.random()*256|0));
-  lastRef=convRef;
-  const when=new Date().toLocaleString(undefined,{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"});
-  $("cvLuxAmt").textContent=money(p.recv);$("cvLuxSub").textContent=`from ${trim(p.ca)} ${f.symbol}`;
-  $("cvLuxFrom").textContent=`${trim(p.ca)} ${f.symbol}`;$("cvLuxRate").textContent=`1 ${f.symbol} ≈ ${money(p.rate)}`;
-  $("cvLuxAcct").textContent="Dollar wallet";$("cvLuxDate").textContent=when;$("cvLuxRef").textContent=lastRef;
-  lastReceipt=`Veltrix conversion receipt\nConverted: ${trim(p.ca)} ${f.symbol}\nCredited: ${money(p.recv)} to your dollar wallet\nRate: 1 ${f.symbol} ≈ ${money(p.rate)}\nDate: ${when}\nReference: ${lastRef}`;
-  const v=$("cvDoneView");showV("cvDoneView");v.classList.remove("play");void v.offsetWidth;v.classList.add("play");v.scrollTop=0;
-  confetti();(window.veltrixNotify?veltrixNotify("transaction",`Converted ${trim(p.ca)} ${f.symbol} to ${money(p.recv)}`):wdToast("Conversion complete"));
- }
- async function copyText(t){try{await navigator.clipboard.writeText(t)}catch{const ta=document.createElement("textarea");ta.value=t;ta.style.cssText="position:fixed;opacity:0";document.body.appendChild(ta);ta.select();try{document.execCommand("copy")}catch{}ta.remove()}wdToast("Copied")}
- $("cvDoneView").addEventListener("click",e=>{if(e.target.closest("[data-copy]"))copyText(lastRef)});
- $("cvShare").addEventListener("click",async()=>{if(navigator.share){try{await navigator.share({title:"Veltrix receipt",text:lastReceipt});return}catch(err){if(err&&err.name==="AbortError")return}}copyText(lastReceipt)});
- $("cvDoneBtn").addEventListener("click",close);
- function confetti(){
-  const cv=$("cvConfetti"),ctx=cv.getContext("2d"),r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
-  cv.width=r.width*dpr;cv.height=r.height*dpr;ctx.scale(dpr,dpr);
-  const P=Array.from({length:42},()=>({x:r.width/2,y:r.height*.34,vx:(Math.random()-.5)*13,vy:-Math.random()*12-3,s:16+Math.random()*16,a:(Math.random()-.5)*.8,va:(Math.random()-.5)*.08}));
-  let t=0;cancelAnimationFrame(confRaf);
-  (function step(){ctx.clearRect(0,0,r.width,r.height);t++;
-   P.forEach(q=>{q.vy+=.3;q.vx*=.99;q.x+=q.vx;q.y+=q.vy;q.a+=q.va;ctx.save();ctx.translate(q.x,q.y);ctx.rotate(q.a);ctx.globalAlpha=Math.max(0,1-t/150);ctx.font=q.s+"px serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("😌",0,0);ctx.restore()});
-   if(t<150)confRaf=requestAnimationFrame(step);else ctx.clearRect(0,0,r.width,r.height)})();
- }
-})();
 
 /* ===== Send flow: amount -> recipient address (validated per coin) -> success animation ===== */
 (function(){
@@ -1141,7 +923,11 @@ document.addEventListener("click",function(event){
  function show(id){views.forEach(v=>{$(v).hidden=v!==id})}
  function build(){
   const owned=(typeof dashboardAssets!=="undefined"&&Array.isArray(dashboardAssets)?dashboardAssets:[]).filter(a=>a.amount>0);
-  coins=COINS.map(c=>{const o=owned.find(a=>String(a.symbol).toUpperCase()===c.symbol);return o?{...c,amount:o.amount,price:o.price||c.price,real:true}:{...c,test:true}});
+  const px=(typeof assetPrices!=="undefined"&&assetPrices)||{};
+  /* every supported coin is listed; the balance (0 when the user holds none) decides whether a send can go through */
+  coins=COINS.map(c=>{const o=owned.find(a=>String(a.symbol).toUpperCase()===c.symbol);
+   if(o)return {...c,amount:o.amount,price:o.price||0,real:true,owned:true};
+   const p=px[c.symbol];return {...c,amount:0,price:(p&&Number(p.price))||0,real:true,owned:false}}).sort((a,b)=>(b.owned?1:0)-(a.owned?1:0));
   if(!coins.some(c=>c.symbol===sel))sel=coins[0].symbol;
  }
  function chip(){
@@ -1153,20 +939,21 @@ document.addEventListener("click",function(event){
   $("sdAmt").textContent=val||"0";$("sdAmt").classList.toggle("filled",!!val);
   $("sdAmt").style.fontSize=(val.length>9?26:val.length>6?32:42)+"px";
   $("sdUnit").textContent=c.symbol;
-  $("sdUsd").textContent="≈ "+usd(n*c.price);
-  $("sdBalVal").textContent=`${trim(c.amount)} ${c.symbol}${c.test?" (test balance)":""}`;
+  $("sdUsd").textContent=c.price?"≈ "+usd(n*c.price):"";
+  $("sdBalVal").textContent=`${trim(c.amount)} ${c.symbol}`;
   $("sdAmtErr").hidden=!over;$("sdAmtErr").textContent="Insufficient balance";
   $("sdContinue").disabled=!(n>0&&!over);
  }
  function open(opts){
-  build();val="";scanAddr="";
+  build();val="";scanAddr="";recip=null;recipSeq++;clearTimeout(recipTimer);
   if(opts&&opts.symbol&&coins.some(c=>c.symbol===opts.symbol))sel=opts.symbol;
+  else{const cc=coins.find(c=>c.symbol===sel);if(!cc||!cc.owned){const f=coins.find(c=>c.owned);if(f)sel=f.symbol}}
   if(opts&&opts.address)scanAddr=String(opts.address).trim();
   chip();render();show("sdAmountView");
   sheet.setAttribute("aria-hidden","false");requestAnimationFrame(()=>requestAnimationFrame(()=>sheet.classList.add("open")));
   document.body.style.overflow="hidden";
  }
- function close(){scanAddr="";cancelAnimationFrame(confettiRaf);resetPin();sheet.classList.remove("open");sheet.setAttribute("aria-hidden","true");document.body.style.overflow=""}
+ function close(){scanAddr="";recip=null;recipSeq++;clearTimeout(recipTimer);cancelAnimationFrame(confettiRaf);resetPin();sheet.classList.remove("open");sheet.setAttribute("aria-hidden","true");document.body.style.overflow=""}
  window.openSendSheet=open;
  /* Recognise a scanned crypto QR (plain address or a payment URI such as bitcoin:addr?amount=…) -> {symbol,address,evm} or null */
  const SCHEMES={bitcoin:"BTC",ethereum:"ETH",litecoin:"LTC",dogecoin:"DOGE",tron:"TRX",solana:"SOL",ripple:"XRP",xrp:"XRP",stellar:"XLM",bitcoincash:"BCH",cardano:"ADA",ton:"TON",polkadot:"DOT",sui:"SUI",hedera:"HBAR",bnb:"BNB",avalanche:"AVAX",chainlink:"LINK"};
@@ -1196,9 +983,14 @@ document.addEventListener("click",function(event){
  $("sdBal").addEventListener("click",()=>{val=trim(cur().amount);render()});
  // coin picker
  function renderList(q){
+  const k=(q||"").trim().toLowerCase();
+  const rows=coins.filter(c=>!k||c.name.toLowerCase().includes(k)||c.symbol.toLowerCase().includes(k));
+  vxSkeleton.render($("sdList"),rows,()=>paintList(q),"pick");
+ }
+ function paintList(q){
   q=(q||"").trim().toLowerCase();
   const rows=coins.filter(c=>!q||c.name.toLowerCase().includes(q)||c.symbol.toLowerCase().includes(q));
-  $("sdList").innerHTML=rows.length?rows.map(c=>`<button type="button" class="sd-row${c.symbol===sel?" sel":""}" data-s="${esc(c.symbol)}" role="option" aria-selected="${c.symbol===sel}"><span class="cv-logo">${coinLogoHTML(c)}</span><span class="i"><b>${esc(c.name)}</b><small>${esc(c.symbol)}</small></span><span class="r">${trim(c.amount)}<small>${c.test?"Test balance":"Available"}</small></span></button>`).join(""):'<div style="padding:30px;text-align:center;font-size:13px;color:var(--wd-muted,#858995)">No matching crypto found.</div>';
+  $("sdList").innerHTML=rows.length?rows.map(c=>`<button type="button" class="sd-row${c.symbol===sel?" sel":""}" data-s="${esc(c.symbol)}" role="option" aria-selected="${c.symbol===sel}"><span class="cv-logo">${coinLogoHTML(c)}</span><span class="i"><b>${esc(c.name)}</b><small>${esc(c.symbol)}</small></span><span class="r">${trim(c.amount)}<small>Available</small></span></button>`).join(""):'<div style="padding:30px;text-align:center;font-size:13px;color:var(--wd-muted,#858995)">No matching crypto found.</div>';
  }
  $("sdCoinBtn").addEventListener("click",()=>{$("sdSearch").value="";renderList("");show("sdPickView")});
  $("sdPickBack").addEventListener("click",()=>show("sdAmountView"));
@@ -1212,13 +1004,40 @@ document.addEventListener("click",function(event){
   $("sdAddr").value=scanAddr;$("sdAddr").placeholder=`Enter ${c.symbol} address (${c.ex})`;checkAddr();show("sdAddrView");
  });
  $("sdAddrBack").addEventListener("click",()=>show("sdAmountView"));
+ /* recip: null = not looked up yet | {error:true} | {found:false} (outside address) | {found:true,self,name} (a Veltrix wallet) */
+ let recip=null,recipSeq=0,recipTimer=0,sending=false,pendingReq=null;
+ /* format check; mixed-capital 0x… addresses must also pass their built-in checksum (catches typos before any money is held) */
+ function addrOk(c,a){
+  if(!c.re.test(a))return false;
+  if(/^0x[a-fA-F0-9]{40}$/.test(a)&&a!==a.toLowerCase()&&a!=="0x"+a.slice(2).toUpperCase()&&window.ethers){try{window.ethers.getAddress(a)}catch{return false}}
+  return true;
+ }
+ function addrReady(){const c=cur(),a=$("sdAddr").value.trim();return !!(a&&addrOk(c,a)&&recip&&!recip.error&&!(recip.found&&recip.self))}
  function checkAddr(){
   const c=cur(),a=$("sdAddr").value.trim(),box=$("sdInputBox"),m=$("sdAddrMsg");
   box.classList.remove("bad","good");m.hidden=true;m.className="sd-msg";
+  clearTimeout(recipTimer);recipSeq++;recip=null;$("sdSend").disabled=true;
   let ok=false;
-  if(a){ok=c.re.test(a);box.classList.add(ok?"good":"bad");m.hidden=false;m.classList.add(ok?"good":"bad");
-   m.textContent=ok?`Valid ${c.symbol} address on ${c.net}`:`Invalid ${c.symbol} address. Enter a valid ${c.name} (${c.net}) address.`}
-  $("sdSend").disabled=!ok;return ok;
+  if(a){ok=addrOk(c,a);box.classList.add(ok?"good":"bad");m.hidden=false;m.classList.add(ok?"good":"bad");
+   m.textContent=ok?"Checking recipient…":`Invalid ${c.symbol} address. Enter a valid ${c.name} (${c.net}) address.`}
+  if(ok){const seq=recipSeq,sym=c.symbol;recipTimer=setTimeout(()=>lookupRecipient(seq,sym,a),250)}
+  return ok;
+ }
+ async function lookupRecipient(seq,sym,a){
+  let r=null;
+  try{r=await veltrixDB.wallet.resolve(sym,a)}catch{r={error:true}}
+  if(seq!==recipSeq)return;                      // the address or coin changed while we were asking
+  recip=r&&typeof r==="object"?r:{error:true};paintRecip();
+  if(recip.error)recipTimer=setTimeout(()=>lookupRecipient(seq,sym,a),3000);
+ }
+ function paintRecip(){
+  const c=cur(),box=$("sdInputBox"),m=$("sdAddrMsg");
+  box.classList.remove("bad","good");m.hidden=false;m.className="sd-msg";
+  if(recip.error){box.classList.add("bad");m.classList.add("bad");m.textContent="Couldn't check this address. Check your connection, retrying…"}
+  else if(recip.found&&recip.self){box.classList.add("bad");m.classList.add("bad");m.textContent="This is your own wallet address. You can't send to yourself."}
+  else if(recip.found){box.classList.add("good");m.classList.add("good");m.textContent=`Veltrix wallet · ${recip.name||"Veltrix user"}. Instant transfer, no fee.`}
+  else{box.classList.add("good");m.classList.add("good");m.textContent=`Outside wallet. It will be sent on the ${c.net} network. Make sure the receiving app (Binance, Bybit …) accepts ${c.symbol} on ${c.net}, or the funds can be lost.`}
+  $("sdSend").disabled=!addrReady();
  }
  $("sdAddr").addEventListener("input",checkAddr);
  $("sdPaste").addEventListener("click",async()=>{try{$("sdAddr").value=(await navigator.clipboard.readText()).trim();checkAddr()}catch{$("sdAddr").focus();wdToast("Long-press the field to paste")}});
@@ -1243,7 +1062,7 @@ document.addEventListener("click",function(event){
  function hasTwoStep(){return !!(window.veltrixTwoStep&&veltrixTwoStep.isOn())}
  function openAuth(){
   const c=cur(),n=num(val),a=$("sdAddr").value.trim();
-  $("sdAuthAmt").textContent=`${val} ${c.symbol}`;$("sdAuthTo").textContent=`≈ ${usd(n*c.price)} · to ${shortAddr(a)}`;
+  $("sdAuthAmt").textContent=`${val} ${c.symbol}`;$("sdAuthTo").textContent=`≈ ${usd(n*c.price)} · to ${recip&&recip.found&&!recip.self?(recip.name||"Veltrix user")+" ("+shortAddr(a)+")":shortAddr(a)}`;
   resetPin();show("sdAuthView");if(Date.now()<lockUntil)startLock();setTimeout(()=>pins[0].focus(),150);
  }
  const shortAddr=a=>a.length>22?a.slice(0,10)+"…"+a.slice(-8):a;
@@ -1252,7 +1071,7 @@ document.addEventListener("click",function(event){
  $("sdSetupLater").addEventListener("click",()=>show("sdAddrView"));
  $("sdSetupGo").addEventListener("click",()=>{close();setTimeout(()=>{if(window.veltrixTwoStep)veltrixTwoStep.setup()},250)});
  $("sdSend").addEventListener("click",()=>{
-  if(!checkAddr())return;
+  if(!addrReady())return;
   if(!hasTwoStep()){show("sdSetupView");return}
   openAuth();
  });
@@ -1268,26 +1087,107 @@ document.addEventListener("click",function(event){
    else{$("sdPinErr").hidden=false;$("sdPinErr").textContent=`Incorrect 2FA code. ${5-tries} ${5-tries===1?"attempt":"attempts"} left.`;btn.disabled=true;pins[0].focus()}
    return;
   }
-  tries=0;complete();
+  tries=0;complete(pin);
  });
  /* ---- step 4: execute + luxury receipt ---- */
  const NETNAME=c=>c.net;
- function makeTx(c){const b=new Uint8Array(32);(crypto.getRandomValues?crypto.getRandomValues(b):b.forEach((_,i)=>b[i]=Math.random()*256|0));const hx=[...b].map(x=>x.toString(16).padStart(2,"0")).join("");return /^0x/.test(c.ex)?"0x"+hx:hx}
- function complete(){
-  const c=cur(),n=num(val),a=$("sdAddr").value.trim();
-  lastTx=makeTx(c);lastTo=a;
-  const hist={to:a,net:c.net,ref:lastTx,usd:+(n*c.price).toFixed(2)};
-  if(!c.real&&window.veltrixActivity)veltrixActivity.logTest({wallet:"crypto",kind:"send",symbol:c.symbol,amount:n,usd_value:hist.usd,to_address:a,network:c.net,reference:lastTx});
-  if(c.real){const acc=getAccount();const x=acc&&Array.isArray(acc.assets)?acc.assets.find(z=>String(z.symbol).toUpperCase()===c.symbol):null;
-   if(!x||x.amount<n-1e-12){wdToast("Insufficient balance");show("sdAmountView");return}
-   x.amount=Math.max(0,+(x.amount-n).toFixed(10));acc.assets=acc.assets.filter(z=>z.amount>0);populateDashboard(acc);veltrixDB.send(c.symbol,n,hist).then(r=>{populateDashboard(r);if(window.veltrixActivity)veltrixActivity.refreshTx()}).catch(()=>{wdToast("Send failed. Balance refreshed.");veltrixDB.refreshWallet().then(populateDashboard)})}
-  const when=new Date().toLocaleString(undefined,{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"});
-  $("luxAmt").textContent=`${val} ${c.symbol}`;$("luxUsd").textContent=`≈ ${usd(n*c.price)}`;
-  $("luxTo").textContent=shortAddr(a);$("luxNet").textContent=NETNAME(c);$("luxDate").textContent=when;$("luxTx").textContent=lastTx.slice(0,10)+"…"+lastTx.slice(-6);
-  lastReceipt=`Veltrix transfer receipt\nAmount: ${val} ${c.symbol} (≈ ${usd(n*c.price)})\nTo: ${a}\nNetwork: ${c.net}\nDate: ${when}\nTransaction ID: ${lastTx}`;
-  const v=$("sdDoneView");show("sdDoneView");
-  v.classList.remove("play");void v.offsetWidth;v.classList.add("play");v.scrollTop=0;
-  confetti();if(window.veltrixNotify)veltrixNotify("withdrawal",`Withdrawal sent: ${val} ${c.symbol}`);
+ function makeTx(c){const b=new Uint8Array(6);crypto.getRandomValues(b);return "WD-"+[...b].map(x=>x.toString(16).padStart(2,"0")).join("").toUpperCase()}
+ /* success screen: "processing" = outside withdrawal being sent automatically, "done" = real transfer to another Veltrix user, already completed */
+ function setDoneMode(mode){   // "done" | "processing"
+  $("luxEyebrow").textContent=mode==="done"?"TRANSFER COMPLETE":"WITHDRAWAL PROCESSING";
+  $("luxPill").classList.toggle("lux-pending",mode!=="done");$("luxPillTxt").textContent=mode==="done"?"Completed":"Processing";
+  $("luxRecipRow").hidden=mode!=="done";
+ }
+ function playDone(){const v=$("sdDoneView");show("sdDoneView");v.classList.remove("play");void v.offsetWidth;v.classList.add("play");v.scrollTop=0}
+ function refreshAfterTransfer(){
+  try{veltrixDB.refreshWallet().then(r=>{if(r)populateDashboard(r)}).catch(()=>{})}catch{}
+  if(window.veltrixActivity){try{veltrixActivity.refreshTx()}catch{}try{veltrixActivity.reload()}catch{}}
+ }
+ function pinProblem(msg){const btn=$("sdProceed");btn.textContent="Proceed";resetPin();show("sdAuthView");$("sdPinErr").hidden=false;$("sdPinErr").textContent=msg;setTimeout(()=>pins[0].focus(),150)}
+ /* A real transfer to another Veltrix user. The server checks the PIN, balance and recipient and moves the money in one
+    step; the success screen is shown ONLY after the server confirms. A lost connection is retried with the SAME request id,
+    so the money can never move twice. */
+ async function completeInternal(pin){
+  if(sending)return;sending=true;
+  const c=cur(),n=num(val),a=$("sdAddr").value.trim(),amt=trim(n),key=[c.symbol,amt,a].join("|");
+  if(!pendingReq||pendingReq.key!==key||Date.now()-pendingReq.t>600000)pendingReq={key,id:veltrixDB.notif.uuid(),t:Date.now()};
+  const btn=$("sdProceed");btn.disabled=true;btn.textContent="Sending…";
+  let r=null;
+  for(let i=0;i<3&&!r;i++){
+    try{r=await veltrixDB.wallet.transfer(c.symbol,amt,a,pin,pendingReq.id)}catch{await new Promise(z=>setTimeout(z,1200*(i+1)))}
+  }
+  sending=false;btn.textContent="Proceed";
+  if(!r){
+    refreshAfterTransfer();
+    pinProblem("We couldn't confirm this transfer. Check your transaction history before trying again.");return;
+  }
+  if(r.ok){
+    pendingReq=null;
+    const when=new Date(r.created_at).toLocaleString(undefined,{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"});
+    const amtTxt=`${trim(r.amount)} ${c.symbol}`,usdTxt=r.usd_value!=null&&r.usd_value!==""?`≈ ${usd(+r.usd_value)}`:"";
+    lastTx=r.reference;lastTo=a;setDoneMode("done");
+    $("luxAmt").textContent=amtTxt;$("luxUsd").textContent=usdTxt;
+    $("luxRecip").textContent=r.to_name||"Veltrix user";$("luxTo").textContent=shortAddr(a);
+    $("luxNet").textContent=r.network||c.net;$("luxDate").textContent=when;$("luxTx").textContent=r.reference;
+    lastReceipt=`Veltrix transfer receipt\nStatus: Completed\nAmount: ${amtTxt}${usdTxt?" ("+usdTxt+")":""}\nTo: ${r.to_name||"Veltrix user"} (${a})\nNetwork: ${r.network||c.net}\nDate: ${when}\nReference: ${r.reference}`;
+    playDone();refreshAfterTransfer();return;
+  }
+  pendingReq=null;
+  switch(r.reason){
+   case"bad_pin":tries++;if(tries>=5){lockUntil=Date.now()+30000;pinProblem("Too many attempts. Try again in 30s.");startLock()}else pinProblem("Incorrect 2FA code. Nothing was sent.");break;
+   case"locked":lockUntil=Date.now()+(Number(r.seconds)||30)*1000;pinProblem("Too many attempts.");startLock();break;
+   case"no_pin":show("sdSetupView");break;
+   case"insufficient":wdToast("Insufficient balance. Nothing was sent.");refreshAfterTransfer();build();render();show("sdAmountView");break;
+   case"invalid_amount":wdToast("That amount isn't valid. Nothing was sent.");show("sdAmountView");break;
+   case"self":case"recipient_not_found":show("sdAddrView");checkAddr();wdToast(r.reason==="self"?"You can't send to your own wallet.":"That wallet could not be found. Nothing was sent.");break;
+   default:wdToast("Transfer failed. Nothing was sent.");show("sdAddrView");checkAddr()
+  }
+ }
+ function complete(pin){
+  if(recip&&recip.found&&!recip.self)return completeInternal(pin);
+  if(!recip||recip.error||recip.found){show("sdAddrView");checkAddr();wdToast("Please wait while the recipient is checked.");return}
+  return completeOutside(pin);
+ }
+ /* A withdrawal to an OUTSIDE wallet (Binance, Bybit …). The server checks PIN, address, balance and limits and holds the amount;
+    the screen is shown ONLY after it confirms. status "queued" = being sent automatically (there is no admin approval). */
+ async function completeOutside(pin){
+  if(sending)return;sending=true;
+  const c=cur(),n=num(val),a=$("sdAddr").value.trim(),amt=trim(n),key="W|"+[c.symbol,amt,a].join("|");
+  if(!pendingReq||pendingReq.key!==key||Date.now()-pendingReq.t>600000)pendingReq={key,id:veltrixDB.notif.uuid(),t:Date.now()};
+  const btn=$("sdProceed");btn.disabled=true;btn.textContent="Sending…";
+  let r=null;
+  for(let i=0;i<3&&!r;i++){
+   try{r=await veltrixDB.wallet.withdraw(c.symbol,amt,a,pin,pendingReq.id)}catch{await new Promise(z=>setTimeout(z,1200*(i+1)))}
+  }
+  sending=false;btn.textContent="Proceed";
+  if(!r){refreshAfterTransfer();pinProblem("We couldn't confirm this withdrawal. Check your transaction history before trying again.");return}
+  if(r.ok){
+   pendingReq=null;
+   const mode="processing";
+   const when=new Date(r.created_at).toLocaleString(undefined,{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"});
+   const amtTxt=`${trim(r.amount)} ${c.symbol}`,usdTxt=r.usd_value!=null&&r.usd_value!==""?`≈ ${usd(+r.usd_value)}`:"";
+   lastTx=r.reference;lastTo=a;setDoneMode(mode);
+   $("luxAmt").textContent=amtTxt;$("luxUsd").textContent=usdTxt;$("luxTo").textContent=shortAddr(a);
+   $("luxNet").textContent=r.network||c.net;$("luxDate").textContent=when;$("luxTx").textContent=r.reference;
+   lastReceipt=`Veltrix withdrawal receipt\nStatus: ${"Processing"}\nAmount: ${amtTxt}${usdTxt?" ("+usdTxt+")":""}\nTo: ${a}\nNetwork: ${r.network||c.net}\nDate: ${when}\nReference: ${r.reference}`;
+   playDone();refreshAfterTransfer();
+   if(r.status==="queued")veltrixDB.wallet.sendQueued(r.id).then(()=>setTimeout(refreshAfterTransfer,4000));
+   return;
+  }
+  pendingReq=null;
+  switch(r.reason){
+   case"bad_pin":tries++;if(tries>=5){lockUntil=Date.now()+30000;pinProblem("Too many attempts. Try again in 30s.");startLock()}else pinProblem("Incorrect 2FA code. Nothing was sent.");break;
+   case"locked":lockUntil=Date.now()+(Number(r.seconds)||30)*1000;pinProblem("Too many attempts.");startLock();break;
+   case"no_pin":show("sdSetupView");break;
+   case"insufficient":wdToast("Insufficient balance. Nothing was sent.");refreshAfterTransfer();build();render();show("sdAmountView");break;
+   case"invalid_amount":wdToast(["USDT","USDC"].includes(c.symbol)?`${c.symbol} can only be sent in steps of 0.000001. Nothing was sent.`:"That amount isn't valid. Nothing was sent.");show("sdAmountView");break;
+   case"invalid_address":wdToast("That address isn't valid for this coin. Nothing was sent.");show("sdAddrView");checkAddr();break;
+   case"unsupported_coin":wdToast("Sending "+c.symbol+" to outside wallets isn't available yet. Nothing was sent.");show("sdAddrView");checkAddr();break;
+   case"unavailable":wdToast("Withdrawals to outside wallets are temporarily unavailable. Nothing was sent.");show("sdAddrView");checkAddr();break;
+   case"limit_exceeded":wdToast("This is above the withdrawal limit. Try a smaller amount. Nothing was sent.");show("sdAmountView");break;
+   case"internal_recipient":show("sdAddrView");checkAddr();wdToast("That is a Veltrix wallet. Review the recipient and send again.");break;
+   default:wdToast("Withdrawal failed. Nothing was sent.");show("sdAddrView");checkAddr()
+  }
  }
  async function copyText(t){try{await navigator.clipboard.writeText(t)}catch{const ta=document.createElement("textarea");ta.value=t;ta.style.cssText="position:fixed;opacity:0";document.body.appendChild(ta);ta.select();try{document.execCommand("copy")}catch{}ta.remove()}wdToast("Copied")}
  $("sdDoneView").addEventListener("click",e=>{const b=e.target.closest("[data-copy]");if(b)copyText(b.dataset.copy==="to"?lastTo:lastTx)});
@@ -1311,6 +1211,13 @@ document.addEventListener("click",function(event){
  document.addEventListener("visibilitychange",()=>{if(document.hidden)hiddenAt=Date.now();else if(hiddenAt&&Date.now()-hiddenAt>=30000){hiddenAt=0;lockNow();const a=getAccount();if(a&&a.fingerprintEnabled&&window.PublicKeyCredential)loginWithFingerprint(true)}else hiddenAt=0});
  window.addEventListener("pageshow",e=>{if(e.persisted){lockNow();const a=getAccount();if(a&&a.fingerprintEnabled&&window.PublicKeyCredential)loginWithFingerprint(true)}});
 })();
+
+/* A withdrawal changed status: refresh history and balance (a cancelled send returns its amount to the wallet). */
+let txRefreshTimer=0;
+function refreshMoneyViews(){clearTimeout(txRefreshTimer);txRefreshTimer=setTimeout(()=>{try{veltrixDB.refreshWallet().then(r=>{if(r)populateDashboard(r)}).catch(()=>{})}catch{}if(window.veltrixActivity)veltrixActivity.refreshTx()},300)}
+window.addEventListener("veltrix-tx",refreshMoneyViews);
+/* a deposit / withdrawal / transaction notification means money moved: refresh balance and history even if the history stream was missed */
+window.addEventListener("veltrix-notif",e=>{const d=e.detail||{};if(d.type==="INSERT"&&d.row&&["deposit","withdrawal","transaction"].includes(d.row.topic))refreshMoneyViews()});
 
 /* This device was logged out from another device (Linked devices): leave the dashboard at once. */
 window.addEventListener("veltrix-revoked",()=>{try{closeProfileScreens()}catch{}document.body.classList.remove("wd-feature-open");document.getElementById("loginPassword").value="";showPage("loginPage");showMessage(loginMessage,"This device was logged out of your account. Sign in again to continue.","error")});

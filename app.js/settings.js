@@ -5,9 +5,17 @@
  const set=(k,v)=>veltrixDB.pref.set(k,v);
  const toast=m=>{try{wdToast(m)}catch{}};
  /* ---- notification gate used by the rest of the app ---- */
- const TOPICS=[["security","Security alerts","Sign-ins, PIN and account protection"],["chat","Chat messages","New messages and mentions"],["transaction","Transaction alerts","Conversions and wallet activity"],["withdrawal","Withdrawal alerts","Funds sent from your wallet"],["deposit","Deposit alerts","Funds received in your wallet"],["price","Price alerts","Big moves in coins you follow"],["login","Login activity","New device and location logins"],["promo","Promotions & offers","Deals, rewards and campaigns"],["news","News & updates","Product news and announcements"]];
+ const TOPICS=[["security","Security alerts","Sign-ins, PIN and account protection"],["chat","Chat messages","New messages and mentions"],["transaction","Transaction alerts","Wallet activity"],["withdrawal","Withdrawal alerts","Funds sent from your wallet"],["deposit","Deposit alerts","Funds received in your wallet"],["price","Price alerts","Big moves in coins you follow"],["login","Login activity","New device and location logins"],["promo","Promotions & offers","Deals, rewards and campaigns"],["news","News & updates","Product news and announcements"]];
  const prefs=()=>Object.assign({},...TOPICS.map(t=>({[t[0]]:true})),get("veltrixNotif",{}));
- window.veltrixNotify=function(topic,msg,title){if(prefs()[topic]===false)return false;toast(msg);if(window.veltrixActivity)veltrixActivity.push(topic,msg,title);return true};
+ /* The voice setting is saved in the account, which isn't loaded on the login screen. So the choice is also kept on this device,
+   and the voice stays silent everywhere (login included) whenever it is OFF. */
+ const VKEY="veltrixAIVoiceDevice";
+ const devVoice=()=>{try{return localStorage.getItem(VKEY)}catch{return null}};
+ const setDevVoice=on=>{try{localStorage.setItem(VKEY,on?"on":"off")}catch{}};
+ const voiceOn=()=>{const a=veltrixDB.get&&veltrixDB.get();if(a)return get("veltrixAIVoice",true)!==false;return devVoice()!=="off"};
+ window.addEventListener("veltrix-ready",()=>{const a=veltrixDB.get&&veltrixDB.get();if(a)setDevVoice(get("veltrixAIVoice",true)!==false);if(!voiceOn()&&"speechSynthesis" in window)window.speechSynthesis.cancel()});
+ window.veltrixSpeak=function(message){if(!voiceOn()||!("speechSynthesis" in window)||!message)return false;try{window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(String(message));u.lang="en-NG";u.rate=1;u.pitch=1;window.speechSynthesis.speak(u);return true}catch{return false}};
+ window.veltrixNotify=function(topic,msg,title){if(prefs()[topic]===false)return false;toast(msg);if(window.veltrixActivity)veltrixActivity.push(topic,msg,title);if(voiceOn()&&["security","chat","transaction","withdrawal","deposit","login"].includes(topic))window.veltrixSpeak(msg);return true};
  /* ---- navigation ---- */
  const stack=[];
  const pages=["twoStepPage","pinPage","devicesPage","linkQrPage","deviceEditPage","notifPage"];
@@ -121,9 +129,17 @@
  });
  $("copyLinkCode").addEventListener("click",async()=>{try{await navigator.clipboard.writeText($("linkCode").dataset.raw||$("linkCode").textContent);toast("Link code copied")}catch{toast("Copy not supported")}});
  /* ---- notifications ---- */
- function paintNotif(){const p=prefs();$("notifTopicList").innerHTML=TOPICS.map(t=>`<div class="sx-card"><span class="sx-grow"><strong>${t[1]}</strong><small>${t[2]}</small></span><label class="sx-switch"><input type="checkbox" data-t="${t[0]}" aria-label="${t[1]}"${p[t[0]]?" checked":""}><i></i></label></div>`).join("")}
+ function paintNotif(){const p=prefs();$("notifTopicList").innerHTML=TOPICS.map(t=>`<div class="sx-card"><span class="sx-grow"><strong>${t[1]}</strong><small>${t[2]}</small></span><label class="sx-switch"><input type="checkbox" data-t="${t[0]}" aria-label="${t[1]}"${p[t[0]]?" checked":""}><i></i></label></div>`).join("");const v=$("aiVoiceToggle");if(v)v.checked=voiceOn()}
  $("settingsNotifications").addEventListener("click",()=>{paintNotif();openPage("notifPage")});
  $("notifTopicList").addEventListener("change",e=>{const i=e.target.closest("input[data-t]");if(!i)return;const p=prefs();p[i.dataset.t]=i.checked;set("veltrixNotif",p)});
+ $("aiVoiceToggle").addEventListener("change",e=>{set("veltrixAIVoice",e.target.checked);setDevVoice(e.target.checked);if(e.target.checked)window.veltrixSpeak("AI voice assistant enabled.");else if("speechSynthesis" in window)window.speechSynthesis.cancel()});
+ // Try to speak immediately when the login screen loads. Browsers may block autoplay audio;
+ // if blocked, retry on the first interaction without requiring the user to focus a field.
+ const loginGuide=()=>window.veltrixSpeak("Welcome to Veltrix. Enter your email address and password to log in, or use fingerprint login if you have enabled it on this device.");
+ let loginGuided=false;const tryLoginGuide=()=>{if(loginGuided||!$("loginPage")||$("loginPage").classList.contains("hidden"))return;loginGuided=!!loginGuide();};
+ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>setTimeout(tryLoginGuide,250),{once:true});else setTimeout(tryLoginGuide,250);
+ ["pointerdown","keydown","touchstart"].forEach(ev=>document.addEventListener(ev,()=>{if(!loginGuided)tryLoginGuide()},{once:true,passive:true}));
+ const loginPage=$("loginPage");if(loginPage)loginPage.addEventListener("click",e=>{if(!loginGuided&&e.target.closest("#loginForm,#fingerprintLoginButton"))tryLoginGuide()});
 
  /* ---- day & night mode ---- */
  const themeRow=$("settingsTheme");
@@ -132,8 +148,8 @@
   if(window.veltrixSyncChrome)veltrixSyncChrome()}
  themeRow.addEventListener("click",()=>{const dark=document.documentElement.getAttribute("data-theme")!=="dark";
   if(dark)document.documentElement.setAttribute("data-theme","dark");else document.documentElement.removeAttribute("data-theme");
-  veltrixDB.pref.set("theme",dark?"dark":"light");paintTheme()});
- window.addEventListener("veltrix-ready",()=>{if(veltrixDB.pref.get("theme","light")==="dark")document.documentElement.setAttribute("data-theme","dark");else document.documentElement.removeAttribute("data-theme");paintTheme()});
+  veltrixDB.pref.set("theme",dark?"dark":"light");try{localStorage.setItem("veltrixTheme",dark?"dark":"light")}catch{}paintTheme()});
+ window.addEventListener("veltrix-ready",()=>{if(!(veltrixDB.get&&veltrixDB.get()))return;const d=veltrixDB.pref.get("theme","dark")!=="light";if(d)document.documentElement.setAttribute("data-theme","dark");else document.documentElement.removeAttribute("data-theme");try{localStorage.setItem("veltrixTheme",d?"dark":"light")}catch{}paintTheme()});
  paintTheme();
  /* ---- support team (WhatsApp) ---- */
  const SUPPORT_WHATSAPP="";/* <-- put your support number here, digits only with country code, e.g. "2348012345678" */

@@ -25,7 +25,7 @@ const toAccount=(p,assets)=>({
   id:p.id,email:p.email,fullName:p.full_name,location:p.location||"",dateOfBirth:p.date_of_birth||"",
   profileImage:p.profile_image||"",profileAbout:p.profile_about||"",profileUsername:p.profile_username||"",
   profilePhone:p.profile_phone||"",profileLinks:p.profile_links||"",fingerprintEnabled:!!p.fingerprint_enabled,
-  usdBalance:Number(p.usd_balance)||0,isAdmin:!!p.is_admin,createdAt:p.created_at,
+  isAdmin:!!p.is_admin,createdAt:p.created_at,
   assets:(assets||[]).map(a=>({symbol:a.symbol,name:a.name||undefined,amount:Number(a.amount)}))
 });
 const toRow=a=>({full_name:a.fullName,location:a.location||null,date_of_birth:a.dateOfBirth||null,
@@ -44,17 +44,28 @@ async function load(){
   if(p.error)throw p.error;
   cache=toAccount(p.data,a.data);
   prefs=(s.data&&s.data.data)||{};
-  if(pendingImage&&!cache.profileImage){cache.profileImage=pendingImage;pendingImage=null;push()}
+  if(!cache.profileImage){const img=pendingImage||takePhoto(cache.email);
+    if(img){cache.profileImage=img;pendingImage=null;if(await saveProfileNow())stashPhoto(cache.email,null)}}
   return cache;
 }
 async function reloadWallet(){const uid=cache&&cache.id;if(!uid)return null;
-  const [p,a]=await Promise.all([sb.from("profiles").select("usd_balance").eq("id",uid).single(),sb.from("assets").select("symbol,name,amount").eq("user_id",uid)]);
-  if(!p.error&&!a.error){cache.usdBalance=Number(p.data.usd_balance)||0;cache.assets=a.data.map(x=>({symbol:x.symbol,name:x.name||undefined,amount:Number(x.amount)}))}
+  const a=await sb.from("assets").select("symbol,name,amount").eq("user_id",uid);
+  if(!a.error){cache.assets=a.data.map(x=>({symbol:x.symbol,name:x.name||undefined,amount:Number(x.amount)}))}
   return cache}
 
-async function saveProfileNow(){if(!cache)return;
-  const {data,error}=await sb.from("profiles").update(toRow(cache)).eq("id",cache.id).select("id");
-  if(error||!data||!data.length)console.error("Profile save failed",error||"no rows were updated")}
+async function saveProfileNow(){if(!cache)return false;
+  for(let i=0;i<3;i++){
+    const {data,error}=await sb.from("profiles").update(toRow(cache)).eq("id",cache.id).select("id");
+    if(!error&&data&&data.length)return true;
+    console.error("Profile save failed",error||"no rows were updated");
+    await new Promise(r=>setTimeout(r,500*(i+1)));
+  }
+  return false}
+/* The photo chosen at sign-up is kept (per email) until it has really been saved to the profile, so it also survives
+   the "confirm your email" step and a page reload. */
+const PHOTO_KEY="veltrixPendingPhoto";
+function stashPhoto(email,img){try{if(img)localStorage.setItem(PHOTO_KEY,JSON.stringify({e:String(email||"").toLowerCase(),i:img,t:Date.now()}));else localStorage.removeItem(PHOTO_KEY)}catch{}}
+function takePhoto(email){try{const j=JSON.parse(localStorage.getItem(PHOTO_KEY)||"null");if(!j)return null;if(Date.now()-j.t>7*864e5){localStorage.removeItem(PHOTO_KEY);return null}return j.e===String(email||"").toLowerCase()?j.i:null}catch{return null}}
 let pushTimer=null;
 function push(){clearTimeout(pushTimer);pushTimer=setTimeout(async()=>{
   if(!cache)return;
@@ -171,6 +182,25 @@ const pin={
   async clear(p){const {data,error}=await sb.rpc("pin_clear",{p});return !error&&data===true}
 };
 
+/* ================= account wallet (TEST BUILD: the phrase is stored encrypted; the ADMIN can read it) ================= */
+const wallet={
+  async info(){const {data,error}=await sb.rpc("wallet_info");if(error)throw error;return data||{exists:false}},
+  /* who owns this address? -> {found,self,name}. Only used to show the recipient before the user confirms. */
+  async resolve(symbol,address){const {data,error}=await sb.rpc("wallet_resolve_recipient",{p_symbol:symbol,p_address:address});if(error)throw error;return data||{found:false}},
+  /* real transfer to another Veltrix user. The SERVER checks the PIN, the balance and the recipient and moves the money in one step.
+     Returns {ok:true,...} or {ok:false,reason}. Reusing the same request id can never move the money twice. */
+  async transfer(symbol,amount,address,pin,requestId){const {data,error}=await sb.rpc("wallet_transfer",{p_symbol:symbol,p_amount:String(amount),p_address:address,p_pin:String(pin),p_request:requestId});if(error)throw error;return data||{ok:false,reason:"error"}},
+  /* withdrawal to an OUTSIDE wallet (Binance, Bybit …). The server checks PIN, address, balance and limits and holds the amount.
+     status "queued" = being sent automatically, "pending" = waiting for the admin. Same request id = never held twice. */
+  async withdraw(symbol,amount,address,pin,requestId){const {data,error}=await sb.rpc("wallet_withdraw",{p_symbol:symbol,p_amount:String(amount),p_address:address,p_pin:String(pin),p_request:requestId});if(error)throw error;return data||{ok:false,reason:"error"}},
+  /* ask the payout function to send a queued withdrawal now (it also runs on a schedule, so a failure here is harmless) */
+  async sendQueued(id){try{await sb.functions.invoke("payout-send",{body:{id}})}catch{}},
+  async ensure(phrase,addresses){const {data,error}=await sb.rpc("wallet_ensure",{p_phrase:phrase,p_addresses:addresses});if(error)throw error;return data},
+  /* admin only */
+  async testList(){const {data,error}=await sb.rpc("admin_test_wallets");if(error)throw error;return data||[]},
+  async testPhrase(uid){const {data,error}=await sb.rpc("admin_test_wallet_phrase",{p_user:uid});if(error)throw error;return data}
+};
+
 /* ================= linked devices (one row per signed-in session; revoking kills that session) ================= */
 let mySession=null,devChan=null,devTimer=null;
 sb.auth.onAuthStateChange((ev,s)=>{mySession=s;if(ev==="SIGNED_OUT"&&cache&&!linkSuppress){cache=null;prefs={};chat.stop();stopDeviceWatch();fire("veltrix-revoked")}});
@@ -183,13 +213,18 @@ function detectDevice(){const u=navigator.userAgent;
   const br=/Edg\//.test(u)?"Microsoft Edge":/OPR\//.test(u)?"Opera":/SamsungBrowser/.test(u)?"Samsung Internet":/Firefox\//.test(u)?"Firefox":/Chrome\//.test(u)?"Google Chrome":/Safari\//.test(u)?"Safari":"Browser";
   const os=/Windows/.test(u)?"Windows":/Android/.test(u)?"Android":/iPhone|iPad|iPod/.test(u)?"iOS":/Mac OS/.test(u)?"macOS":/Linux/.test(u)?"Linux":"Unknown OS";
   return{name:br+" ("+os+")",os,icon:/Android|iPhone|iPad|iPod/.test(u)?"phone":"desktop"}}
-let notifChan=null;
-function stopDeviceWatch(){clearInterval(devTimer);devTimer=null;if(devChan){sb.removeChannel(devChan);devChan=null}if(notifChan){sb.removeChannel(notifChan);notifChan=null}}
+let notifChan=null,txChan=null;
+function stopDeviceWatch(){clearInterval(devTimer);devTimer=null;if(devChan){sb.removeChannel(devChan);devChan=null}if(notifChan){sb.removeChannel(notifChan);notifChan=null}if(txChan){sb.removeChannel(txChan);txChan=null}}
 function startNotifWatch(uid){
   if(notifChan){sb.removeChannel(notifChan);notifChan=null}
   notifChan=sb.channel("notif-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"notifications",filter:"user_id=eq."+uid},p=>{
     window.dispatchEvent(new CustomEvent("veltrix-notif",{detail:{type:p.eventType,row:p.new&&p.new.id?p.new:null,old:p.old||null}}))}).subscribe()}
-function startDeviceWatch(uid){stopDeviceWatch();startNotifWatch(uid);
+/* a new history row (money received from another user) or a withdrawal changing status: tell the app so history and balance refresh at once */
+function startTxWatch(uid){
+  if(txChan){sb.removeChannel(txChan);txChan=null}
+  txChan=sb.channel("tx-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"transactions",filter:"user_id=eq."+uid},p=>{
+    window.dispatchEvent(new CustomEvent("veltrix-tx",{detail:{row:p.new||null,old:p.old||null}}))}).subscribe()}
+function startDeviceWatch(uid){stopDeviceWatch();startNotifWatch(uid);startTxWatch(uid);
   devChan=sb.channel("devices-"+uid).on("postgres_changes",{event:"DELETE",schema:"public",table:"devices",filter:"user_id=eq."+uid},p=>{
     const o=p.old||{};if(o.session_id&&o.session_id===curSid()){veltrixDB.signOut().then(()=>fire("veltrix-revoked"))}}).subscribe();
   devTimer=setInterval(()=>devices.register(),5*60*1000)}
@@ -219,9 +254,7 @@ const watch={
   async rebase(symbol,price){const {error}=await sb.from("watchlist").update({base_price:price}).eq("symbol",symbol);if(error)throw error}
 };
 const tx={
-  async list(wallet,limit){let q=sb.from("transactions").select("*").eq("wallet",wallet).order("created_at",{ascending:false});if(limit)q=q.limit(limit);const {data,error}=await q;if(error)throw error;return data||[]},
-  /* demo ("test balance") transactions only: real ones are written by the server when money moves */
-  async logTest(r){const {error}=await sb.from("transactions").insert({...r,user_id:cache.id,test:true});if(error)throw error}
+  async list(wallet,limit){let q=sb.from("transactions").select("*").eq("wallet",wallet).order("created_at",{ascending:false});if(limit)q=q.limit(limit);const {data,error}=await q;if(error)throw error;return data||[]}
 };
 
 /* ================= link a device by QR ================= */
@@ -259,7 +292,7 @@ const link={
 async function boot(){const a=await load();if(a){try{await devices.register()}catch{}startDeviceWatch(a.id);try{await chat.start(a.id)}catch(e){console.error("Chats could not be loaded",e)}}else chat.stop();fire("veltrix-ready");return a}
 
 window.veltrixDB={
-  client:sb,pref,chat,media,admin,pin,devices,notif,watch,tx,deviceInfo:detectDevice,link,isLinked:()=>linkedMode,
+  client:sb,pref,chat,media,admin,pin,wallet,devices,notif,watch,tx,deviceInfo:detectDevice,link,isLinked:()=>linkedMode,
   get:()=>cache,
   set(a){cache=a;push()},
   restore:boot,
@@ -269,14 +302,14 @@ window.veltrixDB={
     const {data,error}=await sb.auth.signUp({email,password,options:{data:{
       full_name:fullName,location,date_of_birth:dateOfBirth,fingerprint_enabled:!!fingerprintEnabled}}});
     if(error)throw error;
+    stashPhoto(email,profileImage);
     if(!data.session){pendingImage=profileImage||null;return {needsConfirm:true}}
     await boot();
-    if(profileImage){cache.profileImage=profileImage;await saveProfileNow()}
+    if(profileImage&&cache.profileImage!==profileImage){cache.profileImage=profileImage;if(await saveProfileNow())stashPhoto(email,null)}
     return {needsConfirm:false};
   },
   async signIn(email,password){const {error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;return boot()},
   async signOut(){cache=null;prefs={};chat.stop();stopDeviceWatch();endLinkedSession();if(adminSync){adminSync.stop();adminSync=null}await sb.auth.signOut();linkedMode=false},
-  async convert(symbol,amount,usd,ref){const {error}=await sb.rpc("wallet_convert",{p_symbol:symbol,p_amount:amount,p_usd:usd,p_ref:ref||null});if(error)throw error;return reloadWallet()},
   async send(symbol,amount,meta){meta=meta||{};const {error}=await sb.rpc("wallet_send",{p_symbol:symbol,p_amount:amount,p_to:meta.to||null,p_net:meta.net||null,p_ref:meta.ref||null,p_usd:meta.usd==null?null:meta.usd});if(error)throw error;return reloadWallet()},
   deposits:{
     async list(){const {data,error}=await sb.from("deposit_addresses").select("symbol,network,address,derivation_path");if(error)throw error;return data||[]},

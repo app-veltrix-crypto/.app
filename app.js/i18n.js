@@ -95,6 +95,23 @@
   }else{hideSpin();schedule()}
  }
  window.veltrixSetLanguage=setLang;
+ /* Helpers for text that is not in the page DOM (e.g. the receipt image drawn on a canvas). Reuses the same translator + cache. */
+ window.veltrixLang=()=>({code:lang,rtl:/^(ar|he|fa|ur)$/.test(lang)});
+ window.veltrixTranslate=async function(items){
+  const src=items.map(String);
+  if(lang==="en")return src;
+  const my=lang,tl=info(lang)[3],need=[...new Set(src.filter(t=>worth(t)&&cache[t]==null))];
+  if(need.length){
+   try{
+    await Promise.race([
+     (async()=>{for(const b of makeBatches(need)){const o=await gtBatch(b,tl);if(my!==lang)return;b.forEach((t,k)=>{if(o[k])cache[t]=o[k]})}})(),
+     new Promise((_,rej)=>setTimeout(rej,8000))
+    ]);
+   }catch{}
+   if(my===lang)saveCache();
+  }
+  return src.map(t=>cache[t]!=null?cache[t]:t);
+ };
  /* language sheet */
  const sheet=document.getElementById("langSheet"),back=document.getElementById("languageBack"),list=document.getElementById("langList");
  function paintList(){list.innerHTML=LANGS.map(l=>`<button type="button" class="sx-lang-row${l[0]===lang?" sel":""}" role="radio" aria-checked="${l[0]===lang}" data-c="${l[0]}"><span class="sx-radio"></span><span><b>${l[1]}</b><small>${l[0]==="en"?"(default)":l[2]}</small></span></button>`).join("")}

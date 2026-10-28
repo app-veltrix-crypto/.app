@@ -243,3 +243,61 @@ html[data-theme="dark"] .vm-b.me .vm-emoji{filter:none}
 html[data-theme="dark"] .vm-mirror{display:block}
 html[data-theme="dark"] .vm-ta textarea{color:transparent!important;caret-color:var(--tx);background:transparent}
 html[data-theme="dark"] .vm-ta textarea::placeholder{color:var(--mut);opacity:1}
+
+/* Verified official support badge */
+.vm-name{display:inline-flex;align-items:center;gap:3px;min-width:0;vertical-align:middle;white-space:nowrap}.vm-verified{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin:0;width:14px;height:14px;flex:0 0 14px;line-height:0;position:relative;top:-.5px}.vm-verified svg{display:block;width:100%;height:100%;overflow:visible}.vm-verified-seal{fill:#1d9bf0}.vm-verified-check{fill:none;stroke:#fff;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}.vm-support-logo{background:#080910!important}.vm-support-logo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;border-radius:50%;padding:1px}.vm-support-logo .vm-avatar-initials{display:none}
+
+/* plain text (no emoji): the textarea shows its own text, the mirror layer stays off */
+html[data-theme="dark"] .vm-ta:not(.vm-emo) .vm-mirror{display:none}
+html[data-theme="dark"] .vm-ta:not(.vm-emo) textarea{color:var(--tx)!important}
+
+/* tappable links inside message bubbles */
+.vm-b p a.vm-link{color:inherit;font-weight:600;text-decoration:underline;text-underline-offset:2px;word-break:break-word;overflow-wrap:anywhere;-webkit-tap-highlight-color:transparent}
+
+/* ---------- Composer emoji: draw the typed emoji with its real colours (dark theme) ----------
+   Colour emoji ignore "transparent" text, so the textarea's own glyph used to show through the page invert (brown/odd).
+   While the text contains an emoji, the textarea gets the exact inverse of the page filter so its emoji look normal;
+   the mirror keeps drawing the text, but its (duplicate) emoji are hidden so nothing is drawn twice. */
+html[data-theme="dark"] .vm-ta.vm-emo textarea{filter:hue-rotate(180deg) invert(1);caret-color:#fff}
+html[data-theme="dark"] .vm-ta.vm-emo .vm-mirror .vm-emoji{filter:none;opacity:0}
+
+/* ---------- Sticker messages (only 1-3 emoji, no text): no bubble, big emoji, WhatsApp style ---------- */
+.vm-b.vm-sticker,.vm-b.me.vm-sticker,.vm-b.them.vm-sticker{background:transparent!important;background-image:none!important;box-shadow:none!important;border:0!important;border-radius:0;padding:2px 4px 0;max-width:none;display:flex;flex-direction:column}
+.vm-b.vm-sticker.me{align-items:flex-end}
+.vm-b.vm-sticker.them{align-items:flex-start}
+.vm-b.vm-sticker p{margin:0;font-size:52px;line-height:1.1;white-space:nowrap}
+.vm-b.vm-sticker.st2 p{font-size:44px}
+.vm-b.vm-sticker.st3 p{font-size:38px}
+.vm-b.vm-sticker .vm-meta,.vm-b.me.vm-sticker .vm-meta,.vm-b.them.vm-sticker .vm-meta{display:inline-block;align-self:flex-end;margin:2px 2px 2px;padding:1px 8px;border-radius:999px;background:rgba(0,0,0,.5)!important;color:#fff!important;font-size:10px;line-height:1.5}
+.vm-b.vm-sticker .vm-meta b{color:#fff}
+.vm-b.vm-sticker.them .vm-meta{align-self:flex-start}
+/* dark theme: the sticker cancels the page invert itself (like own bubbles), so emoji and the time pill keep real colours */
+html[data-theme="dark"] .vm-b.vm-sticker.them{filter:hue-rotate(180deg) invert(1)}
+html[data-theme="dark"] .vm-b.vm-sticker .vm-emoji{filter:none}
+
+
+/* =====================================================================================================
+   TRUE EMOJI COLOURS IN DARK MODE  (needs app.js/truecolor.js, which adds html.vm-tl)
+   Dark mode is a whole-page invert filter, and no counter-filter can give saturated emoji colours back
+   (hue-rotate clamps them: the yellow face turns tan/brown). So in dark mode each messaging screen is
+   moved to the browser "top layer" (outside the page filter) and a backdrop-filter layer (::after) does
+   the same invert for everything in it EXCEPT emoji (and own bubbles), which are lifted above that layer
+   and therefore show their real colours. Day mode is untouched.
+   ===================================================================================================== */
+html.vm-tl[data-theme="dark"] :is(.vm-page,.vm-viewer,.vm-toast,.vm-dialog-backdrop,.vm-upload-menu,.vm-camera)[popover]{filter:none}
+/* neutralise the browser's default popover box (zero specificity, so the app's own rules still win) */
+:where(html.vm-tl[data-theme="dark"] .vm-page[popover],html.vm-tl[data-theme="dark"] .vm-viewer[popover],html.vm-tl[data-theme="dark"] .vm-toast[popover],html.vm-tl[data-theme="dark"] .vm-dialog-backdrop[popover],html.vm-tl[data-theme="dark"] .vm-upload-menu[popover],html.vm-tl[data-theme="dark"] .vm-camera[popover]){
+ inset:auto;margin:0;padding:0;border:0;width:auto;height:auto;max-width:none;max-height:none;overflow:visible;color:inherit;background:transparent}
+/* opaque screens: invert everything inside them with a backdrop layer (same look as the old page-wide invert) */
+html.vm-tl[data-theme="dark"] :is(.vm-page,.vm-camera)[popover]::after{content:"";position:fixed;inset:0;z-index:900;pointer-events:none;-webkit-backdrop-filter:invert(1) hue-rotate(180deg);backdrop-filter:invert(1) hue-rotate(180deg)}
+/* translucent / small layers must not invert what is behind them: they invert only themselves (same result as before) */
+html.vm-tl[data-theme="dark"] :is(.vm-viewer,.vm-dialog-backdrop,.vm-toast,.vm-upload-menu)[popover]{filter:invert(1) hue-rotate(180deg)}
+/* emoji sit above the invert layer -> real colours, everywhere (list, header, bubbles, stickers, toast) */
+html.vm-tl[data-theme="dark"] :is(.vm-page,.vm-camera) .vm-emoji{position:relative;z-index:1000;filter:none}
+/* own bubbles and "them" stickers used a counter-filter; now they simply sit above the invert layer (exact, and emoji inside stay clean) */
+html.vm-tl[data-theme="dark"] .vm-b.me,html.vm-tl[data-theme="dark"] .vm-b.vm-sticker.them{filter:none;position:relative;z-index:1000}
+html.vm-tl[data-theme="dark"] .vm-b.me .vm-emoji,html.vm-tl[data-theme="dark"] .vm-b.vm-sticker .vm-emoji{filter:none}
+/* composer: the mirror draws emoji above the invert layer, exactly over the textarea's own glyph */
+html.vm-tl[data-theme="dark"] .vm-mirror{z-index:auto}
+html.vm-tl[data-theme="dark"] .vm-ta.vm-emo textarea{filter:none;caret-color:var(--tx)}
+html.vm-tl[data-theme="dark"] .vm-ta.vm-emo .vm-mirror .vm-emoji{filter:none;opacity:1}

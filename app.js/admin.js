@@ -30,6 +30,7 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"
 const EMOJI_RE=/(?:[\u{1F1E6}-\u{1F1FF}]{2}|[0-9#*]\uFE0F?\u20E3|\p{Extended_Pictographic}(?:\uFE0F|[\u{1F3FB}-\u{1F3FF}])?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|[\u{1F3FB}-\u{1F3FF}])?)*)/gu;
 const emoW=h=>String(h).replace(EMOJI_RE,'<span class="vm-emoji">$&</span>');
 const escE=s=>emoW(esc(s));
+const stickerN=t=>{t=String(t||"").trim();if(!t)return 0;const n=(t.match(EMOJI_RE)||[]).length;return n>0&&n<=3&&!t.replace(EMOJI_RE,"").replace(/[\s\u200d\ufe0f]/g,"")?n:0};
 const initials=n=>String(n||"?").split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase()||"?";
 const hueOf=id=>{let h=0;for(const ch of String(id))h=(h*31+ch.charCodeAt(0))>>>0;return h%360};
 /* Profile picture if the user has one, otherwise coloured initials (same fallback the user app uses). */
@@ -181,6 +182,7 @@ function bubble(m){
  if(m.type==="file")return `<div class="${cls}" data-mid="${m.id}"><a class="vm-file-link" href="#" data-file="${m.id}"><span class="vm-fic">${I.doc}</span><span class="vm-fname">${esc(m.name||"File")}<small>${m.size?fmtSize(m.size)+" · ":""}Tap to download</small></span></a>${meta}</div>`;
  if(m.type==="audio"){let s=0;for(const c of m.id)s=(s*31+c.charCodeAt(0))>>>0;const bars=Array.from({length:30},()=>{s=(s*1664525+1013904223)>>>0;return `<i style="height:${20+(s>>>24)%70}%"></i>`}).join("");
   return `<div class="${cls}" data-mid="${m.id}"><div class="vm-voice" data-a="${m.id}" data-dur="${m.dur||0}"><button type="button" class="vm-play" aria-label="Play voice message">${I.play}</button><div class="vm-wave">${bars}</div><span class="vm-dur">${fmtDur(m.dur||0)}</span></div>${meta}</div>`}
+ {const sn=(!m.type||m.type==="text")?stickerN(m.text):0;if(sn)return `<div class="${cls} vm-sticker st${sn}" data-mid="${m.id}"><p>${escE(String(m.text).trim())}</p>${meta}</div>`}
  return `<div class="${cls}" data-mid="${m.id}"><p>${escE(m.text)}${m.edited?" <small class=\"vm-edited\">(edited)</small>":""}</p>${meta}</div>`;
 }
 function renderMsgs(forceBottom){
@@ -206,9 +208,16 @@ async function addMsg(m,blob){
 /* Dark theme inverts the page, which garbles emoji typed in a textarea (it can't hold styled pieces).
    A mirror layer renders the same text with emoji un-inverted; the textarea text is transparent in dark mode (see messaging.css). */
 const mirror=el("vmMirror");
-function syncMirror(){const cs=getComputedStyle(text);
- mirror.style.font=cs.font;mirror.style.lineHeight=cs.lineHeight;mirror.style.letterSpacing=cs.letterSpacing;
- mirror.style.padding=cs.paddingTop+" "+(parseFloat(cs.paddingRight)+(text.offsetWidth-text.clientWidth))+"px "+cs.paddingBottom+" "+cs.paddingLeft;
+const HAS_EMOJI=new RegExp(EMOJI_RE.source,"u");
+function syncMirror(){
+ const emo=HAS_EMOJI.test(text.value),box=text.parentNode;
+ if(box)box.classList.toggle("vm-emo",emo);
+ if(!emo){mirror.textContent="";return}
+ const cs=getComputedStyle(text),ms=mirror.style;
+ if(cs.font)ms.font=cs.font;else{ms.fontFamily=cs.fontFamily;ms.fontSize=cs.fontSize;ms.fontWeight=cs.fontWeight;ms.fontStyle=cs.fontStyle}
+ ms.lineHeight=cs.lineHeight;ms.letterSpacing=cs.letterSpacing;ms.wordSpacing=cs.wordSpacing;ms.textIndent=cs.textIndent;ms.tabSize=cs.tabSize;
+ ms.overflowWrap=cs.overflowWrap;ms.wordBreak=cs.wordBreak;ms.whiteSpace=cs.whiteSpace;
+ ms.padding=cs.paddingTop+" "+(parseFloat(cs.paddingRight)+(text.offsetWidth-text.clientWidth))+"px "+cs.paddingBottom+" "+cs.paddingLeft;
  mirror.innerHTML=escE(text.value)+"\u200b";mirror.scrollTop=text.scrollTop}
 text.addEventListener("scroll",()=>{mirror.scrollTop=text.scrollTop});
 function autosize(){text.style.height="auto";text.style.height=Math.min(text.scrollHeight,120)+"px";syncMirror()}
@@ -359,15 +368,19 @@ function gate(){return new Promise(res=>{
   try{const a=await veltrixDB.signInOnly(form.e.value.trim().toLowerCase(),form.p.value);
    if(!a)return;if(!a.isAdmin){location.replace("index.html");return}
    g.remove();res()}catch{msg.textContent="The email address or password is incorrect."}})})}
+function applyTheme(){const d=veltrixDB.pref.get("theme","dark")!=="light";
+ if(d)document.documentElement.setAttribute("data-theme","dark");else document.documentElement.removeAttribute("data-theme");
+ try{localStorage.setItem("veltrixTheme",d?"dark":"light")}catch{}}
 async function startAdmin(){
  await veltrixDB.admin.start();dirCache=await veltrixDB.admin.directory();
- if(veltrixDB.pref.get("theme","light")==="dark")document.documentElement.setAttribute("data-theme","dark");
+ applyTheme();
  loadStore();renderConvs();
 }
 (async()=>{
  try{
   document.body.style.visibility="hidden";
   let a=null;try{a=await veltrixDB.restoreAccount()}catch(e){console.error(e)}
+  if(a&&a.isAdmin)applyTheme();
   if(a&&!a.isAdmin){location.replace("index.html");return}       /* signed in but not an administrator: send them away before anything shows */
   if(window.__splash)window.__splash.release("boot");
   document.body.style.visibility="";

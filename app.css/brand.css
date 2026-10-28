@@ -43,16 +43,15 @@
 .wd-empty-icon{background:var(--brand-soft);color:var(--brand)}
 .wd-amount{color:inherit}
 
-/* ---------- Sheets, deposit, convert, send, security ---------- */
-.sd-main,.sx-main,.wd-notification-apply,.cv-slide.ready,.wd-detail-buy,.profile-ui-dialog-actions button:last-child{background:var(--brand-grad)!important;color:#fff;box-shadow:var(--brand-shadow)}
+/* ---------- Sheets, deposit, send, security ---------- */
+.sd-main,.sx-main,.wd-notification-apply,.wd-detail-buy,.profile-ui-dialog-actions button:last-child{background:var(--brand-grad)!important;color:#fff;box-shadow:var(--brand-shadow)}
 .wd-deposit-address-row button,.wd-deposit-back-list{background:var(--brand)!important}
 .wd-detail-timeframes button.active{background:var(--brand);color:#fff}
 .wd-detail-actions button,.wd-detail-round{background:var(--brand-soft);color:var(--brand)}
 .sx-note b,.sx-dev-ic,.sx-dev-big,.sd-auth-ic,.lux-copy{color:var(--brand)}
 .sd-input:focus-within,.sx-pin input:focus,.sx-pin input.filled,.profile-ui-dialog-card input:focus{border-color:var(--brand)}
-.lux-amt{background:linear-gradient(180deg,#4a6bff,#2142d8)}
-.cv-slider::-webkit-slider-thumb{background:var(--brand)}
-.cv-slider::-moz-range-thumb,.cv-slider::-moz-range-progress{background:var(--brand)}
+.lux-amt{background:none!important;color:var(--wd-text,#17171c)!important;-webkit-text-fill-color:currentColor;-webkit-background-clip:border-box;background-clip:border-box}
+.sd-main.lux-ghost{border:0!important;color:#fff!important;-webkit-text-fill-color:#fff;text-shadow:0 0 10px rgba(255,255,255,.55),0 1px 0 rgba(0,0,0,.12);letter-spacing:.2px}
 
 /* ---------- Profile & settings pages ---------- */
 .profile-ui-icon,.profile-ui-field-icon,.profile-ui-top-icon,.profile-ui-back{color:var(--brand)}
@@ -125,10 +124,9 @@
 .message.success{background:var(--pos-soft);color:var(--pos);border:1px solid rgba(15,157,88,.35)}
 .sd-err,.sd-msg.bad,.sx-error{color:var(--neg)}
 .sd-input.bad,.sx-pin.bad input{border-color:var(--neg)}
-.sd-msg.good,.sx-checks li.ok,.cv-live.on{color:var(--pos)}
+.sd-msg.good,.sx-checks li.ok{color:var(--pos)}
 .sd-input.good{border-color:var(--pos)}
-.cv-live.on{background:var(--pos-soft)}
-.cv-live.on::before,.lux-pill i{background:var(--pos)}
+.lux-pill i{background:var(--pos)}
 .sx-checks li.ok::before{background:var(--pos);border-color:var(--pos)}
 .sx-outline-danger{color:var(--neg);border-color:rgba(217,58,73,.45)}
 .profile-ui-logout .profile-ui-icon{background:var(--neg-soft);color:var(--neg)}
@@ -159,6 +157,7 @@ html[data-theme="dark"] .vm-tile,
 html[data-theme="dark"] .sd-main,
 html[data-theme="dark"] .sx-main,
 html[data-theme="dark"] .wd-detail-buy,
+html[data-theme="dark"] .wd-txc-go,
 html[data-theme="dark"] .message.error,
 html[data-theme="dark"] .message.success{filter:hue-rotate(180deg) invert(1)}  /* exact inverse of the page filter */
 html[data-theme="dark"] .wd-stack-card{box-shadow:0 18px 40px rgba(0,0,0,.45)}
@@ -175,3 +174,7 @@ html[data-theme="dark"] .wd-stack-card{box-shadow:0 18px 40px rgba(0,0,0,.45)}
 /* night mode: the page itself is inverted, so the gradient layer carries the inverse filter and the label is authored black (shows white) */
 html[data-theme="dark"] .primary-button,html[data-theme="dark"] .primary-button:hover,html[data-theme="dark"] .primary-button:active,html[data-theme="dark"] .primary-button:focus-visible{filter:none !important;color:#000 !important;box-shadow:0 10px 24px rgba(74,149,255,.28)}
 html[data-theme="dark"] .primary-button::before{filter:hue-rotate(180deg) invert(1)}
+
+/* no scrollbar line anywhere (pages still scroll) */
+html,body,*{scrollbar-width:none;-ms-overflow-style:none}
+html::-webkit-scrollbar,body::-webkit-scrollbar,*::-webkit-scrollbar{display:none!important;width:0!important;height:0!important;background:transparent}

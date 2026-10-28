@@ -1,0 +1,51 @@
+/* Market detail page: one consistent, compact scale that matches the rest of the app (loaded last on purpose). */
+#marketDetailPage{padding-bottom:calc(72px + env(safe-area-inset-bottom))!important}
+#marketDetailPage .wd-market-detail-header{height:50px;padding:calc(6px + env(safe-area-inset-top)) 14px 6px}
+#marketDetailPage .wd-market-detail-header .wd-detail-round{width:34px;height:34px;flex:0 0 34px}
+#marketDetailPage .wd-market-detail-header .wd-detail-round svg{width:16px;height:16px;max-width:16px;max-height:16px}
+#marketDetailPage .wd-market-detail-main{max-width:560px;padding:0 14px}
+
+/* asset header */
+#marketDetailPage .wd-detail-asset-head{gap:10px;min-height:0;padding:6px 0 12px}
+#marketDetailPage .wd-detail-coin{width:38px;height:38px;flex:0 0 38px}
+#marketDetailPage .wd-detail-asset-name h2{font-size:16px;line-height:1.2;margin:0 0 3px;letter-spacing:-.2px}
+#marketDetailPage .wd-detail-asset-name p{font-size:11.5px;gap:4px;align-items:center}
+#marketDetailPage .wd-detail-asset-name p button{display:grid;place-items:center;width:20px;height:20px;border-radius:6px;font-size:0;color:var(--wd-muted,#858995);background:transparent}
+#marketDetailPage .wd-detail-asset-name p button svg{width:13px;height:13px}
+#marketDetailPage .wd-detail-price{gap:3px;max-width:50%}
+#marketDetailPage .wd-detail-price strong{font-size:clamp(14px,3.9vw,17px);letter-spacing:-.2px}
+#marketDetailPage .wd-detail-price span{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(50,185,128,.12)}
+#marketDetailPage .wd-detail-price span.down{background:rgba(231,101,112,.12)}
+
+/* chart + range selector (segmented control) */
+#marketDetailPage .wd-detail-chart-wrap{height:clamp(190px,54vw,270px);margin:0 -14px 4px}
+#marketDetailPage .wd-chart-price-pill{padding:3px 8px;font-size:10px}
+#marketDetailPage .wd-detail-timeframes{display:flex;gap:2px;margin:8px 0 18px;padding:3px;border-radius:12px;background:var(--wd-card,#f1f2f7)}
+#marketDetailPage .wd-detail-timeframes button{flex:1;min-width:0;padding:7px 0;border-radius:9px;font-size:11.5px;font-weight:650;color:var(--wd-muted,#858995);transition:background .15s ease,color .15s ease}
+#marketDetailPage .wd-detail-timeframes button.active{background:var(--wd-surface,#fff);color:var(--wd-text,#17171c);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+
+/* cards: balance, notice, about */
+#marketDetailPage .wd-detail-balance{flex-direction:row;align-items:center;gap:12px;margin:0 0 10px;padding:12px 14px;border:1px solid var(--wd-border,rgba(130,135,155,.18));border-radius:16px;background:var(--wd-card,rgba(130,135,155,.07))}
+#marketDetailPage .wd-bal-ic{flex:0 0 34px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--brand-soft,rgba(36,80,255,.1));color:var(--brand,#2450ff)}
+#marketDetailPage .wd-bal-ic svg{width:17px;height:17px}
+#marketDetailPage .wd-bal-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+#marketDetailPage .wd-detail-balance span{font-size:11.5px;color:var(--wd-muted,#858995)}
+#marketDetailPage .wd-detail-balance strong{font-size:18px;line-height:1.15;letter-spacing:-.3px}
+#marketDetailPage .wd-detail-balance small{font-size:11.5px;color:var(--wd-muted,#858995)}
+#marketDetailPage .wd-market-notice{gap:10px;margin:0 0 10px;padding:11px 12px;border-radius:16px;align-items:flex-start}
+#marketDetailPage .wd-market-notice-icon{width:20px;height:20px;flex:0 0 20px;border:0;opacity:1;color:var(--brand,#2450ff);background:none}
+#marketDetailPage .wd-market-notice-icon svg{width:18px;height:18px}
+#marketDetailPage .wd-market-notice p{font-size:10.5px;line-height:1.5}
+#marketDetailPage .wd-market-notice p strong{font-size:11.5px}
+#marketDetailPage .wd-detail-aboutcard{border:1px solid var(--wd-border,rgba(130,135,155,.18));border-radius:16px;padding:0 14px;margin:0 0 16px}
+#marketDetailPage .wd-detail-about{gap:9px;padding:12px 0;font-size:13px;font-weight:650;align-items:center}
+#marketDetailPage .wd-detail-about .wd-about-ic{display:grid;place-items:center;width:22px;height:22px;color:var(--brand,#2450ff)}
+#marketDetailPage .wd-detail-about .wd-about-ic svg{width:16px;height:16px}
+#marketDetailPage .wd-detail-about b{font-weight:650}
+#marketDetailPage .wd-detail-chevron{margin-left:auto;display:grid;place-items:center;width:18px;height:18px;font-size:0;color:var(--wd-muted,#858995);transition:transform .2s ease}
+#marketDetailPage .wd-detail-chevron svg{width:15px;height:15px}
+#marketDetailPage .wd-detail-about:has(+ .wd-detail-about-copy:not([hidden])) .wd-detail-chevron{transform:rotate(90deg)}
+#marketDetailPage .wd-detail-about-copy{font-size:11.5px;line-height:1.55;margin:0 0 12px;padding-top:10px;border-top:1px solid var(--wd-border,rgba(130,135,155,.18))}
+
+/* primary action */
+#marketDetailPage .wd-detail-buy{left:14px;right:14px;width:calc(100% - 28px);max-width:532px;height:44px;border-radius:22px;font-size:13.5px;font-weight:700;bottom:calc(10px + env(safe-area-inset-bottom));box-shadow:0 6px 18px rgba(0,0,0,.14)}

@@ -42,6 +42,20 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"
 const EMOJI_RE=/(?:[\u{1F1E6}-\u{1F1FF}]{2}|[0-9#*]\uFE0F?\u20E3|\p{Extended_Pictographic}(?:\uFE0F|[\u{1F3FB}-\u{1F3FF}])?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|[\u{1F3FB}-\u{1F3FF}])?)*)/gu;
 const emoW=h=>String(h).replace(EMOJI_RE,'<span class="vm-emoji">$&</span>');
 const escE=s=>emoW(esc(s));
+const stickerN=t=>{t=String(t||"").trim();if(!t)return 0;const n=(t.match(EMOJI_RE)||[]).length;return n>0&&n<=3&&!t.replace(EMOJI_RE,"").replace(/[\s\u200d\ufe0f]/g,"")?n:0};
+/* Links in chat text: http(s):// and www. addresses become tappable and open in the in-app browser. */
+const URL_RE=/\b((?:https?:\/\/|www\.)[^\s<>"']+)/gi;
+function linkE(t){
+ t=String(t);let out="",last=0,m;URL_RE.lastIndex=0;
+ while((m=URL_RE.exec(t))){
+  let u=m[1];const tm=u.match(/[.,;:!?)\]}]+$/);if(tm)u=u.slice(0,-tm[0].length);
+  if(!/^(?:https?:\/\/|www\.)[^\s.]+\./i.test(u)){continue}
+  const href=/^www\./i.test(u)?"https://"+u:u;
+  out+=escE(t.slice(last,m.index))+`<a class="vm-link" href="${esc(href)}" data-link="${esc(href)}" rel="noopener noreferrer">${esc(u)}</a>`;
+  last=m.index+u.length;URL_RE.lastIndex=last;
+ }
+ return out+escE(t.slice(last));
+}
 const initials=n=>n.split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 /* ---------- Profile pictures: real photographs only ----------
    Every user gets a different photo. Sources (free photo services, no drawings or cartoons):
@@ -74,7 +88,7 @@ function avatarSrc(u){
 }
 /* a photo that fails to load is hidden and the user's initials show instead */
 document.addEventListener("error",e=>{const t=e.target;if(t&&t.tagName==="IMG"&&t.dataset&&t.dataset.n&&t.parentElement&&t.parentElement.classList.contains("vm-av")){t.style.display="none";t.parentElement.classList.add("vm-avatar-fallback")}},true);
-const av=(u,cls)=>u.support?`<span class="vm-av ${cls||""} vm-avatar-fallback" style="background:hsl(${u.hue} 42% 34%)"><span class="vm-avatar-initials">${esc(initials(u.name))}</span></span>`:`<span class="vm-av ${cls||""}" style="background:hsl(${u.hue} 42% 34%)"><img src="${avatarSrc(u)}" data-n="${u.n}" alt="" loading="lazy" decoding="async"><span class="vm-avatar-initials">${esc(initials(u.name))}</span></span>`;
+const av=(u,cls)=>u.support?`<span class="vm-av ${cls||""} vm-support-logo"><img src="app.assets/veltrix-support-logo.png" alt="Veltrix Support" loading="eager"><span class="vm-avatar-initials">${esc(initials(u.name))}</span></span>`:`<span class="vm-av ${cls||""}" style="background:hsl(${u.hue} 42% 34%)"><img src="${avatarSrc(u)}" data-n="${u.n}" alt="" loading="lazy" decoding="async"><span class="vm-avatar-initials">${esc(initials(u.name))}</span></span>`;
 const fmtT=t=>new Date(t).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
 const fmtSize=b=>b<1024?b+" B":b<1048576?(b/1024).toFixed(0)+" KB":(b/1048576).toFixed(1)+" MB";
 const fmtDur=s=>Math.floor(s/60)+":"+String(Math.floor(s%60)).padStart(2,"0");
@@ -106,7 +120,7 @@ wrap.innerHTML=`
 </section>
 <section class="vm-page vm-over" id="vmPick" hidden aria-label="Start a new conversation">
  <header class="vm-top"><button type="button" class="vm-ic" id="vmPickBack" aria-label="Back to messages">${I.back}</button><div style="flex:1"><h1>New conversation</h1></div></header>
- <label class="vm-search">${I.search}<input type="search" id="vmPickSearch" placeholder="Search users" autocomplete="off" aria-label="Search users"></label>
+ <label class="vm-search">${I.search}<input type="search" id="vmPickSearch" placeholder="Search by name or username" autocomplete="off" aria-label="Search users"></label>
  <div class="vm-scroll" id="vmUsers"></div>
 </section>
 <section class="vm-page vm-over" id="vmChat" hidden aria-label="Conversation">
@@ -133,10 +147,15 @@ wrap.innerHTML=`
 while(wrap.firstChild)host.appendChild(wrap.firstChild);
 const el=id=>document.getElementById(id);
 const L=el("vmList"),P=el("vmPick"),C=el("vmChat"),msgsEl=el("vmMsgs"),text=el("vmText"),sendBtn=el("vmSend");
+/* tapping a link in a message: open it in the in-app browser (registered first so the bubble's own tap handlers don't also fire) */
+msgsEl.addEventListener("click",e=>{const a=e.target.closest("a.vm-link");if(!a)return;e.preventDefault();e.stopImmediatePropagation();
+ const url=a.dataset.link;if(window.veltrixBuyBrowser&&veltrixBuyBrowser.openUrl)veltrixBuyBrowser.openUrl(url);else window.open(url,"_blank","noopener,noreferrer")});
 let tt;function toast(m){const t=el("vmToast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),2200)}
 let activeId=null;
 /* "Veltrix Support": the contact an admin writes as when the admin starts the conversation (see admin.html). */
 const SUPPORT_USER={id:"veltrix-support",name:"Veltrix Support",n:0,hue:225,key:"veltrix support",support:true};
+const verifiedBadge='<span class="vm-verified" title="Verified official support" aria-label="Verified official support"><svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path class="vm-verified-seal" d="M 12.00,0.55 L 13.35,1.74 L 14.96,0.94 L 15.96,2.44 L 17.72,2.08 L 18.30,3.79 L 20.10,3.90 L 20.21,5.70 L 21.92,6.28 L 21.56,8.04 L 23.06,9.04 L 22.26,10.65 L 23.45,12.00 L 22.26,13.35 L 23.06,14.96 L 21.56,15.96 L 21.92,17.72 L 20.21,18.30 L 20.10,20.10 L 18.30,20.21 L 17.72,21.92 L 15.96,21.56 L 14.96,23.06 L 13.35,22.26 L 12.00,23.45 L 10.65,22.26 L 9.04,23.06 L 8.04,21.56 L 6.28,21.92 L 5.70,20.21 L 3.90,20.10 L 3.79,18.30 L 2.08,17.73 L 2.44,15.96 L 0.94,14.96 L 1.74,13.35 L 0.55,12.00 L 1.74,10.65 L 0.94,9.04 L 2.44,8.04 L 2.08,6.27 L 3.79,5.70 L 3.90,3.90 L 5.70,3.79 L 6.27,2.08 L 8.04,2.44 L 9.04,0.94 L 10.65,1.74 Z"/><path class="vm-verified-check" d="M7.05 12.35 10.15 15.25 16.95 8.65"/></svg></span>';
+window.veltrixWelcomeSupport=function(){try{loadStore();const c=store.convs[SUPPORT_USER.id]=store.convs[SUPPORT_USER.id]||{msgs:[],name:SUPPORT_USER.name};if(!c.msgs)c.msgs=[];if(!c.msgs.some(m=>m.systemWelcome===true)){c.msgs.push({id:"welcome-"+accountId(),from:"them",t:Date.now(),type:"text",text:"Welcome to Veltrix Support! For your security, message our verified Support Team only in this conversation. We will never ask for your password, PIN, or recovery phrase. Please be cautious of impersonators and do not trust support accounts outside this chat.",systemWelcome:true});saveStore()}}catch(e){console.warn("Support welcome could not be created",e)}};
 const userById=id=>id===SUPPORT_USER.id?SUPPORT_USER:DEMO_USERS.find(u=>u.id===id);
 
 /* ---------- conversation list ---------- */
@@ -150,7 +169,7 @@ function renderConvs(){
  const q=el("vmSearch").value.trim().toLowerCase();
  const rows=Object.entries(store.convs).filter(([id,c])=>c.msgs&&c.msgs.length&&userById(id)).map(([id,c])=>({u:userById(id),c,last:c.msgs[c.msgs.length-1],unread:unreadOf(c)}))
   .filter(r=>!q||r.u.name.toLowerCase().includes(q)).sort((a,b)=>b.last.t-a.last.t);
- el("vmConvs").innerHTML=rows.length?rows.map(r=>`<button type="button" class="vm-row${r.unread?" vm-unread":""}" data-uid="${r.u.id}">${av(r.u)}<span class="vm-body"><span class="vm-l1"><span class="vm-name">${esc(r.u.name)}</span><span class="vm-time">${listTime(r.last.t)}</span></span><span class="vm-l2"><div class="vm-prev">${preview(r.last,r.c)}</div>${r.unread?`<b class="vm-badge-n" aria-label="${r.unread} unread">${r.unread>9999?"9999+":r.unread}</b>`:""}</span></span></button>`).join("")
+ el("vmConvs").innerHTML=rows.length?rows.map(r=>`<button type="button" class="vm-row${r.unread?" vm-unread":""}" data-uid="${r.u.id}">${av(r.u)}<span class="vm-body"><span class="vm-l1"><span class="vm-name">${esc(r.u.name)}${r.u.support?verifiedBadge:""}</span><span class="vm-time">${listTime(r.last.t)}</span></span><span class="vm-l2"><div class="vm-prev">${preview(r.last,r.c)}</div>${r.unread?`<b class="vm-badge-n" aria-label="${r.unread} unread">${r.unread>9999?"9999+":r.unread}</b>`:""}</span></span></button>`).join("")
   :`<div class="vm-empty"><div class="vm-eic">${I.chat}</div><h2>${q?"No matches":"No conversations yet"}</h2><p>${q?"Try a different name.":"Tap the blue button to start a conversation with someone."}</p></div>`;
 }
 el("vmConvs").addEventListener("click",e=>{const r=e.target.closest("[data-uid]");if(r&&!r.dataset.longPressed)openChat(r.dataset.uid);delete r?.dataset.longPressed});
@@ -163,13 +182,27 @@ function openList(){loadStore();{let ch=false;for(const id in store.convs){const
 function closeList(){stopPlayback();L.hidden=true;updateBadge();document.body.classList.remove("wd-feature-open")}
 el("vmBack").addEventListener("click",closeList);
 
+/* Opens the verified Veltrix Support chat and (optionally) drops a ready-to-send message into the type box. */
+window.veltrixOpenSupport=function(prefill){
+ try{window.veltrixWelcomeSupport();loadStore();openList();openChat(SUPPORT_USER.id);
+  if(prefill){
+   /* fill the type box, then size it to the text exactly (again once layout/fonts have settled) so no empty gap is left */
+   text.value=String(prefill);
+   const fit=()=>{autosize();text.scrollTop=0;syncMirror()};
+   fit();setMode();requestAnimationFrame(()=>{fit();requestAnimationFrame(fit)});
+   if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fit);
+  }
+  return true}catch(e){console.warn("Support chat could not be opened",e);return false}
+};
 /* The "Messaging" quick action (capture phase so the old "coming soon" toast never fires). */
 host.addEventListener("click",e=>{const b=e.target.closest("#dashboardPage .wd-actions [data-action]");if(b&&(b.dataset.action==="Messaging"||/messaging/i.test(b.textContent))){e.stopPropagation();e.preventDefault();openList()}},true);
 
 /* ---------- new conversation: user picker ---------- */
 let pickList=[],pickShown=0,pickObs=null;
 const PICK_BATCH=80;
-const userRow=u=>`<button type="button" class="vm-row" data-uid="${u.id}">${av(u)}<span class="vm-body"><span class="vm-name">${esc(u.name)}</span><div class="vm-prev">${store.convs[u.id]&&store.convs[u.id].msgs&&store.convs[u.id].msgs.length?"Existing conversation":"Tap to start a conversation"}</div></span></button>`;
+/* Username = the person's name without spaces/punctuation, e.g. "Jane Doe" -> @janedoe */
+const handleOf=u=>"@"+String(u.name).toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"");
+const userRow=u=>`<button type="button" class="vm-row" data-uid="${u.id}">${av(u)}<span class="vm-body"><span class="vm-name">${esc(u.name)}</span><div class="vm-prev">${esc(handleOf(u))} · ${store.convs[u.id]&&store.convs[u.id].msgs&&store.convs[u.id].msgs.length?"Existing conversation":"Tap to start a conversation"}</div></span></button>`;
 function pickMore(){
  const box=el("vmUsers"),old=box.querySelector(".vm-sentinel");if(old)old.remove();
  const next=pickList.slice(pickShown,pickShown+PICK_BATCH);pickShown+=next.length;
@@ -177,12 +210,13 @@ function pickMore(){
  if(pickShown<pickList.length){const s=document.createElement("div");s.className="vm-sentinel";s.style.height="1px";box.appendChild(s);if(pickObs)pickObs.observe(s)}
 }
 function renderUsers(){
- const q=el("vmPickSearch").value.trim().toLowerCase();
- pickList=q?USERS_SHUFFLED.filter(u=>u.key.includes(q)):USERS_SHUFFLED;pickShown=0;
- const box=el("vmUsers");box.scrollTop=0;
- if(!pickObs&&"IntersectionObserver"in window)pickObs=new IntersectionObserver(es=>{if(es.some(e=>e.isIntersecting))pickMore()},{root:box,rootMargin:"800px"});
- box.innerHTML=pickList.length?"":`<div class="vm-empty"><h2>No users found</h2></div>`;
- if(pickList.length)pickMore();
+  /* Default: the full list, exactly as before. Typing narrows it by name OR username (@name). */
+  const raw=el("vmPickSearch").value.trim().toLowerCase().replace(/^@+/,""),q=raw.replace(/\s+/g,"");
+  pickList=raw?USERS_SHUFFLED.filter(u=>u.key.includes(raw)||handleOf(u).slice(1).includes(q)):USERS_SHUFFLED;pickShown=0;
+  const box=el("vmUsers");box.scrollTop=0;
+  if(!pickObs&&"IntersectionObserver"in window)pickObs=new IntersectionObserver(es=>{if(es.some(e=>e.isIntersecting))pickMore()},{root:box,rootMargin:"800px"});
+  box.innerHTML=pickList.length?"":`<div class="vm-empty"><h2>No users found</h2></div>`;
+  if(pickList.length)pickMore();
 }
 el("vmNew").addEventListener("click",()=>{el("vmPickSearch").value="";renderUsers();P.hidden=false});
 el("vmPickBack").addEventListener("click",()=>{P.hidden=true});
@@ -193,7 +227,7 @@ el("vmUsers").addEventListener("click",e=>{const r=e.target.closest("[data-uid]"
 function openChat(uid){
  const u=userById(uid);if(!u)return;activeId=uid;editingId=null;el("vmEditing").hidden=true;
  {const c=store.convs[uid];divAt=(c&&c.userReadAt)||0;divN=unreadOf(c);markReadUser(uid)}
- el("vmChatWho").innerHTML=av(u,"vm-sm")+`<span class="vm-name">${esc(u.name)}</span>`;
+ el("vmChatWho").innerHTML=av(u,"vm-sm")+`<span class="vm-name">${esc(u.name)}${u.support?verifiedBadge:""}</span>`;
  clearStage();text.value="";autosize();setMode();renderMsgs(true);C.hidden=false;
 }
 function closeChat(){clearStage();closePreview();closeViewer();if(recorder)cancelRec();stopPlayback();C.hidden=true;activeId=null;divN=0;renderConvs();updateBadge()}
@@ -209,11 +243,12 @@ function bubble(m){
   const dl=!!m.downloaded,isI=m.type==="image";
   const media=isI?`<img class="vm-img${dl?"":" blur"}" data-m="${m.id}" alt="Photo">`:`<video class="vm-vid${dl?"":" blur"}" data-m="${m.id}" playsinline muted preload="metadata"></video>`;
   const ov=dl?(isI?`<button type="button" class="vm-open" data-view="${m.id}" aria-label="View full screen"></button>`:`<button type="button" class="vm-open vm-playov" data-view="${m.id}" aria-label="Play video"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>`):`<button type="button" class="vm-dlbtn" data-dl="${m.id}">${I.dl}<span>${sz||"Download"}</span></button>`;
-  return `<div class="${cls} media" data-mid="${m.id}"><div class="vm-mwrap">${media}${ov}</div>${m.text?`<p>${escE(m.text)}</p>`:""}${meta}</div>`}
+  return `<div class="${cls} media" data-mid="${m.id}"><div class="vm-mwrap">${media}${ov}</div>${m.text?`<p>${linkE(m.text)}</p>`:""}${meta}</div>`}
  if(m.type==="file")return `<div class="${cls}" data-mid="${m.id}"><a class="vm-file-link" href="#" data-file="${m.id}"><span class="vm-fic">${I.doc}</span><span class="vm-fname">${esc(m.name||"File")}<small>${m.size?fmtSize(m.size)+" · ":""}Tap to download</small></span></a>${meta}</div>`;
  if(m.type==="audio"){let s=0;for(const c of m.id)s=(s*31+c.charCodeAt(0))>>>0;const bars=Array.from({length:30},()=>{s=(s*1664525+1013904223)>>>0;return `<i style="height:${20+(s>>>24)%70}%"></i>`}).join("");
   return `<div class="${cls}" data-mid="${m.id}"><div class="vm-voice" data-a="${m.id}" data-dur="${m.dur||0}"><button type="button" class="vm-play" aria-label="Play voice message">${I.play}</button><div class="vm-wave">${bars}</div><span class="vm-dur">${fmtDur(m.dur||0)}</span></div>${meta}</div>`}
- return `<div class="${cls}" data-mid="${m.id}"><p>${escE(m.text)}${m.edited?" <small class=\"vm-edited\">(edited)</small>":""}</p>${meta}</div>`;
+ {const sn=(!m.type||m.type==="text")?stickerN(m.text):0;if(sn)return `<div class="${cls} vm-sticker st${sn}" data-mid="${m.id}"><p>${escE(String(m.text).trim())}</p>${meta}</div>`}
+ return `<div class="${cls}" data-mid="${m.id}"><p>${linkE(m.text)}${m.edited?" <small class=\"vm-edited\">(edited)</small>":""}</p>${meta}</div>`;
 }
 function renderMsgs(forceBottom){
  stopPlayback();
@@ -237,9 +272,18 @@ async function addMsg(m,blob){
 /* Dark theme inverts the page, which garbles emoji typed in a textarea (it can't hold styled pieces).
    A mirror layer renders the same text with emoji un-inverted; the textarea text is transparent in dark mode (see messaging.css). */
 const mirror=el("vmMirror");
-function syncMirror(){const cs=getComputedStyle(text);
- mirror.style.font=cs.font;mirror.style.lineHeight=cs.lineHeight;mirror.style.letterSpacing=cs.letterSpacing;
- mirror.style.padding=cs.paddingTop+" "+(parseFloat(cs.paddingRight)+(text.offsetWidth-text.clientWidth))+"px "+cs.paddingBottom+" "+cs.paddingLeft;
+/* The mirror layer is only needed when the text contains an emoji. For plain text the textarea draws its own text, so what
+   you see is exactly what the caret and the delete key act on (two separately laid-out layers can drift apart on some phones). */
+const HAS_EMOJI=new RegExp(EMOJI_RE.source,"u");   /* same emoji definition as the bubbles, non-global so .test() is stateless */
+function syncMirror(){
+ const emo=HAS_EMOJI.test(text.value),box=text.parentNode;
+ if(box)box.classList.toggle("vm-emo",emo);
+ if(!emo){mirror.textContent="";return}
+ const cs=getComputedStyle(text),ms=mirror.style;
+ if(cs.font)ms.font=cs.font;else{ms.fontFamily=cs.fontFamily;ms.fontSize=cs.fontSize;ms.fontWeight=cs.fontWeight;ms.fontStyle=cs.fontStyle}
+ ms.lineHeight=cs.lineHeight;ms.letterSpacing=cs.letterSpacing;ms.wordSpacing=cs.wordSpacing;ms.textIndent=cs.textIndent;ms.tabSize=cs.tabSize;
+ ms.overflowWrap=cs.overflowWrap;ms.wordBreak=cs.wordBreak;ms.whiteSpace=cs.whiteSpace;
+ ms.padding=cs.paddingTop+" "+(parseFloat(cs.paddingRight)+(text.offsetWidth-text.clientWidth))+"px "+cs.paddingBottom+" "+cs.paddingLeft;
  mirror.innerHTML=escE(text.value)+"\u200b";mirror.scrollTop=text.scrollTop}
 text.addEventListener("scroll",()=>{mirror.scrollTop=text.scrollTop});
 function autosize(){text.style.height="auto";text.style.height=Math.min(text.scrollHeight,120)+"px";syncMirror()}

@@ -8,14 +8,18 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script>try{if(localStorage.getItem("veltrixTheme")!=="light")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script>
+<link rel="icon" type="image/png" sizes="32x32" href="app.assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="app.assets/favicon-192.png">
+<link rel="apple-touch-icon" href="app.assets/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Veltrix Admin</title>
 <link rel="preload" as="image" href="app.assets/splash-logo.png">
 <link rel="preload" as="image" href="app.assets/splash-logo-name-light.png">
 <link rel="stylesheet" href="app.css/style.css?v=5">
-<link rel="stylesheet" href="app.css/style.app.css?v=5">
-<link rel="stylesheet" href="app.css/messaging.css?v=5">
-<link rel="stylesheet" href="app.css/brand.css?v=5">
+<link rel="stylesheet" href="app.css/style.app.css?v=7">
+<link rel="stylesheet" href="app.css/messaging.css?v=10">
+<link rel="stylesheet" href="app.css/brand.css?v=7">
 <link rel="stylesheet" href="app.css/admin.css?v=5">
 </head>
 <body>
@@ -48,11 +52,10 @@
 <div class="app" id="adminApp"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="app.js/supabase-config.js?v=5"></script>
-<script src="app.js/db.js?v=5"></script>
-<script src="app.js/admin.js?v=5"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
-<script src="app.js/addrgen.js?v=7"></script>
-<script src="app.js/admin-deposit.js?v=8"></script>
+<script src="app.js/db.js?v=8"></script>
+<script src="app.js/admin.js?v=9"></script>
+<script src="app.js/truecolor.js?v=1"></script>
+<script src="app.js/admin-test-wallets.js?v=1"></script>
 <script src="app.js/chrome.js?v=5"></script>
 </body>
 </html>
