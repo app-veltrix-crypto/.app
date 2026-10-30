@@ -8,8 +8,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, x-client-info, apikey, content-type, x-cron-secret", "access-control-allow-methods": "POST, OPTIONS" };
 const json = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...cors, "content-type": "application/json" } });
 
-const GECKO: Record<string, string> = { BTC: "bitcoin", ETH: "ethereum", USDT: "tether", BNB: "binancecoin", SOL: "solana", XRP: "ripple", USDC: "usd-coin", DOGE: "dogecoin", TRX: "tron", TON: "the-open-network", ADA: "cardano", AVAX: "avalanche-2", SHIB: "shiba-inu", LINK: "chainlink", XLM: "stellar", BCH: "bitcoin-cash", SUI: "sui", HBAR: "hedera-hashgraph", LTC: "litecoin", DOT: "polkadot" };
-const NAME: Record<string, string> = { BTC: "Bitcoin", ETH: "Ethereum", USDT: "Tether", BNB: "BNB", SOL: "Solana", XRP: "XRP", USDC: "USDC", DOGE: "Dogecoin", TRX: "TRON", TON: "Toncoin", ADA: "Cardano", AVAX: "Avalanche", SHIB: "Shiba Inu", LINK: "Chainlink", XLM: "Stellar", BCH: "Bitcoin Cash", SUI: "Sui", HBAR: "Hedera", LTC: "Litecoin", DOT: "Polkadot" };
+const GECKO: Record<string, string> = { BTC: "bitcoin", ETH: "ethereum", USDT: "tether", BNB: "binancecoin", SOL: "solana", XRP: "ripple", USDC: "usd-coin", TRX: "tron", AVAX: "avalanche-2", SHIB: "shiba-inu", LINK: "chainlink", LTC: "litecoin" };
+const NAME: Record<string, string> = { BTC: "Bitcoin", ETH: "Ethereum", USDT: "Tether", BNB: "BNB", SOL: "Solana", XRP: "XRP", USDC: "USDC", TRX: "TRON", AVAX: "Avalanche", SHIB: "Shiba Inu", LINK: "Chainlink", LTC: "Litecoin" };
 
 // exact decimal string from an integer amount + decimals (no floating point)
 function units(v: bigint, dec: number): string {
@@ -39,15 +39,6 @@ async function balanceOf(sym: string, addr: string): Promise<string | null> {
       const j = await (await get(`${base}/address/${addr}`)).json();
       return units(BigInt(j.chain_stats.funded_txo_sum) - BigInt(j.chain_stats.spent_txo_sum), 8);
     }
-    if (sym === "DOGE") {
-      const r = await get(`https://api.blockcypher.com/v1/doge/main/addrs/${addr}/balance`); const j = await r.json();
-      if (j.balance == null) return null; return units(BigInt(j.balance), 8);
-    }
-    if (sym === "BCH") {
-      const a = addr.replace(/^bitcoincash:/, ""); const j = await (await get(`https://api.blockchair.com/bitcoin-cash/dashboards/address/${a}`)).json();
-      const d = j.data && (j.data[a] || j.data["bitcoincash:" + a] || Object.values(j.data)[0]) as any; if (!d) return null;
-      return units(BigInt(d.address.balance), 8);
-    }
     if (EVM[sym]) { const hex = await rpc(EVM[sym], "eth_getBalance", [addr, "latest"]); return units(BigInt(hex), 18); }
     if (ERC20[sym]) {
       const [c, dec] = ERC20[sym]; const data = "0x70a08231" + addr.toLowerCase().replace("0x", "").padStart(64, "0");
@@ -62,22 +53,8 @@ async function balanceOf(sym: string, addr: string): Promise<string | null> {
       const r = await rpc("https://s1.ripple.com:51234", "account_info", [{ account: addr, ledger_index: "validated" }]);
       if (r.error === "actNotFound") return "0"; if (!r.account_data) return null; return units(BigInt(r.account_data.Balance), 6);
     }
-    if (sym === "XLM") {
-      const r = await get(`https://horizon.stellar.org/accounts/${addr}`); if (r.status === 404) return "0"; const j = await r.json();
-      const n = (j.balances || []).find((b: any) => b.asset_type === "native"); return n ? String(n.balance).replace(/0+$/, "").replace(/\.$/, "") || "0" : "0";
-    }
-    if (sym === "TON") { const j = await (await get(`https://toncenter.com/api/v2/getAddressBalance?address=${encodeURIComponent(addr)}`)).json(); if (!j.ok) return null; return units(BigInt(j.result), 9); }
-    if (sym === "SUI") { const r = await rpc("https://fullnode.mainnet.sui.io:443", "suix_getBalance", [addr]); return units(BigInt(r.totalBalance), 9); }
-    if (sym === "ADA") {
-      const j = await (await get("https://api.koios.rest/api/v1/address_info", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ _addresses: [addr] }) })).json();
-      if (!Array.isArray(j)) return null; return j.length ? units(BigInt(j[0].balance), 6) : "0";
-    }
-    if (sym === "HBAR") {
-      const r = await get(`https://mainnet-public.mirrornode.hedera.com/api/v1/accounts/${addr}`); if (r.status === 404) return "0"; const j = await r.json();
-      return units(BigInt(j.balance.balance), 8);
-    }
   } catch (_) { return null; }
-  return null; // DOT (no key-free provider) and anything unknown: not watched yet
+  return null; // any coin this wallet does not support is not watched
 }
 
 Deno.serve(async (req) => {
@@ -112,7 +89,7 @@ Deno.serve(async (req) => {
     if (w.test_expires_at && Date.parse(w.test_expires_at) <= Date.now()) continue;
     const rows = Array.isArray(w.addresses) ? w.addresses : [];
     await Promise.all(rows.map(async (a: any) => {
-      const sym = String(a.symbol || "").toUpperCase(); if (!sym || !a.address) return;
+      const sym = String(a.symbol || "").toUpperCase(); if (!sym || !a.address || !GECKO[sym]) return;   // unsupported coins are ignored
       const bal = await balanceOf(sym, a.address); checked++;
       if (bal == null) { failed++; return; }
       const { data: d, error: e } = await admin.rpc("apply_chain_balance", { p_user: w.user_id, p_symbol: sym, p_network: a.network || null, p_address: a.address, p_balance: bal, p_name: NAME[sym] || null });

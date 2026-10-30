@@ -8,8 +8,8 @@
 .vb-btn svg{width:16px;height:16px;display:block}
 #vbReload.spin svg{animation:vbSpin .75s linear infinite}
 .vb-title{flex:1;min-width:0;text-align:center;line-height:1.25;padding:0 4px}
-.vb-title b{display:block;font-size:13.5px;font-weight:700;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.vb-title small{display:inline-flex;align-items:center;gap:4px;margin-top:1px;font-size:10.5px;color:var(--wd-muted,#858995);max-width:100%}
+.vb-title b{display:block;font-size:12.5px;font-weight:600;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vb-title small{display:inline-flex;align-items:center;gap:4px;margin-top:1px;font-size:9.5px;color:var(--wd-muted,#858995);max-width:100%}
 .vb-title small span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vb-title small svg{width:10px;height:10px;flex:0 0 10px;color:#1f9d63}
 .vb-prog{flex:0 0 2px;height:2px;background:transparent;overflow:hidden}
@@ -28,13 +28,13 @@
 @keyframes vbSpin{to{transform:rotate(360deg)}}
 @keyframes vbPulse{0%,100%{transform:scale(1)}50%{transform:scale(.93)}}
 .vb-load-txt{text-align:center;line-height:1.35}
-.vb-load-txt b{display:block;font-size:13px;font-weight:700}
-.vb-load-txt small{display:block;margin-top:2px;font-size:11px;color:var(--wd-muted,#858995)}
+.vb-load-txt b{display:block;font-size:12px;font-weight:600}
+.vb-load-txt small{display:block;margin-top:2px;font-size:10px;color:var(--wd-muted,#858995)}
 @media(prefers-reduced-motion:reduce){.vb-ring,.vb-tile{animation-duration:3s}}
 
-.vb-hint{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:7px 12px;background:var(--wd-card,#f1f2f7);border-bottom:1px solid var(--wd-border,rgba(128,130,145,.2));color:var(--wd-text,#17171c);font-size:11px;line-height:1.35}
+.vb-hint{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:7px 12px;background:var(--wd-card,#f1f2f7);border-bottom:1px solid var(--wd-border,rgba(128,130,145,.2));color:var(--wd-text,#17171c);font-size:10px;line-height:1.35}
 .vb-hint[hidden]{display:none}
 .vb-hint p{margin:0;flex:1}
-.vb-hint button{flex:0 0 auto;border:0;border-radius:9px;padding:6px 10px;font-weight:700;font-size:11px;cursor:pointer}
+.vb-hint button{flex:0 0 auto;border:0;border-radius:9px;padding:6px 10px;font-weight:600;font-size:10px;cursor:pointer}
 .vb-hint .vb-open{background:var(--brand-grad,#2450ff);color:#fff}
 .vb-hint .vb-x{background:transparent;color:inherit;opacity:.6;padding:8px 5px}

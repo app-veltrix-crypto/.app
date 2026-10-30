@@ -28,7 +28,7 @@
  /* ---- generic dialog ---- */
  function dialog(o){return new Promise(res=>{
   const d=document.createElement("div");d.className="profile-ui-edit-dialog sx-dlg";
-  d.innerHTML=`<div class="profile-ui-dialog-card" role="dialog" aria-modal="true"><h2></h2><p class="sx-dlg-msg" style="margin:0;font-size:13px;color:#7b7d85;line-height:1.5"></p>${o.input?'<input maxlength="40" autocomplete="off" style="margin-top:12px">':''}<div class="profile-ui-dialog-actions"><button type="button" data-n>${o.cancel||"Cancel"}</button><button type="button" data-y${o.danger?' style="background:#e5484d"':""}>${o.ok||"OK"}</button></div></div>`;
+  d.innerHTML=`<div class="profile-ui-dialog-card" role="dialog" aria-modal="true"><h2></h2><p class="sx-dlg-msg" style="margin:0;font-size:12px;color:#7b7d85;line-height:1.5"></p>${o.input?'<input maxlength="40" autocomplete="off" style="margin-top:12px">':''}<div class="profile-ui-dialog-actions"><button type="button" data-n>${o.cancel||"Cancel"}</button><button type="button" data-y${o.danger?' style="background:#e5484d"':""}>${o.ok||"OK"}</button></div></div>`;
   d.querySelector("h2").textContent=o.title;const m=d.querySelector(".sx-dlg-msg");if(o.msg)m.textContent=o.msg;else m.remove();
   const inp=d.querySelector("input");if(inp)inp.value=o.value||"";
   const done=v=>{d.remove();res(v)};
@@ -124,7 +124,7 @@
  $("linkDeviceBtn").addEventListener("click",()=>{
   if(veltrixDB.isLinked&&veltrixDB.isLinked()){toast("A device signed in by QR can't link other devices");return}
   const t=$("linkQrImage");t.replaceChildren();
-  if(!$("linkExpiry")){const p=document.createElement("p");p.id="linkExpiry";p.style.cssText="margin:8px 0 0;font-size:12px;color:#7b7d85;text-align:center";$("linkCode").parentElement.insertAdjacentElement("afterend",p)}
+  if(!$("linkExpiry")){const p=document.createElement("p");p.id="linkExpiry";p.style.cssText="margin:8px 0 0;font-size:11px;color:#7b7d85;text-align:center";$("linkCode").parentElement.insertAdjacentElement("afterend",p)}
   openPage("linkQrPage");showLinkQr();
  });
  $("copyLinkCode").addEventListener("click",async()=>{try{await navigator.clipboard.writeText($("linkCode").dataset.raw||$("linkCode").textContent);toast("Link code copied")}catch{toast("Copy not supported")}});

@@ -15,16 +15,18 @@
 <title>Veltrix</title>
 <link rel="preload" as="image" href="app.assets/splash-logo.png">
 <link rel="preload" as="image" href="app.assets/splash-logo-name-light.png">
-<link rel="stylesheet" href="app.css/style.css?v=5">
-<link rel="stylesheet" href="app.css/style.app.css?v=7">
-<link rel="stylesheet" href="app.css/messaging.css?v=10">
-<link rel="stylesheet" href="app.css/brand.css?v=7">
-<link rel="stylesheet" href="app.css/activity.css?v=19">
-<link rel="stylesheet" href="app.css/skeleton.css?v=2">
-<link rel="stylesheet" href="app.css/scrolllock.css?v=1">
-<link rel="stylesheet" href="app.css/buybrowser.css?v=5">
-<link rel="stylesheet" href="app.css/marketcompact.css?v=1">
-<link rel="stylesheet" href="app.css/depositlist.css?v=3">
+<link rel="stylesheet" href="app.css/style.css?v=105">
+<link rel="stylesheet" href="app.css/style.app.css?v=107">
+<link rel="stylesheet" href="app.css/messaging.css?v=110">
+<link rel="stylesheet" href="app.css/brand.css?v=107">
+<link rel="stylesheet" href="app.css/activity.css?v=119">
+<link rel="stylesheet" href="app.css/skeleton.css?v=102">
+<link rel="stylesheet" href="app.css/scrolllock.css?v=101">
+<link rel="stylesheet" href="app.css/buybrowser.css?v=105">
+<link rel="stylesheet" href="app.css/marketcompact.css?v=101">
+<link rel="stylesheet" href="app.css/depositlist.css?v=103">
+<link rel="stylesheet" href="app.css/welcome.css?v=108">
+<link rel="stylesheet" href="app.css/login.css?v=102">
 </head>
 <body>
 <div id="splash" translate="no" role="status" aria-live="polite" aria-label="Loading Veltrix">
@@ -98,6 +100,41 @@
 })();
 </script>
 <div class="app">
+<section id="welcomePage" class="auth-page hidden" aria-label="Welcome to Veltrix">
+<div class="wl-wrap">
+<div class="brand"><div class="brand-logo" role="img" aria-label="Veltrix"></div></div>
+<div class="wl-hero" aria-hidden="true"><div class="wl-wallet wl-art-options"></div><div class="wl-wallet wl-art-phrase"></div></div>
+
+<div id="wlOptions" class="wl-view">
+<div class="wl-title"><span class="eyebrow">GET STARTED</span><h2>Welcome to Veltrix.</h2><p>Create a brand new wallet, or import one you already own.</p></div>
+<div class="wl-choices">
+<button type="button" class="wl-choice" id="wlCreateBtn"><span class="wl-choice-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="wl-choice-copy"><strong>Create new wallet</strong><small>Set up a fresh account and a new wallet in a few steps.</small></span><svg class="wl-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+<button type="button" class="wl-choice" id="wlShowImport"><span class="wl-choice-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-journals" viewBox="0 0 16 16">
+  <path d="M5 0h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2 2 2 0 0 1-2 2H3a2 2 0 0 1-2-2h1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1H1a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v9a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1H3a2 2 0 0 1 2-2"/>
+  <path d="M1 6v-.5a.5.5 0 0 1 1 0V6h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0V9h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 2.5v.5H.5a.5.5 0 0 0 0 1h2a.5.5 0 0 0 0-1H2v-.5a.5.5 0 0 0-1 0"/>
+</svg></span><span class="wl-choice-copy"><strong>Import existing wallet</strong><small>Use the 12 or 24 word recovery phrase of a wallet you own.</small></span><svg class="wl-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+</div>
+<div class="switch-auth"><span>Already have an account?</span><button type="button" id="wlLogin">Sign in</button></div>
+</div>
+
+<div id="wlImport" class="wl-view" hidden>
+<div class="wl-title"><span class="eyebrow">IMPORT WALLET</span><h2>Import your wallet.</h2><p>Enter the 12 or 24 word recovery phrase of your existing wallet. We'll find your addresses, then you finish creating your account as usual.</p></div>
+<div class="signup-form">
+<div class="input-group" id="wlWell">
+<label for="wlPhrase">Recovery phrase</label>
+<textarea id="wlPhrase" rows="4" placeholder="word1 word2 word3 …" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" inputmode="text" enterkeyhint="done" aria-describedby="wlStatus"></textarea>
+<div class="wl-meta"><span id="wlCount">0 words</span><button type="button" class="wl-paste" id="wlPaste">Paste</button></div>
+<small id="wlStatus" role="status" aria-live="polite"></small>
+</div>
+<div class="wl-notice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 3 19h18z"/><path d="M12 10v4M12 17h.01"/></svg><span>Never share your recovery phrase with anyone. Veltrix will never ask you for it outside this screen.</span></div>
+<button type="button" class="primary-button" id="wlImportBtn" disabled>Import wallet</button>
+<div class="switch-auth"><span>Want to start fresh?</span><button type="button" id="wlBack">Go back</button></div>
+</div>
+</div>
+
+</div>
+</section>
+
 <section id="loginPage" class="auth-page">
 <div class="auth-container">
 <div class="brand"><div class="brand-logo" role="img" aria-label="Veltrix"></div></div>
@@ -119,7 +156,7 @@
 <div class="signup-wrapper">
 <div class="signup-header">
 <div class="brand"><div class="brand-logo" role="img" aria-label="Veltrix"></div></div>
-<div class="signup-title"><span class="eyebrow">CREATE YOUR ACCOUNT</span><h2>Let's get you started.</h2><p>Create your account in a few simple steps.</p></div>
+<div class="signup-title"><span class="eyebrow">CREATE YOUR ACCOUNT</span><span class="wl-chip" id="importChip" hidden>Your existing wallet will be linked to this account</span><h2>Let's get you started.</h2><p>Create your account in a few simple steps.</p></div>
 <div class="signup-progress">
     <div class="progress-item active" data-step="1"><span>01</span><small>Details</small></div>
     <div class="progress-line"></div>
@@ -189,11 +226,11 @@
 <div class="wd-balance-top">
 <div>
 <div class="wd-label"><span id="balanceLabel">Total Assets</span> <button type="button" class="wd-eye" id="toggleBalance" aria-label="Hide balance" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
-<div class="wd-amount"><span id="totalAssets">0.00</span><span class="wd-currency-trigger" id="currencySelector"><span id="selectedCurrencyCode">USD</span></span></div>
+<div class="wd-amount"><span class="wd-cur" aria-hidden="true">$</span><span id="totalAssets">0.00</span></div>
 </div>
 <button type="button" class="wd-deposit" data-action="Deposit">Deposit</button>
 </div>
-<div class="wd-pnl">Today's PNL <span id="pnlValue" class="wd-up">+0.00 USD (0.0%)</span> <i class="wd-caret"></i></div>
+<div class="wd-pnl wd-greet"><span id="greetText"></span></div>
 </section>
 
 <nav class="wd-actions" aria-label="Quick actions">
@@ -253,7 +290,7 @@
   <div class="vb-hint" id="vbHint" hidden role="status"><p>Page not showing? Some sites don't allow being opened inside an app.</p><button type="button" class="vb-open" id="vbHintOpen">Open in browser</button><button type="button" class="vb-x" id="vbHintX" aria-label="Dismiss">✕</button></div>
   <div class="vb-body">
     <div class="vb-load" id="vbLoad" role="status" aria-live="polite"><div class="vb-mark"><span class="vb-track"></span><span class="vb-ring"></span><span class="vb-tile"><img src="app.assets/splash-logo.png" alt=""></span></div><div class="vb-load-txt"><b id="vbLoadTitle">Opening secure checkout</b><small><span translate="no" class="notranslate" id="vbLoadHost"></span></small></div></div>
-    <iframe class="vb-frame" id="vbFrame" title="Web page" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" allow="payment *; camera *; microphone *; geolocation *; fullscreen *; clipboard-read *; clipboard-write *; autoplay *; accelerometer *; gyroscope *; encrypted-media *; web-share *; publickey-credentials-get *; publickey-credentials-create *; otp-credentials *" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads allow-presentation allow-orientation-lock allow-pointer-lock allow-storage-access-by-user-activation"></iframe></iframe>
+    <iframe class="vb-frame" id="vbFrame" title="Web page" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" allow="payment *; camera *; microphone *; geolocation *; fullscreen *; clipboard-read *; clipboard-write *; autoplay *; accelerometer *; gyroscope *; encrypted-media *; web-share *; publickey-credentials-get *; publickey-credentials-create *; otp-credentials *" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads allow-presentation allow-orientation-lock allow-pointer-lock allow-storage-access-by-user-activation"></iframe>
     
   </div>
 </section>
@@ -473,6 +510,11 @@
     <label class="sd-label" for="sdAddr" id="sdAddrLabel">Wallet address</label>
     <div class="sd-input" id="sdInputBox"><input id="sdAddr" type="text" placeholder="Enter wallet address" autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" id="sdPaste">Paste</button></div>
     <div class="sd-msg" id="sdAddrMsg" hidden></div>
+    <div id="sdTagWrap" hidden>
+      <label class="sd-label" for="sdTag">Destination tag (optional)</label>
+      <div class="sd-input" id="sdTagBox"><input id="sdTag" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="10" placeholder="e.g. 123456789" autocomplete="off" spellcheck="false"></div>
+      <div class="sd-msg" id="sdTagMsg">Binance, Bybit and most exchanges show a tag next to their XRP address. Enter it here, or your deposit may not be credited.</div>
+    </div>
     <div class="sd-grow"></div>
     <button type="button" class="sd-main" id="sdSend" disabled>Send</button>
   </div>
@@ -526,22 +568,23 @@
 </section>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
-<script src="app.js/addrgen.js?v=1"></script>
-<script src="app.js/supabase-config.js?v=5"></script>
-<script src="app.js/db.js?v=9"></script>
+<script src="app.js/addrgen.js?v=102"></script>
+<script src="app.js/supabase-config.js?v=105"></script>
+<script src="app.js/db.js?v=110"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
-<script src="app.js/qr.js?v=6"></script>
-<script src="app.js/skeleton.js?v=2"></script>
-<script src="app.js/script.js?v=14"></script>
-<script src="app.js/messaging.js?v=9"></script>
-<script src="app.js/truecolor.js?v=1"></script>
-<script src="app.js/settings.js?v=10"></script>
-<script src="app.js/wallet.js?v=3"></script>
-<script src="app.js/receipt-logo.js?v=1"></script>
-<script src="app.js/activity.js?v=19"></script>
-<script src="app.js/scrolllock.js?v=1"></script>
-<script src="app.js/buybrowser.js?v=4"></script>
-<script src="app.js/i18n.js?v=6"></script>
-<script src="app.js/chrome.js?v=5"></script>
+<script src="app.js/qr.js?v=106"></script>
+<script src="app.js/skeleton.js?v=103"></script>
+<script src="app.js/welcome.js?v=105"></script>
+<script src="app.js/script.js?v=116"></script>
+<script src="app.js/messaging.js?v=109"></script>
+<script src="app.js/truecolor.js?v=101"></script>
+<script src="app.js/settings.js?v=110"></script>
+<script src="app.js/wallet.js?v=104"></script>
+<script src="app.js/receipt-logo.js?v=101"></script>
+<script src="app.js/activity.js?v=119"></script>
+<script src="app.js/scrolllock.js?v=101"></script>
+<script src="app.js/buybrowser.js?v=106"></script>
+<script src="app.js/i18n.js?v=106"></script>
+<script src="app.js/chrome.js?v=105"></script>
 </body>
 </html>

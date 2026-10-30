@@ -3,9 +3,7 @@
    data AND its logos are ready, the same pattern used by big exchange apps. Load this BEFORE script.js. */
 (function(){
 "use strict";
-/* logos the public icon set does not have (it has no Toncoin), bundled so they always show */
-const TON_SVG='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56"><circle cx="28" cy="28" r="28" fill="#0098EA"/><path fill="#fff" d="M37.600 15.600H18.400c-3.500 0-5.700 3.800-3.900 6.900l11.800 20.500c.8 1.300 2.700 1.300 3.500 0L41.500 22.500c1.800-3.100-.4-6.900-3.900-6.900zM26.300 36.800l-2.600-5-6.200-11c-.4-.7.1-1.600 1-1.600h7.800v17.600zm11.600-16.600l-6.200 11-2.600 5V19.200h7.800c.9 0 1.400.9 1 1.600z"/></svg>';
-window.VX_LOCAL_LOGOS={TON:"data:image/svg+xml;utf8,"+encodeURIComponent(TON_SVG)};
+window.VX_LOCAL_LOGOS={};
 const loaded=new Set(),icon=s=>"https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/svg/color/"+String(s||"").toLowerCase()+".svg";
 const urls=c=>{const sym=String(c&&c.symbol||"").toUpperCase(),local=window.VX_LOCAL_LOGOS[sym],u=[];if(local)u.push(local);if(c&&c.image)u.push(c.image);u.push(icon(sym));return u};
 const probe=u=>new Promise(res=>{if(loaded.has(u))return res(true);const i=new Image();i.onload=()=>{loaded.add(u);res(true)};i.onerror=()=>res(false);i.src=u});

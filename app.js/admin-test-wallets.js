@@ -9,29 +9,29 @@ const CSS=`
 #twPage{z-index:2147483000;overflow:hidden}
 #twPage .tw-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 12px 14px}
 #twPage .tw-wrap{width:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
-#twPage .tw-note{padding:8px 11px;border-radius:10px;background:var(--brand-soft,#eef2ff);color:var(--brand,#2450ff);font-size:11px;font-weight:650;line-height:1.45}
+#twPage .tw-note{padding:8px 11px;border-radius:10px;background:var(--brand-soft,#eef2ff);color:var(--brand,#2450ff);font-size:10px;font-weight:600;line-height:1.45}
 html[data-theme="dark"] #twPage .tw-note{background:rgba(47,107,255,.16);color:#8fb0ff}
 #twPage .tw-list{border-radius:12px;background:var(--card);overflow:hidden}
 #twPage .tw-item{display:flex;width:100%;gap:10px;align-items:center;padding:11px 12px;border:0;background:transparent;color:var(--tx);font-family:inherit;text-align:left;cursor:pointer}
 #twPage .tw-item+.tw-item{border-top:1px solid var(--line)}
 #twPage .tw-item:active{opacity:.6}
-#twPage .tw-av{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--brand-grad,linear-gradient(135deg,#1a86ff,#2450ff 55%,#6d3bff));color:#fff;font-size:12px;font-weight:800}
+#twPage .tw-av{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--brand-grad,linear-gradient(135deg,#1a86ff,#2450ff 55%,#6d3bff));color:#fff;font-size:11px;font-weight:650}
 #twPage .tw-body{flex:1;min-width:0}
-#twPage .tw-body b{display:block;font-size:12.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#twPage .tw-body small{display:block;font-size:10.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#twPage .tw-left{flex:none;font-size:10.5px;font-weight:700;color:var(--brand,#2450ff);font-variant-numeric:tabular-nums}
-#twPage .tw-empty{padding:26px 14px;text-align:center;font-size:12px;color:var(--mut)}
+#twPage .tw-body b{display:block;font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#twPage .tw-body small{display:block;font-size:9.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#twPage .tw-left{flex:none;font-size:9.5px;font-weight:600;color:var(--brand,#2450ff);font-variant-numeric:tabular-nums}
+#twPage .tw-empty{padding:26px 14px;text-align:center;font-size:11px;color:var(--mut)}
 #twPage .tw-card{position:relative;border-radius:14px;padding:12px;background:var(--card)}
 #twPage .tw-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;-webkit-user-select:none;user-select:none}
 #twPage .tw-w{display:flex;align-items:center;gap:6px;min-width:0;padding:9px 8px;border-radius:11px;background:var(--bg);border:1px solid var(--line)}
-#twPage .tw-w i{flex:none;font-style:normal;font-size:10px;font-weight:700;color:var(--mut);min-width:13px;text-align:right}
-#twPage .tw-w b{min-width:0;font:650 12.5px ui-monospace,Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#twPage .tw-w i{flex:none;font-style:normal;font-size:9px;font-weight:600;color:var(--mut);min-width:13px;text-align:right}
+#twPage .tw-w b{min-width:0;font:600 11.5px ui-monospace,Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #twPage .tw-who{padding:2px 2px 0}
-#twPage .tw-who b{display:block;font-size:13px}#twPage .tw-who small{font-size:11px;color:var(--mut)}
-#twPage .tw-msg{margin:0;font-size:11.5px;color:var(--neg,#d93a49)}#twPage .tw-msg:empty{display:none}
+#twPage .tw-who b{display:block;font-size:12px}#twPage .tw-who small{font-size:10px;color:var(--mut)}
+#twPage .tw-msg{margin:0;font-size:10.5px;color:var(--neg,#d93a49)}#twPage .tw-msg:empty{display:none}
 #twPage .tw-foot{flex:none;padding:8px 12px calc(10px + env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--line)}
 #twPage .tw-foot-in{width:100%;max-width:520px;margin:0 auto;display:flex;gap:8px}
-#twPage .tw-btn{flex:1;height:40px;border:0;border-radius:20px;background:var(--brand-grad,linear-gradient(135deg,#1a86ff,#2450ff 55%,#6d3bff));color:#fff;font-weight:700;font-size:13px;font-family:inherit;cursor:pointer}
+#twPage .tw-btn{flex:1;height:40px;border:0;border-radius:20px;background:var(--brand-grad,linear-gradient(135deg,#1a86ff,#2450ff 55%,#6d3bff));color:#fff;font-weight:600;font-size:12px;font-family:inherit;cursor:pointer}
 #twPage .tw-btn.alt{background:var(--card);color:var(--tx)}
 #twPage .tw-btn:disabled{opacity:.5;cursor:default}
 #vmList .vm-fab#twOpen{right:auto;left:16px}

@@ -20,20 +20,60 @@ async function generate(){
   if(!rows.length||rows.some(r=>!r||!r.address)||JSON.stringify(rows)!==JSON.stringify(again))throw new Error("address derivation check failed");
   return{phrase,rows};
 }
+/* ---- importing an existing wallet: the phrase the person typed on the welcome screen is held in memory only ---- */
+let pendingImport=null;
+function setImport(phrase){pendingImport=phrase||null}
+/* If the account needs an e-mail confirmation first, the page may be closed before the first sign-in. The phrase is then kept on this
+   device ONLY in encrypted form (AES-GCM, key from the account password via PBKDF2) and opened again at the first sign-in. */
+const PEND="vx-import-pending";
+const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
+async function pwKey(pw,salt){const k=await crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveKey"]);return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:250000,hash:"SHA-256"},k,{name:"AES-GCM",length:256},false,["encrypt","decrypt"])}
+async function stashPending(email,password,phrase){
+  try{const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+    const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv},await pwKey(password,salt),new TextEncoder().encode(phrase));
+    localStorage.setItem(PEND,JSON.stringify({e:String(email).toLowerCase(),s:b64(salt),i:b64(iv),c:b64(ct),t:Date.now()}));return true}catch{return false}
+}
+async function unlockPending(email,password){
+  try{const j=JSON.parse(localStorage.getItem(PEND)||"null");if(!j||j.e!==String(email).toLowerCase())return false;
+    if(Date.now()-j.t>30*864e5){localStorage.removeItem(PEND);return false}
+    const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(j.i)},await pwKey(password,unb64(j.s)),unb64(j.c));
+    pendingImport=new TextDecoder().decode(pt);return true}catch{return false}
+}
+const clearPending=()=>{try{localStorage.removeItem(PEND)}catch{}};
+async function derive(phrase){
+  const E=window.ethers,A=window.VeltrixAddr;
+  if(!E||!A)throw new Error("wallet library not loaded");
+  if(!E.Mnemonic.isValidMnemonic(phrase))throw new Error("invalid phrase");
+  const rows=(await A.deriveAll(phrase)).rows,again=(await A.deriveAll(phrase)).rows;
+  if(!rows.length||rows.some(r=>!r||!r.address)||JSON.stringify(rows)!==JSON.stringify(again))throw new Error("address derivation check failed");
+  return rows;
+}
 function ensure(){
   if(done)return Promise.resolve(true);
   if(busy)return busy;
-  busy=(async()=>{
+  busy=Promise.resolve().then(async()=>{   /* (not a bare async call: an early return would clear `busy` before it was set and block every later attempt) */
     try{
       const d=db();if(!d||!d.wallet||!d.get||!d.get())return false;
       const info=await d.wallet.info();
-      if(info&&info.exists){done=true;startWatch();return true}
+      if(info&&info.exists){pendingImport=null;clearPending();done=true;startWatch();return true}
+      if(pendingImport){
+        /* the person chose "Import": use THEIR phrase, never generate a new one */
+        const ph=pendingImport;let rows=null;
+        try{rows=await derive(ph)}catch(e){console.warn("[wallet] import failed:",e&&e.message)}
+        if(rows){
+          const r=await d.wallet.importPhrase(ph,rows);
+          if(r&&r.ok){pendingImport=null;clearPending();done=!!r.exists;if(done)startWatch();return done}
+          if(r&&r.reason==="already_registered"){pendingImport=null;clearPending();try{toast("That wallet is already linked to another account, so a new wallet was created for you.")}catch{}}
+          else if(r&&r.reason==="invalid_phrase"){pendingImport=null;clearPending();try{toast("That recovery phrase couldn't be used, so a new wallet was created for you.")}catch{}}
+          else return false;   /* try again later: never replace an imported wallet with a new one by accident */
+        }else{pendingImport=null;clearPending()}
+      }
       let g=await generate();
       const res=await d.wallet.ensure(g.phrase,g.rows);g=null;
       done=!!(res&&res.exists);if(done)startWatch();return done;
     }catch(e){console.warn("[wallet] setup not completed:",e&&e.message);return false}
-    finally{busy=null}
-  })();
+    finally{}
+  }).finally(()=>{busy=null});
   return busy;
 }
 /* ================= 2. real deposit watcher =================
@@ -56,7 +96,7 @@ async function watchOnce(){
   finally{watchBusy=false}
 }
 function startWatch(){clearInterval(watchT);watchT=setInterval(watchOnce,20000);setTimeout(watchOnce,2500)}
-window.veltrixWallet={ensure,watchNow:watchOnce};
+window.veltrixWallet={ensure,watchNow:watchOnce,setImport,stashPending,unlockPending,derive};
 window.addEventListener("veltrix-ready",()=>{done=false;setTimeout(ensure,1200)});
 window.addEventListener("veltrix-revoked",()=>{done=false;lastSig="";clearInterval(watchT)});
 /* Balance safety net: when the app comes back to the front (and once a minute while open) re-read the balances and redraw

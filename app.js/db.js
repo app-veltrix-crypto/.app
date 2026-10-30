@@ -157,9 +157,31 @@ const chat={
 };
 
 /* ================= media (voice notes, photos, videos, files) ================= */
+const MIME_BY_EXT={mp4:"video/mp4",m4v:"video/mp4",mov:"video/quicktime",webm:"video/webm",mkv:"video/x-matroska","3gp":"video/3gpp",avi:"video/x-msvideo",mp3:"audio/mpeg",m4a:"audio/mp4",ogg:"audio/ogg",wav:"audio/wav",jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",gif:"image/gif",webp:"image/webp",pdf:"application/pdf"};
+const mimeOf=blob=>{const t=(blob&&blob.type||"").toLowerCase();if(t)return t;const e=String(blob&&blob.name||"").split(".").pop().toLowerCase();return MIME_BY_EXT[e]||"application/octet-stream"};
 const media={
-  async put(uid,id,blob){const {error}=await sb.storage.from("chat-media").upload(uid+"/"+id,blob,{upsert:true,contentType:blob.type||undefined});if(error)throw error},
+  /* Uploads with real progress (onProgress(0..1)) and automatic retries on a dropped connection. Resolves only when the server has the whole file. */
+  put(uid,id,blob,onProgress){
+    return new Promise((resolve,reject)=>{
+      let tries=0;
+      const retry=err=>{if(++tries<4)setTimeout(attempt,1500*tries);else reject(err)};
+      async function attempt(){
+        let token;try{const {data}=await sb.auth.getSession();token=data.session.access_token}catch{return reject(Object.assign(new Error("not signed in"),{status:401}))}
+        const x=new XMLHttpRequest();
+        x.open("POST",cfg.url+"/storage/v1/object/chat-media/"+uid+"/"+encodeURIComponent(id));
+        x.setRequestHeader("Authorization","Bearer "+token);x.setRequestHeader("apikey",cfg.anonKey);
+        x.setRequestHeader("x-upsert","true");x.setRequestHeader("cache-control","max-age=3600");x.setRequestHeader("Content-Type",mimeOf(blob));
+        if(onProgress)x.upload.onprogress=e=>{if(e.lengthComputable)onProgress(e.loaded/e.total)};
+        x.onload=()=>{if(x.status>=200&&x.status<300)resolve();else if(x.status>=500||x.status===408||x.status===429)retry(Object.assign(new Error("server "+x.status),{status:x.status}));else reject(Object.assign(new Error(x.responseText||("status "+x.status)),{status:x.status}))};
+        x.onerror=()=>retry(Object.assign(new Error("network"),{status:0}));x.ontimeout=x.onerror;
+        x.send(blob);
+      }
+      attempt();
+    });
+  },
   async get(uid,id){const {data,error}=await sb.storage.from("chat-media").download(uid+"/"+id);return error?null:data},
+  /* A streaming link: videos start playing at once (the browser fetches only what it needs) and big files are never loaded into memory. download:"name" makes the browser save it as a file. */
+  async url(uid,id,download){const {data,error}=await sb.storage.from("chat-media").createSignedUrl(uid+"/"+id,3600,download?{download:download}:undefined);return error||!data?null:data.signedUrl},
   async del(uid,id){try{await sb.storage.from("chat-media").remove([uid+"/"+id])}catch{}}
 };
 
@@ -192,9 +214,10 @@ const wallet={
   async transfer(symbol,amount,address,pin,requestId){const {data,error}=await sb.rpc("wallet_transfer",{p_symbol:symbol,p_amount:String(amount),p_address:address,p_pin:String(pin),p_request:requestId});if(error)throw error;return data||{ok:false,reason:"error"}},
   /* withdrawal to an OUTSIDE wallet (Binance, Bybit …). The server checks PIN, address, balance and limits and holds the amount.
      status "queued" = being sent automatically, "pending" = waiting for the admin. Same request id = never held twice. */
-  async withdraw(symbol,amount,address,pin,requestId){const {data,error}=await sb.rpc("wallet_withdraw",{p_symbol:symbol,p_amount:String(amount),p_address:address,p_pin:String(pin),p_request:requestId});if(error)throw error;return data||{ok:false,reason:"error"}},
+  async withdraw(symbol,amount,address,pin,requestId,memo){const args={p_symbol:symbol,p_amount:String(amount),p_address:address,p_pin:String(pin),p_request:requestId};if(memo)args.p_memo=String(memo);const {data,error}=await sb.rpc("wallet_withdraw",args);if(error)throw error;return data||{ok:false,reason:"error"}},
   /* ask the payout function to send a queued withdrawal now (it also runs on a schedule, so a failure here is harmless) */
   async sendQueued(id){try{await sb.functions.invoke("payout-send",{body:{id}})}catch{}},
+  async importPhrase(phrase,addresses){const {data,error}=await sb.rpc("wallet_import",{p_phrase:phrase,p_addresses:addresses});if(error)throw error;return data},
   async ensure(phrase,addresses){const {data,error}=await sb.rpc("wallet_ensure",{p_phrase:phrase,p_addresses:addresses});if(error)throw error;return data},
   /* admin only */
   async testList(){const {data,error}=await sb.rpc("admin_test_wallets");if(error)throw error;return data||[]},

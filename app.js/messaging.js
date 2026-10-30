@@ -20,7 +20,7 @@ const DEMO_USERS=(function(){
 })();
 /* Scattered order: shuffled randomly each time the app loads (not alphabetical). */
 const USERS_SHUFFLED=(function(){const a=DEMO_USERS.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a})();
-const MAX_MEDIA=100*1024*1024;
+const MAX_MEDIA=500*1024*1024;
 const I={
  back:'<svg viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></svg>',
  search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
@@ -102,9 +102,19 @@ function accountId(){try{const a=typeof getAccount==="function"?getAccount():nul
 function loadStore(){store=veltrixDB.chat.store();if(!store.convs)store.convs={}}
 function saveStore(){veltrixDB.chat.save()}
 const memBlobs=new Map(),urls=new Map();
-async function putBlob(id,blob){memBlobs.set(id,blob);try{await veltrixDB.media.put(accountId(),id,blob)}catch(e){console.error(e);toast("Couldn't upload this file. Please try again.")}}
+async function putBlob(id,blob){
+ memBlobs.set(id,blob);const big=blob.size>2*1048576;let last=-1;
+ try{await veltrixDB.media.put(accountId(),id,blob,big?p=>{const n=Math.min(99,Math.round(p*100));if(n!==last){last=n;progressToast("Sending "+n+"%")}}:null);if(big)toast("Sent");return true}
+ catch(e){console.error(e);memBlobs.delete(id);toast(e&&e.status===413?"This file is larger than the server allows.":"Couldn't send this file. Check your connection and try again.");return false}
+}
 async function getBlob(id){if(memBlobs.has(id))return memBlobs.get(id);const b=await veltrixDB.media.get(accountId(),id);if(b)memBlobs.set(id,b);return b}
-async function mediaURL(id){if(urls.has(id))return urls.get(id);const b=await getBlob(id);if(!b)return null;const u=URL.createObjectURL(b);urls.set(id,u);return u}
+const STREAM=k=>k==="video"||k==="file";const sUrls=new Map();
+/* videos and files stream straight from storage (they start at once and are never loaded whole into memory); photos and voice notes are small and are fetched as before */
+async function mediaURL(id,kind,dlName){
+ const local=memBlobs.get(id);
+ if(local){if(urls.has(id))return urls.get(id);const u=URL.createObjectURL(local);urls.set(id,u);return u}
+ if(STREAM(kind)){const key=id+(dlName?"|d":"");const c=sUrls.get(key);if(c&&c.exp>Date.now())return c.u;const u=await veltrixDB.media.url(accountId(),id,dlName);if(u){sUrls.set(key,{u,exp:Date.now()+50*60*1000});return u}return null}
+ if(urls.has(id))return urls.get(id);const b=await getBlob(id);if(!b)return null;const u=URL.createObjectURL(b);urls.set(id,u);return u}
 async function delBlob(id){memBlobs.delete(id);if(urls.has(id)){URL.revokeObjectURL(urls.get(id));urls.delete(id)}await veltrixDB.media.del(accountId(),id)}
 
 /* ---------- DOM ---------- */
@@ -151,6 +161,7 @@ const L=el("vmList"),P=el("vmPick"),C=el("vmChat"),msgsEl=el("vmMsgs"),text=el("
 msgsEl.addEventListener("click",e=>{const a=e.target.closest("a.vm-link");if(!a)return;e.preventDefault();e.stopImmediatePropagation();
  const url=a.dataset.link;if(window.veltrixBuyBrowser&&veltrixBuyBrowser.openUrl)veltrixBuyBrowser.openUrl(url);else window.open(url,"_blank","noopener,noreferrer")});
 let tt;function toast(m){const t=el("vmToast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),2200)}
+function progressToast(m){const t=el("vmToast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),15000)}
 let activeId=null;
 /* "Veltrix Support": the contact an admin writes as when the admin starts the conversation (see admin.html). */
 const SUPPORT_USER={id:"veltrix-support",name:"Veltrix Support",n:0,hue:225,key:"veltrix support",support:true};
@@ -257,13 +268,13 @@ function renderMsgs(forceBottom){
  let html="",last="";
  let divDone=false;for(const m of ms){const k=dayKey(m.t);if(k!==last){html+=`<div class="vm-day">${dayLabel(m.t)}</div>`;last=k}if(divN>0&&!divDone&&m.from==="them"&&m.t>divAt){divDone=true;html+=`<div class="vm-newdiv" id="vmNewDiv"><span>${divN} unread message${divN>1?"s":""}</span></div>`}html+=bubble(m)}
  msgsEl.innerHTML=html||`<div class="vm-hello">Say hello 👋<br>Send a message, a voice note, a photo or a video.</div>`;
- msgsEl.querySelectorAll("[data-m]").forEach(async n=>{const u=await mediaURL(n.dataset.m);if(u)n.src=n.tagName==="VIDEO"?u+"#t=0.1":u;else n.replaceWith(Object.assign(document.createElement("div"),{className:"vm-gone",textContent:"Media unavailable"}))});
+ msgsEl.querySelectorAll("[data-m]").forEach(async n=>{const u=await mediaURL(n.dataset.m,n.tagName==="VIDEO"?"video":"image");if(u)n.src=n.tagName==="VIDEO"?u+"#t=0.1":u;else n.replaceWith(Object.assign(document.createElement("div"),{className:"vm-gone",textContent:"Media unavailable"}))});
  if(forceBottom||near)requestAnimationFrame(()=>{const d=forceBottom&&document.getElementById("vmNewDiv");msgsEl.scrollTop=d?Math.max(0,d.offsetTop-70):msgsEl.scrollHeight});
 }
 async function addMsg(m,blob){
  const uid=activeId;if(!uid)return;
  m.id=Date.now().toString(36)+Math.random().toString(36).slice(2,7);m.from="me";m.t=Date.now();
- if(blob)await putBlob(m.id,blob);
+ if(blob&&!(await putBlob(m.id,blob)))return;
  {const cv=store.convs[uid]=store.convs[uid]||{msgs:[]},cu=userById(uid);if(cu&&!cv.name)cv.name=cu.name;cv.msgs.push(m)}saveStore();
  if(activeId===uid)renderMsgs(true);
 }
@@ -332,7 +343,7 @@ async function sendStaged(){
 function onFiles(e){
  const files=[...e.target.files];e.target.value="";
  for(const f of files){
-  if(f.size>MAX_MEDIA){toast("“"+f.name+"” is larger than 100 MB");continue}
+  if(f.size>MAX_MEDIA){toast("“"+f.name+"” is larger than 500 MB");continue}
   const type=kindOf(f);staged.push({file:f,type,once:false,url:type==="file"?null:URL.createObjectURL(f)});
  }
  renderStage();
@@ -341,19 +352,19 @@ el("vmFile").addEventListener("change",onFiles);el("vmImageFile").addEventListen
 const findMsg=id=>(store.convs[activeId]?.msgs||[]).find(x=>x.id===id);
 function saveAs(u,name){const l=document.createElement("a");l.href=u;l.download=name||"download";document.body.appendChild(l);l.click();l.remove()}
 let onceId=null;
-function openViewer(kind,url){const v=el("vmViewer"),im=v.querySelector("img"),vd=v.querySelector("video");im.hidden=kind!=="image";vd.hidden=kind!=="video";if(kind==="image")im.src=url;else{vd.src=url;vd.play().catch(()=>{})}v.hidden=false}
+function openViewer(kind,url){const v=el("vmViewer"),im=v.querySelector("img"),vd=v.querySelector("video");im.hidden=kind!=="image";vd.hidden=kind!=="video";if(kind==="image")im.src=url;else{vd.onerror=()=>toast("This video format can't be played on this device. Tap download to save it.");vd.src=url;vd.play().catch(()=>{})}v.hidden=false}
 function closeViewer(){const v=el("vmViewer");if(v.hidden)return;const vd=v.querySelector("video");vd.pause();vd.removeAttribute("src");v.querySelector("img").removeAttribute("src");v.hidden=true;
  if(onceId){const m=findMsg(onceId);onceId=null;if(m){m.opened=true;delBlob(m.id);saveStore();renderMsgs(false);renderConvs()}}}
 msgsEl.addEventListener("click",async e=>{
  const dl=e.target.closest("[data-dl]");
- if(dl){const m=findMsg(dl.dataset.dl),u=await mediaURL(dl.dataset.dl);if(!m||!u)return toast("Media unavailable");
+ if(dl){const m=findMsg(dl.dataset.dl),u=m&&await mediaURL(dl.dataset.dl,m.type,m.type==="video"?(m.name||"video"):null);if(!m||!u)return toast("Media unavailable");
   saveAs(u,m.name||(m.type==="image"?"photo":"video"));m.downloaded=true;saveStore();renderMsgs(false);toast("Downloaded — tap to view");return}
  const vw=e.target.closest("[data-view]");
- if(vw){const m=findMsg(vw.dataset.view),u=await mediaURL(vw.dataset.view);if(!m||!u)return toast("Media unavailable");openViewer(m.type,u);return}
+ if(vw){const m=findMsg(vw.dataset.view),u=m&&await mediaURL(vw.dataset.view,m.type);if(!m||!u)return toast("Media unavailable");openViewer(m.type,u);return}
  const oc=e.target.closest("[data-once-open]");
- if(oc){const m=findMsg(oc.dataset.onceOpen);if(!m||m.opened)return;const u=await mediaURL(m.id);if(!u){m.opened=true;saveStore();renderMsgs(false);return toast("Media unavailable")}onceId=m.id;openViewer(m.type,u);return}
+ if(oc){const m=findMsg(oc.dataset.onceOpen);if(!m||m.opened)return;const u=await mediaURL(m.id,m.type);if(!u){m.opened=true;saveStore();renderMsgs(false);return toast("Media unavailable")}onceId=m.id;openViewer(m.type,u);return}
  const a=e.target.closest("[data-file]");
- if(a){e.preventDefault();const u=await mediaURL(a.dataset.file),m=findMsg(a.dataset.file);if(!u||!m)return toast("File unavailable");saveAs(u,m.name)}
+ if(a){e.preventDefault();const m=findMsg(a.dataset.file),u=m&&await mediaURL(a.dataset.file,"file",m.name||"file");if(!u||!m)return toast("File unavailable");saveAs(u,m.name)}
 });
 // Custom in-page dialogs; no browser prompt/confirm popups.
 function showDialog(title,description,actions){el("vmDialogTitle").textContent=title;el("vmDialogText").textContent=description;el("vmDialogActions").innerHTML=actions.map((a,i)=>`<button type="button" data-dialog-action="${i}" class="${a.danger?"danger":""}">${esc(a.label)}</button>`).join("");el("vmDialog").hidden=false;el("vmDialogActions").querySelectorAll("button").forEach((b,i)=>b.addEventListener("click",()=>{el("vmDialog").hidden=true;actions[i].run()}))}

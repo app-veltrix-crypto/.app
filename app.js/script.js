@@ -2,8 +2,8 @@ const ACCOUNT_KEY="veltrixAccount",SESSION_KEY="veltrixLoggedIn";
 const loginPage=document.getElementById("loginPage"),signupPage=document.getElementById("signupPage"),dashboardPage=document.getElementById("dashboardPage");
 const signupForm=document.getElementById("signupForm"),loginForm=document.getElementById("loginForm"),profilePicture=document.getElementById("profilePicture"),profilePreview=document.getElementById("profilePreview"),locationInput=document.getElementById("location"),locationButton=document.getElementById("locationButton"),locationStatus=document.getElementById("locationStatus"),locationNotice=document.getElementById("locationNotice"),fingerprintToggle=document.getElementById("fingerprintToggle"),fingerprintStatus=document.getElementById("fingerprintStatus"),fingerprintLoginButton=document.getElementById("fingerprintLoginButton"),signupMessage=document.getElementById("signupMessage"),loginMessage=document.getElementById("loginMessage");
 
-document.addEventListener("DOMContentLoaded",async()=>{try{const account=await veltrixDB.restore();if(account){lockToLogin(account);if(account.fingerprintEnabled&&window.PublicKeyCredential)loginWithFingerprint(true)}else showPage("loginPage")}catch(e){console.error(e);showPage("loginPage")}finally{if(window.__splash)window.__splash.release("boot")}});
-function showPage(id){loginPage.classList.add("hidden");signupPage.classList.add("hidden");dashboardPage.classList.add("hidden");document.getElementById(id).classList.remove("hidden");if(id==="signupPage"&&typeof showSignupStep==="function")showSignupStep(1);window.scrollTo({top:0,behavior:"smooth"})}
+document.addEventListener("DOMContentLoaded",async()=>{try{const account=await veltrixDB.restore();if(account){lockToLogin(account);if(account.fingerprintEnabled&&window.PublicKeyCredential)loginWithFingerprint(true)}else showPage(window.veltrixWelcome?"welcomePage":"loginPage")}catch(e){console.error(e);showPage("loginPage")}finally{if(window.__splash)window.__splash.release("boot")}});
+function showPage(id){const wp=document.getElementById("welcomePage");if(wp)wp.classList.add("hidden");loginPage.classList.add("hidden");signupPage.classList.add("hidden");dashboardPage.classList.add("hidden");document.getElementById(id).classList.remove("hidden");if(id==="signupPage"&&typeof showSignupStep==="function")showSignupStep(1);window.scrollTo({top:0,behavior:"smooth"})}
 function getAccount(){return veltrixDB.get()}
 function saveAccount(a){veltrixDB.set(a)}
 const EYE_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',EYE_OFF_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>';
@@ -127,7 +127,9 @@ async function handleSignup(e){
     let profileImage;
     try{profileImage=await convertImageToDataURL(profilePicture.files[0])}
     catch{if(profilePicture.files[0].size>1.5*1024*1024)throw new Error("photo");profileImage=await readFileAsDataURL(profilePicture.files[0])}
+    const imp=window.veltrixWelcome?veltrixWelcome.importPhrase():null;if(imp&&window.veltrixWallet)veltrixWallet.setImport(imp);
     const r=await veltrixDB.signUp({email,password,fullName,location,dateOfBirth,profileImage,fingerprintEnabled:fingerprintToggle.checked&&fingerprintToggle.dataset.enabled==="true"});
+    if(imp&&window.veltrixWallet){if(r.needsConfirm)await veltrixWallet.stashPending(email,password,imp);veltrixWelcome.clear()}
     if(r.needsConfirm){showMessage(signupMessage,"Account created. Check your email to confirm it, then sign in.","success");return}
     showMessage(signupMessage,"Your account has been created successfully.","success");
     if(window.veltrixWelcomeSupport)window.veltrixWelcomeSupport();
@@ -174,7 +176,7 @@ function convertImageToDataURL(file,max=400){return new Promise((resolve,reject)
   img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error("Unreadable image"))};
   img.src=url})}
 
-loginForm.addEventListener("submit",async e=>{e.preventDefault();clearMessage(loginMessage);const email=document.getElementById("loginEmail").value.trim().toLowerCase(),password=document.getElementById("loginPassword").value;try{await veltrixDB.signIn(email,password);showDashboard();if(window.veltrixNotify)veltrixNotify("login","New login on "+veltrixDB.deviceInfo().name+".")}catch{showMessage(loginMessage,"The email address or password is incorrect.","error")}});
+loginForm.addEventListener("submit",async e=>{e.preventDefault();clearMessage(loginMessage);const email=document.getElementById("loginEmail").value.trim().toLowerCase(),password=document.getElementById("loginPassword").value;try{if(window.veltrixWallet)await veltrixWallet.unlockPending(email,password);await veltrixDB.signIn(email,password);showDashboard();if(window.veltrixNotify)veltrixNotify("login","New login on "+veltrixDB.deviceInfo().name+".")}catch{showMessage(loginMessage,"The email address or password is incorrect.","error")}});
 
 fingerprintLoginButton.addEventListener("click",loginWithFingerprint);
 function lockToLogin(a){try{closeProfileScreens()}catch{}document.body.classList.remove("wd-feature-open");showPage("loginPage");document.getElementById("loginEmail").value=a.email||"";document.getElementById("loginPassword").value="";showMessage(loginMessage,a.fingerprintEnabled&&window.PublicKeyCredential?"Welcome back. Use your fingerprint, or your email and password, to continue.":"Welcome back. Enter your password to continue.","success")}
@@ -209,16 +211,13 @@ setInterval(()=>{if(!document.hidden)refreshAssetPrices(true)},30000);
 function populateDashboard(a){
   const avatar=document.getElementById("dashboardAvatar");
   avatar.innerHTML=a.profileImage?`<img src="${a.profileImage}" alt="Profile picture">`:`<span>${getInitials(a.fullName)}</span>`;
-  dashboardAssets=pricedAssets(Array.isArray(a.assets)?a.assets:[]);
+  dashboardAssets=pricedAssets((Array.isArray(a.assets)?a.assets:[]).filter(vxSupported));
   refreshAssetPrices();
   document.getElementById("assetSearch").value="";
   renderBalance();renderAssets("");
 }
 function renderBalance(){
   const total=dashboardAssets.reduce((s,x)=>s+x.amount*x.price,0);
-  const pnl=dashboardAssets.reduce((s,x)=>{const v=x.amount*x.price;return s+v-v/(1+(x.change||0)/100)},0);
-  const pct=total-pnl>0?pnl/(total-pnl)*100:0;
-  const pnlEl=document.getElementById("pnlValue");
   {const el=document.getElementById("totalAssets");
   if(balanceHidden)el.textContent="••••••";
   else{const s=String(fmt(total)),i=s.lastIndexOf(".");el.innerHTML=i<0?esc(s):`${esc(s.slice(0,i))}<span class="wd-dec">${esc(s.slice(i))}</span>`}}
@@ -226,9 +225,16 @@ function renderBalance(){
   balanceToggle.innerHTML=balanceHidden?EYE_OFF_ICON:EYE_ICON;
   balanceToggle.setAttribute("aria-pressed",String(balanceHidden));
   balanceToggle.setAttribute("aria-label",balanceHidden?"Show balance":"Hide balance");
-  pnlEl.textContent=balanceHidden?"••••":`${pnl>=0?"+":"-"}${fmt(Math.abs(pnl))} USD (${fmt(Math.abs(pct),1)}%)`;
-  pnlEl.className=pnl<0?"wd-down":pnl>0?"wd-up":"wd-flat";
+  renderGreeting();
 }
+/* "Good morning, Name" / "Good afternoon, Name" / "Good evening, Name" from the device clock */
+function renderGreeting(){
+  const el=document.getElementById("greetText");if(!el)return;
+  const a=(typeof getAccount==="function"&&getAccount())||{},first=String(a.fullName||"").trim().split(/\s+/)[0]||"";
+  const h=new Date().getHours(),g=h>=5&&h<12?"Good morning":h>=12&&h<17?"Good afternoon":"Good evening";
+  const t=first?`${g}, ${first}`:g;if(el.textContent!==t)el.textContent=t;
+}
+setInterval(()=>{if(!document.hidden)renderGreeting()},60000);
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function renderAssets(query){
   const list=document.getElementById("assetList"),q=query.trim().toLowerCase();
@@ -249,20 +255,15 @@ const cryptoFallback=[
  {id:"solana",symbol:"SOL",name:"Solana",price:null,change:null,color:"#8b5cf6"},
  {id:"ripple",symbol:"XRP",name:"XRP",price:null,change:null,color:"#23292f"},
  {id:"usd-coin",symbol:"USDC",name:"USDC",price:null,change:null,color:"#2775ca"},
- {id:"dogecoin",symbol:"DOGE",name:"Dogecoin",price:null,change:null,color:"#c2a633"},
  {id:"tron",symbol:"TRX",name:"TRON",price:null,change:null,color:"#e5092a"},
- {id:"the-open-network",symbol:"TON",name:"Toncoin",price:null,change:null,color:"#0098ea"},
- {id:"cardano",symbol:"ADA",name:"Cardano",price:null,change:null,color:"#3468d1"},
  {id:"avalanche-2",symbol:"AVAX",name:"Avalanche",price:null,change:null,color:"#e84142"},
  {id:"shiba-inu",symbol:"SHIB",name:"Shiba Inu",price:null,change:null,color:"#f08b2d"},
  {id:"chainlink",symbol:"LINK",name:"Chainlink",price:null,change:null,color:"#2a5ada"},
- {id:"stellar",symbol:"XLM",name:"Stellar",price:null,change:null,color:"#111827"},
- {id:"bitcoin-cash",symbol:"BCH",name:"Bitcoin Cash",price:null,change:null,color:"#8dc351"},
- {id:"sui",symbol:"SUI",name:"Sui",price:null,change:null,color:"#4da9e8"},
- {id:"hedera-hashgraph",symbol:"HBAR",name:"Hedera",price:null,change:null,color:"#242424"},
  {id:"litecoin",symbol:"LTC",name:"Litecoin",price:null,change:null,color:"#345d9d"},
- {id:"polkadot",symbol:"DOT",name:"Polkadot",price:null,change:null,color:"#e6007a"}
 ];
+/* Only coins that can really be sent to other wallets are ever shown. Anything else a recovery phrase may support is ignored. */
+const VX_SUPPORTED=new Set(cryptoFallback.map(c=>c.symbol));
+const vxSupported=a=>VX_SUPPORTED.has(String(a&&a.symbol||a).toUpperCase());
 let cryptoMarkets=cryptoFallback.map(c=>({...c}));
 function formatMarketPrice(n){if(n==null||!Number.isFinite(Number(n)))return "—";const v=Number(n);return "$"+v.toLocaleString("en-US",{minimumFractionDigits:v>=1?2:4,maximumFractionDigits:v>=1?2:6})}
 function coinLogoHTML(c){const sym=String(c.symbol||"?").toUpperCase();const local=(window.VX_LOCAL_LOGOS||{})[sym];const icon=local||`https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/svg/color/${esc(sym.toLowerCase())}.svg`;return `<img src="${esc(local||c.image||icon)}" alt="" loading="lazy" data-fallback="${icon}" data-letter="${esc(sym.slice(0,1))}" onerror="coinLogoError(this)">`}
@@ -304,11 +305,11 @@ function closeCryptoSearch(){
 async function loadCryptoMarkets(){
  cryptoSearchPanel.dataset.loaded="1";
  try{
-  const response=await fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=20&page=1&sparkline=false",{headers:{accept:"application/json"}});
+  const response=await fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids="+encodeURIComponent(cryptoFallback.map(c=>c.id).join(","))+"&order=market_cap_desc&per_page=50&page=1&sparkline=false",{headers:{accept:"application/json"}});
   if(!response.ok)throw new Error("Market request failed");
-  const data=await response.json();
+  const data=(await response.json());
   const colors=Object.fromEntries(cryptoFallback.map(c=>[c.symbol,c.color]));
-  if(Array.isArray(data)&&data.length){cryptoMarkets=data.slice(0,20).map(c=>({id:c.id,symbol:String(c.symbol||"").toUpperCase(),name:c.name,price:c.current_price,change:c.price_change_percentage_24h,image:c.image,rank:c.market_cap_rank,cap:c.market_cap,volume:c.total_volume,color:colors[String(c.symbol||"").toUpperCase()]||"#34343a"}));await vxSkeleton.logos(cryptoMarkets,2200);cryptoMarketsReady=true;cryptoSearchStatus.textContent="Live prices · USD";renderCryptoMarkets(assetSearchInput.value)}
+  if(Array.isArray(data)&&data.length){cryptoMarkets=data.filter(vxSupported).map(c=>({id:c.id,symbol:String(c.symbol||"").toUpperCase(),name:c.name,price:c.current_price,change:c.price_change_percentage_24h,image:c.image,rank:c.market_cap_rank,cap:c.market_cap,volume:c.total_volume,color:colors[String(c.symbol||"").toUpperCase()]||"#34343a"}));await vxSkeleton.logos(cryptoMarkets,2200);cryptoMarketsReady=true;cryptoSearchStatus.textContent="Live prices · USD";renderCryptoMarkets(assetSearchInput.value)}
   else throw new Error("No market data");
  }catch(_){cryptoMarketsReady=true;cryptoSearchStatus.textContent="Market prices unavailable";renderCryptoMarkets(assetSearchInput.value)}
 }
@@ -492,7 +493,7 @@ let activeDepositCoin=null,depositAddrs={};
 let depositAddrsState="loading";/* loading | ready | error */
 let depositLive={},depositLiveState="loading";/* loading | ready | error *//* live prices for the deposit coins only, keyed by symbol */
 async function loadDepositAddrs(){
- try{let w=await veltrixDB.wallet.info();if(!(w&&w.exists)&&window.veltrixWallet){await veltrixWallet.ensure();w=await veltrixDB.wallet.info()}const r=(w&&w.exists&&Array.isArray(w.addresses))?w.addresses:[];depositAddrs=Object.fromEntries(r.map(x=>[String(x.symbol).toUpperCase(),x]));depositAddrsState="ready"}
+ try{let w=await veltrixDB.wallet.info();if(!(w&&w.exists)&&window.veltrixWallet){await veltrixWallet.ensure();w=await veltrixDB.wallet.info()}const r=(w&&w.exists&&Array.isArray(w.addresses))?w.addresses:[];depositAddrs=Object.fromEntries(r.filter(vxSupported).map(x=>[String(x.symbol).toUpperCase(),x]));depositAddrsState="ready"}
  catch(_){if(depositAddrsState!=="ready")depositAddrsState="error"}
  if(!depositPage.hidden&&!depositCoinPicker.hidden){const s=document.getElementById("depositCoinSearch");renderDepositCoins(s?s.value:"")}
 }
@@ -900,19 +901,11 @@ document.addEventListener("click",function(event){
   {symbol:"BNB",name:"BNB",price:600,amount:3,net:"BNB Smart Chain",re:/^0x[a-fA-F0-9]{40}$/,ex:"0x…"},
   {symbol:"SOL",name:"Solana",price:150,amount:20,net:"Solana",re:new RegExp("^"+B58+"{32,44}$"),ex:"Base58, 32–44 characters"},
   {symbol:"XRP",name:"XRP",price:0.55,amount:800,net:"XRP Ledger",re:new RegExp("^r"+B58+"{24,34}$"),ex:"r…"},
-  {symbol:"DOGE",name:"Dogecoin",price:0.15,amount:5000,net:"Dogecoin",re:new RegExp("^[DA9]"+B58+"{33}$"),ex:"D…"},
   {symbol:"TRX",name:"TRON",price:0.12,amount:3000,net:"TRON (TRC-20)",re:new RegExp("^T"+B58+"{33}$"),ex:"T…"},
-  {symbol:"TON",name:"Toncoin",price:6,amount:100,net:"TON",re:/^(EQ|UQ)[A-Za-z0-9_-]{46}$/,ex:"EQ… or UQ…"},
-  {symbol:"ADA",name:"Cardano",price:0.45,amount:1000,net:"Cardano",re:/^addr1[a-z0-9]{50,110}$/,ex:"addr1…"},
   {symbol:"AVAX",name:"Avalanche",price:30,amount:50,net:"Avalanche C-Chain",re:/^0x[a-fA-F0-9]{40}$/,ex:"0x…"},
   {symbol:"SHIB",name:"Shiba Inu",price:0.00002,amount:10000000,net:"Ethereum (ERC-20)",re:/^0x[a-fA-F0-9]{40}$/,ex:"0x…"},
   {symbol:"LINK",name:"Chainlink",price:15,amount:100,net:"Ethereum (ERC-20)",re:/^0x[a-fA-F0-9]{40}$/,ex:"0x…"},
-  {symbol:"XLM",name:"Stellar",price:0.11,amount:3000,net:"Stellar",re:/^G[A-Z2-7]{55}$/,ex:"G…"},
-  {symbol:"BCH",name:"Bitcoin Cash",price:400,amount:2,net:"Bitcoin Cash",re:/^(bitcoincash:)?[qp][a-z0-9]{41}$/i,ex:"bitcoincash:q… or q…"},
-  {symbol:"SUI",name:"Sui",price:1.5,amount:200,net:"Sui",re:/^0x[a-fA-F0-9]{64}$/,ex:"0x… (64 hex characters)"},
-  {symbol:"HBAR",name:"Hedera",price:0.07,amount:5000,net:"Hedera (EVM address)",re:/^0x[a-fA-F0-9]{40}$/,ex:"0x…"},
   {symbol:"LTC",name:"Litecoin",price:70,amount:10,net:"Litecoin",re:new RegExp("^(ltc1[a-z0-9]{25,62}|[LM]"+B58+"{26,33})$"),ex:"ltc1… or L… / M…"},
-  {symbol:"DOT",name:"Polkadot",price:6,amount:150,net:"Polkadot",re:new RegExp("^1"+B58+"{46,47}$"),ex:"1…"}
  ];
  const sheet=$("sdSheet"),views=["sdAmountView","sdPickView","sdAddrView","sdAuthView","sdSetupView","sdDoneView"];
  let sel="BTC",val="",coins=[],list=COINS,confettiRaf=0,scanAddr="";
@@ -956,8 +949,8 @@ document.addEventListener("click",function(event){
  function close(){scanAddr="";recip=null;recipSeq++;clearTimeout(recipTimer);cancelAnimationFrame(confettiRaf);resetPin();sheet.classList.remove("open");sheet.setAttribute("aria-hidden","true");document.body.style.overflow=""}
  window.openSendSheet=open;
  /* Recognise a scanned crypto QR (plain address or a payment URI such as bitcoin:addr?amount=…) -> {symbol,address,evm} or null */
- const SCHEMES={bitcoin:"BTC",ethereum:"ETH",litecoin:"LTC",dogecoin:"DOGE",tron:"TRX",solana:"SOL",ripple:"XRP",xrp:"XRP",stellar:"XLM",bitcoincash:"BCH",cardano:"ADA",ton:"TON",polkadot:"DOT",sui:"SUI",hedera:"HBAR",bnb:"BNB",avalanche:"AVAX",chainlink:"LINK"};
- const ORDER=["BTC","LTC","BCH","ADA","XLM","SUI","TON","TRX","XRP","DOGE","DOT","ETH","SOL"];
+ const SCHEMES={bitcoin:"BTC",ethereum:"ETH",litecoin:"LTC",tron:"TRX",solana:"SOL",ripple:"XRP",xrp:"XRP",bnb:"BNB",avalanche:"AVAX",chainlink:"LINK"};
+ const ORDER=["BTC","LTC","TRX","XRP","ETH","SOL"];
  window.veltrixDetectCrypto=function(raw){
   let t=String(raw||"").trim();if(!t||t.length>300)return null;
   let hint=null;
@@ -990,7 +983,7 @@ document.addEventListener("click",function(event){
  function paintList(q){
   q=(q||"").trim().toLowerCase();
   const rows=coins.filter(c=>!q||c.name.toLowerCase().includes(q)||c.symbol.toLowerCase().includes(q));
-  $("sdList").innerHTML=rows.length?rows.map(c=>`<button type="button" class="sd-row${c.symbol===sel?" sel":""}" data-s="${esc(c.symbol)}" role="option" aria-selected="${c.symbol===sel}"><span class="cv-logo">${coinLogoHTML(c)}</span><span class="i"><b>${esc(c.name)}</b><small>${esc(c.symbol)}</small></span><span class="r">${trim(c.amount)}<small>Available</small></span></button>`).join(""):'<div style="padding:30px;text-align:center;font-size:13px;color:var(--wd-muted,#858995)">No matching crypto found.</div>';
+  $("sdList").innerHTML=rows.length?rows.map(c=>`<button type="button" class="sd-row${c.symbol===sel?" sel":""}" data-s="${esc(c.symbol)}" role="option" aria-selected="${c.symbol===sel}"><span class="cv-logo">${coinLogoHTML(c)}</span><span class="i"><b>${esc(c.name)}</b><small>${esc(c.symbol)}</small></span><span class="r">${trim(c.amount)}<small>Available</small></span></button>`).join(""):'<div style="padding:30px;text-align:center;font-size:12px;color:var(--wd-muted,#858995)">No matching crypto found.</div>';
  }
  $("sdCoinBtn").addEventListener("click",()=>{$("sdSearch").value="";renderList("");show("sdPickView")});
  $("sdPickBack").addEventListener("click",()=>show("sdAmountView"));
@@ -1012,7 +1005,11 @@ document.addEventListener("click",function(event){
   if(/^0x[a-fA-F0-9]{40}$/.test(a)&&a!==a.toLowerCase()&&a!=="0x"+a.slice(2).toUpperCase()&&window.ethers){try{window.ethers.getAddress(a)}catch{return false}}
   return true;
  }
- function addrReady(){const c=cur(),a=$("sdAddr").value.trim();return !!(a&&addrOk(c,a)&&recip&&!recip.error&&!(recip.found&&recip.self))}
+ /* XRP destination tag (optional): shown only for an outside XRP address; a whole number from 0 to 4294967295 */
+ function tagVal(){return $("sdTagWrap").hidden?"":$("sdTag").value.trim()}
+ function tagOk(){const t=tagVal();return !t||(/^\d{1,10}$/.test(t)&&Number(t)<=4294967295)}
+ function syncTag(){const show=cur().symbol==="XRP"&&!!$("sdAddr").value.trim()&&!(recip&&recip.found);$("sdTagWrap").hidden=!show;if(!show)$("sdTag").value=""}
+ function addrReady(){const c=cur(),a=$("sdAddr").value.trim();return !!(a&&addrOk(c,a)&&recip&&!recip.error&&!(recip.found&&recip.self)&&tagOk())}
  function checkAddr(){
   const c=cur(),a=$("sdAddr").value.trim(),box=$("sdInputBox"),m=$("sdAddrMsg");
   box.classList.remove("bad","good");m.hidden=true;m.className="sd-msg";
@@ -1021,6 +1018,7 @@ document.addEventListener("click",function(event){
   if(a){ok=addrOk(c,a);box.classList.add(ok?"good":"bad");m.hidden=false;m.classList.add(ok?"good":"bad");
    m.textContent=ok?"Checking recipient…":`Invalid ${c.symbol} address. Enter a valid ${c.name} (${c.net}) address.`}
   if(ok){const seq=recipSeq,sym=c.symbol;recipTimer=setTimeout(()=>lookupRecipient(seq,sym,a),250)}
+  syncTag();
   return ok;
  }
  async function lookupRecipient(seq,sym,a){
@@ -1037,9 +1035,10 @@ document.addEventListener("click",function(event){
   else if(recip.found&&recip.self){box.classList.add("bad");m.classList.add("bad");m.textContent="This is your own wallet address. You can't send to yourself."}
   else if(recip.found){box.classList.add("good");m.classList.add("good");m.textContent=`Veltrix wallet · ${recip.name||"Veltrix user"}. Instant transfer, no fee.`}
   else{box.classList.add("good");m.classList.add("good");m.textContent=`Outside wallet. It will be sent on the ${c.net} network. Make sure the receiving app (Binance, Bybit …) accepts ${c.symbol} on ${c.net}, or the funds can be lost.`}
-  $("sdSend").disabled=!addrReady();
+  syncTag();$("sdSend").disabled=!addrReady();
  }
  $("sdAddr").addEventListener("input",checkAddr);
+ $("sdTag").addEventListener("input",()=>{$("sdTag").value=$("sdTag").value.replace(/\D/g,"").slice(0,10);$("sdTagBox").classList.toggle("bad",!tagOk());$("sdSend").disabled=!addrReady()});
  $("sdPaste").addEventListener("click",async()=>{try{$("sdAddr").value=(await navigator.clipboard.readText()).trim();checkAddr()}catch{$("sdAddr").focus();wdToast("Long-press the field to paste")}});
  /* ---- step 3: 2FA gate ---- */
  const pins=[...document.querySelectorAll("#sdPin input")];
@@ -1152,12 +1151,12 @@ document.addEventListener("click",function(event){
     the screen is shown ONLY after it confirms. status "queued" = being sent automatically (there is no admin approval). */
  async function completeOutside(pin){
   if(sending)return;sending=true;
-  const c=cur(),n=num(val),a=$("sdAddr").value.trim(),amt=trim(n),key="W|"+[c.symbol,amt,a].join("|");
+  const c=cur(),n=num(val),a=$("sdAddr").value.trim(),amt=trim(n),tag=tagVal(),key="W|"+[c.symbol,amt,a,tag].join("|");
   if(!pendingReq||pendingReq.key!==key||Date.now()-pendingReq.t>600000)pendingReq={key,id:veltrixDB.notif.uuid(),t:Date.now()};
   const btn=$("sdProceed");btn.disabled=true;btn.textContent="Sending…";
   let r=null;
   for(let i=0;i<3&&!r;i++){
-   try{r=await veltrixDB.wallet.withdraw(c.symbol,amt,a,pin,pendingReq.id)}catch{await new Promise(z=>setTimeout(z,1200*(i+1)))}
+   try{r=await veltrixDB.wallet.withdraw(c.symbol,amt,a,pin,pendingReq.id,tag)}catch{await new Promise(z=>setTimeout(z,1200*(i+1)))}
   }
   sending=false;btn.textContent="Proceed";
   if(!r){refreshAfterTransfer();pinProblem("We couldn't confirm this withdrawal. Check your transaction history before trying again.");return}
@@ -1169,7 +1168,7 @@ document.addEventListener("click",function(event){
    lastTx=r.reference;lastTo=a;setDoneMode(mode);
    $("luxAmt").textContent=amtTxt;$("luxUsd").textContent=usdTxt;$("luxTo").textContent=shortAddr(a);
    $("luxNet").textContent=r.network||c.net;$("luxDate").textContent=when;$("luxTx").textContent=r.reference;
-   lastReceipt=`Veltrix withdrawal receipt\nStatus: ${"Processing"}\nAmount: ${amtTxt}${usdTxt?" ("+usdTxt+")":""}\nTo: ${a}\nNetwork: ${r.network||c.net}\nDate: ${when}\nReference: ${r.reference}`;
+   lastReceipt=`Veltrix withdrawal receipt\nStatus: ${"Processing"}\nAmount: ${amtTxt}${usdTxt?" ("+usdTxt+")":""}\nTo: ${a}${tag?"\nDestination tag: "+tag:""}\nNetwork: ${r.network||c.net}\nDate: ${when}\nReference: ${r.reference}`;
    playDone();refreshAfterTransfer();
    if(r.status==="queued")veltrixDB.wallet.sendQueued(r.id).then(()=>setTimeout(refreshAfterTransfer,4000));
    return;
@@ -1182,6 +1181,7 @@ document.addEventListener("click",function(event){
    case"insufficient":wdToast("Insufficient balance. Nothing was sent.");refreshAfterTransfer();build();render();show("sdAmountView");break;
    case"invalid_amount":wdToast(["USDT","USDC"].includes(c.symbol)?`${c.symbol} can only be sent in steps of 0.000001. Nothing was sent.`:"That amount isn't valid. Nothing was sent.");show("sdAmountView");break;
    case"invalid_address":wdToast("That address isn't valid for this coin. Nothing was sent.");show("sdAddrView");checkAddr();break;
+   case"invalid_memo":wdToast("That destination tag isn't valid. Nothing was sent.");show("sdAddrView");checkAddr();break;
    case"unsupported_coin":wdToast("Sending "+c.symbol+" to outside wallets isn't available yet. Nothing was sent.");show("sdAddrView");checkAddr();break;
    case"unavailable":wdToast("Withdrawals to outside wallets are temporarily unavailable. Nothing was sent.");show("sdAddrView");checkAddr();break;
    case"limit_exceeded":wdToast("This is above the withdrawal limit. Try a smaller amount. Nothing was sent.");show("sdAmountView");break;

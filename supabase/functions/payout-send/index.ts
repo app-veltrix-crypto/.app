@@ -1,6 +1,6 @@
 // Veltrix · payout-send — sends queued withdrawals to OUTSIDE wallets (Binance, Bybit, any address) from the TREASURY wallet.
-// Coins handled here: ETH, USDT, USDC, SHIB, LINK (Ethereum), BNB (BNB Smart Chain), AVAX (Avalanche C-Chain).
-// Other coins are refused for outside addresses (there is no admin approval). READ README.md IN THIS FOLDER BEFORE TURNING IT ON.
+// Coins handled here: ETH, USDT, USDC, SHIB, LINK (Ethereum), BNB (BNB Smart Chain), AVAX (Avalanche C-Chain) — in this file —
+// and BTC, LTC, SOL, XRP, TRX — in chains.ts. Other coins are refused for outside addresses (there is no admin approval). READ README.md IN THIS FOLDER BEFORE TURNING IT ON.
 //
 // Deploy:  supabase functions deploy payout-send --no-verify-jwt        (the function checks the user itself)
 // Secrets: supabase secrets set TREASURY_MNEMONIC="twelve words …" CRON_SECRET=<long random string>
@@ -8,7 +8,9 @@
 // The safety logic lives in core.ts (tested against a real database). This file only talks to the blockchain.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { ethers } from "https://esm.sh/ethers@6.13.4";
-import { Chain, ChainError, Prepared, Row, MinedState, run } from "./core.ts";
+import { Chain, ChainError, Item, Prepared, Row, MinedState, run } from "./core.ts";
+import { makeOtherChains, treasuryAddresses } from "./chains.ts";
+import { prims } from "./prims.ts";
 
 const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, x-client-info, apikey, content-type, x-cron-secret", "access-control-allow-methods": "POST, OPTIONS" };
 const json = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...cors, "content-type": "application/json" } });
@@ -43,7 +45,7 @@ function treasury() {
   return ethers.HDNodeWallet.fromPhrase(phrase.trim(), undefined, "m/44'/60'/0'/0/0");
 }
 
-const chain: Chain = {
+const evm = {
   async prepare(row: Row): Promise<Prepared> {
     const sym = String(row.symbol).toUpperCase(), net = netFor(sym);
     if (!net) throw new ChainError("definite", "This coin can't be sent automatically");
@@ -125,6 +127,16 @@ const chain: Chain = {
     if (!r) return "none";
     return r.status === 1 ? "success" : "failed";
   },
+};
+
+// every coin goes to the chain code that owns it; EVM payouts share one lane per network, each other coin has its own lane
+const other = makeOtherChains(env, prims);
+const chain: Chain = {
+  prepare: (row) => other.handles(row.symbol) ? other.prepare(row) : evm.prepare(row),
+  broadcast: (p) => other.handles(p.symbol) ? other.broadcast(p) : evm.broadcast(p),
+  receipt: (hash, symbol, meta) => other.handles(symbol) ? other.receipt(hash, symbol, meta) : evm.receipt(hash, symbol),
+  lane: (symbol) => other.handles(symbol) ? other.lane(symbol) : (netFor(String(symbol).toUpperCase())?.key ?? "OTHER"),
+  waitMs: (symbol) => other.handles(symbol) ? other.waitMs(symbol) : 45000,
   sleep: (ms: number) => new Promise((r) => setTimeout(r, ms)),
 };
 
@@ -134,19 +146,26 @@ Deno.serve(async (req) => {
   const db = { async rpc(name: string, args: Record<string, unknown>) { const { data, error } = await admin.rpc(name, args); if (error) throw new Error(`${name}: ${error.message}`); return data; } };
 
   // who is calling? (a) the scheduler with the secret: the whole queue  (b) a signed-in user: only their own payout
-  let ids: string[] | null = null;
+  let body: { id?: string; action?: string } = {}; try { body = await req.json(); } catch { /* none */ }
+  let items: Item[] | null = null;
   const secret = env("CRON_SECRET");
-  if (secret && req.headers.get("x-cron-secret") === secret) ids = null;
-  else {
+  if (secret && req.headers.get("x-cron-secret") === secret) {
+    // (a2) the scheduler's secret + {"action":"addresses"}: the treasury's public addresses, so you know where to send the coins it pays out from
+    if (body.action === "addresses") {
+      if (!env("TREASURY_MNEMONIC")) return json({ ok: false, error: "treasury not configured" });
+      try { const evmAddr = treasury().address; return json({ ok: true, addresses: { ETH: evmAddr, BNB: evmAddr, AVAX: evmAddr, ...(await treasuryAddresses(prims, env("TREASURY_MNEMONIC"))) } }); }
+      catch { return json({ ok: false, error: "the treasury recovery phrase is not valid" }); }
+    }
+    items = null;
+  } else {
     const tok = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
     const { data, error } = await admin.auth.getUser(tok);
     if (error || !data.user) return json({ error: "not signed in" }, 401);
-    let body: { id?: string } = {}; try { body = await req.json(); } catch { /* none */ }
     const id = String(body.id || "");
     if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "bad id" }, 400);
-    const { data: row } = await admin.from("transactions").select("user_id,status").eq("id", id).maybeSingle();
+    const { data: row } = await admin.from("transactions").select("user_id,status,symbol").eq("id", id).maybeSingle();
     if (!row || row.user_id !== data.user.id) return json({ error: "not found" }, 404);
-    ids = [id];
+    items = [{ id, symbol: String(row.symbol) }];
   }
   if (!env("TREASURY_MNEMONIC")) return json({ ok: false, error: "treasury not configured" }, 200);   // rows simply stay queued
 
@@ -155,7 +174,7 @@ Deno.serve(async (req) => {
   if (got !== true) return json({ ok: true, busy: true });                                              // another run is working; it will pick the queue up
   const log: string[] = [];
   try {
-    const results = await run(db, chain, ids, (m) => { log.push(m); console.log("[payout]", m); });
+    const results = await run(db, chain, items, (m) => { log.push(m); console.log("[payout]", m); });
     return json({ ok: true, results });
   } catch (e) {
     console.error("[payout] run failed", errText(e));

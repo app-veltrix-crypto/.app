@@ -15,11 +15,23 @@ const loadTitle=$("vbLoadTitle"),loadEl=$("vbLoad"),loadHost=$("vbLoadHost"),fra
 let curUrl="",hintTimer=0,progTimer=0,spinTimer=0,tok=0;
 function spin(on){clearTimeout(spinTimer);reloadBtn.classList.toggle("spin",on);if(on)spinTimer=setTimeout(()=>reloadBtn.classList.remove("spin"),25000)}
 
-function urlFor(coin){
+/* the blockchain name Transak expects, per coin (the coin is always bought on the same network as the user's Veltrix deposit address) */
+const TRANSAK_NET={BTC:"bitcoin",ETH:"ethereum",USDT:"ethereum",USDC:"ethereum",SHIB:"ethereum",LINK:"ethereum",BNB:"bsc",AVAX:"avaxcchain",SOL:"solana",XRP:"ripple",TRX:"tron",LTC:"litecoin"};
+/* the user's own Veltrix deposit address for this coin, so what they buy lands straight in their wallet */
+async function myAddress(sym){
+  try{const w=await veltrixDB.wallet.info();const r=(w&&w.exists&&Array.isArray(w.addresses))?w.addresses:[];const x=r.find(a=>String(a.symbol).toUpperCase()===sym.toUpperCase());return x&&x.address?String(x.address):""}catch{return""}
+}
+async function urlFor(coin){
   const sym=String(coin&&coin.symbol||"").trim(),enc=encodeURIComponent;
-  if(BUY.provider==="moonpay"&&BUY.moonpayKey)return"https://buy.moonpay.com/v2/buy?apiKey="+enc(BUY.moonpayKey)+"&currencyCode="+enc(sym.toLowerCase());
-  if(BUY.provider==="transak"&&BUY.transakKey)return"https://global.transak.com/?apiKey="+enc(BUY.transakKey)+"&cryptoCurrencyCode="+enc(sym.toUpperCase())+"&referrerDomain="+enc(location.hostname||"veltrix");
-  return"https://www.moonpay.com/buy/"+enc(sym.toLowerCase());   /* no key configured yet: public buy page */
+  if(BUY.provider==="transak"&&BUY.transakKey){
+    const addr=await myAddress(sym),net=TRANSAK_NET[sym.toUpperCase()];
+    return"https://global.transak.com/?apiKey="+enc(BUY.transakKey)+"&cryptoCurrencyCode="+enc(sym.toUpperCase())+(net?"&network="+net:"")+(addr?"&walletAddress="+enc(addr)+"&disableWalletAddressForm=true":"")+"&hideMenu=true&referrerDomain="+enc(location.hostname||"veltrix");
+  }
+  if(BUY.provider==="moonpay"&&BUY.moonpayKey){
+    const addr=await myAddress(sym);
+    return"https://buy.moonpay.com/?apiKey="+enc(BUY.moonpayKey)+"&currencyCode="+enc(sym.toLowerCase())+(addr?"&walletAddress="+enc(addr):"");
+  }
+  return"https://www.moonpay.com/buy/"+enc(sym.toLowerCase());   /* no key configured yet: public buy page (cannot run fully inside an app) */
 }
 function setProg(p,fade){prog.style.opacity=fade?"0":"1";prog.style.width=p+"%"}
 function startProg(){clearInterval(progTimer);let p=8;setProg(p);progTimer=setInterval(()=>{p+=(90-p)*.08;setProg(p)},300)}
@@ -46,7 +58,7 @@ function open(coin){
   if(!coin)return;
   titleEl.textContent="Buy "+(coin.name||coin.symbol||"crypto");loadTitle.textContent="Opening secure checkout";
   page.hidden=false;document.body.classList.add("vb-open");
-  const u=urlFor(coin);load(u);setLock(u);
+  urlFor(coin).then(u=>{if(page.hidden)return;load(u);setLock(u)});
 }
 function close(){
   if(page.hidden)return;tok++;clearTimeout(hintTimer);clearInterval(progTimer);

@@ -9,14 +9,17 @@
 //      hash is looked up on the blockchain later. Only a receipt (mined ok / mined failed) or an admin can settle it.
 //   5. A payout is marked completed only when the transaction is mined successfully.
 
-export type Row = { id: string; user_id: string; symbol: string; amount: string; to_address: string; payout_attempts: number };
+export type Row = { id: string; user_id: string; symbol: string; amount: string; to_address: string; memo?: string | null; payout_attempts: number };
+export type Item = { id: string; symbol: string };
 
 /** kind: "definite" = nothing was or will be sent · "retry" = not sent yet, try again later · "unclear" = may or may not have been sent */
 export class ChainError extends Error {
   kind: "definite" | "retry" | "unclear";
   constructor(kind: "definite" | "retry" | "unclear", message: string) { super(message); this.kind = kind; }
 }
-export type Prepared = { hash: string; raw: string; symbol: string };
+/** meta: a short note stored together with the hash. Chains whose transactions EXPIRE (Solana, XRP) keep the expiry here, so a payout
+ *  that was never mined can later be proven dead (and refunded) instead of waiting for a person. */
+export type Prepared = { hash: string; raw: string; symbol: string; meta?: string };
 export type MinedState = "success" | "failed" | "none";
 
 export interface Chain {
@@ -24,9 +27,12 @@ export interface Chain {
   prepare(row: Row): Promise<Prepared>;
   /** broadcast the signed transaction. Throws ChainError("definite") only if the network explicitly refused it, otherwise "unclear". */
   broadcast(p: Prepared): Promise<void>;
-  /** look the hash up on the blockchain */
-  receipt(hash: string, symbol: string): Promise<MinedState>;
-  /** true if more payouts may be prepared right after this one (nonce bookkeeping) */
+  /** look the hash up on the blockchain. "failed" must mean: it was mined as failed, OR it can provably never be mined any more (expired). */
+  receipt(hash: string, symbol: string, meta?: string | null): Promise<MinedState>;
+  /** payouts on the same lane are sent one after the other (one nonce / one set of coins); different lanes never wait for each other */
+  lane(symbol: string): string;
+  /** how long to wait for the first confirmation before moving on (slow chains return 0 and are re-checked by the next run) */
+  waitMs?(symbol: string): number;
   sleep(ms: number): Promise<void>;
 }
 export interface Db { rpc(name: string, args: Record<string, unknown>): Promise<any>; }
@@ -49,7 +55,7 @@ export async function processOne(db: Db, chain: Chain, id: string, log: Log, wai
   }
   // RULE 3: the hash is stored first. If we cannot store it, we do not broadcast.
   let stored = false;
-  try { stored = (await db.rpc("payout_set_hash", { p_id: id, p_hash: prepared.hash })) === true; } catch (_) { stored = false; }
+  try { stored = (await db.rpc("payout_set_hash", { p_id: id, p_hash: prepared.hash, p_meta: prepared.meta ?? null })) === true; } catch (_) { stored = false; }
   if (!stored) { log(`${id} could not record the hash, nothing broadcast; it will be retried`); return "not_recorded"; }  // payout_release_stale() requeues it
   try {
     await chain.broadcast(prepared);
@@ -63,7 +69,7 @@ export async function processOne(db: Db, chain: Chain, id: string, log: Log, wai
   const t0 = Date.now();
   for (;;) {
     let st: MinedState = "none";
-    try { st = await chain.receipt(prepared.hash, row.symbol); } catch (_) { /* keep waiting */ }
+    try { st = await chain.receipt(prepared.hash, row.symbol, prepared.meta ?? null); } catch (_) { /* keep waiting */ }
     if (st === "success") { await db.rpc("payout_complete", { p_id: id, p_hash: prepared.hash }); log(`${id} completed ${prepared.hash}`); return "completed"; }
     if (st === "failed")  { await db.rpc("payout_fail", { p_id: id, p_reason: "The transaction failed on the network", p_mined_failed: true }); log(`${id} mined as FAILED, returned to user`); return "refunded"; }
     if (Date.now() - t0 > waitMs) { log(`${id} sent, waiting for confirmation (${prepared.hash})`); return "sent_unconfirmed"; }
@@ -71,18 +77,19 @@ export async function processOne(db: Db, chain: Chain, id: string, log: Log, wai
   }
 }
 
-/** Re-check payouts that were broadcast but not yet seen as mined. Returns how many are still open. */
-export async function reconcile(db: Db, chain: Chain, log: Log): Promise<number> {
+/** Re-check payouts that were broadcast but not yet seen as mined. Returns how many are still open, per lane. */
+export async function reconcile(db: Db, chain: Chain, log: Log): Promise<Record<string, number>> {
   await db.rpc("payout_release_stale", {});
-  const rows: { id: string; symbol: string; tx_hash: string; processing_at: string | null; created_at: string }[] = await db.rpc("payout_list_processing", {});
-  let open = 0;
+  const rows: { id: string; symbol: string; tx_hash: string; payout_meta: string | null; processing_at: string | null; created_at: string }[] = await db.rpc("payout_list_processing", {});
+  const open: Record<string, number> = {};
+  const addOpen = (symbol: string) => { const l = chain.lane(symbol); open[l] = (open[l] || 0) + 1; };
   for (const r of rows) {
     let st: MinedState = "none";
-    try { st = await chain.receipt(r.tx_hash, r.symbol); } catch (_) { open++; continue; }
+    try { st = await chain.receipt(r.tx_hash, r.symbol, r.payout_meta); } catch (_) { addOpen(r.symbol); continue; }
     if (st === "success") { await db.rpc("payout_complete", { p_id: r.id, p_hash: r.tx_hash }); log(`${r.id} confirmed ${r.tx_hash}`); }
-    else if (st === "failed") { await db.rpc("payout_fail", { p_id: r.id, p_reason: "The transaction failed on the network", p_mined_failed: true }); log(`${r.id} mined as FAILED, returned to user`); }
+    else if (st === "failed") { await db.rpc("payout_fail", { p_id: r.id, p_reason: "The transaction failed on the network", p_mined_failed: true }); log(`${r.id} failed or expired on the network, returned to user`); }
     else {
-      open++;
+      addOpen(r.symbol);
       const since = Date.parse(r.processing_at || r.created_at);
       if (Date.now() - since > 2 * 3600 * 1000) await db.rpc("payout_flag", { p_id: r.id, p_note: "Not found on the blockchain after 2 hours. Check hash " + r.tx_hash + " and settle with admin_resolve_payout()." });
     }
@@ -90,17 +97,21 @@ export async function reconcile(db: Db, chain: Chain, log: Log): Promise<number>
   return open;
 }
 
-/** One run of the function. `ids` = the payouts to send (a user's own, or the whole queue). */
-export async function run(db: Db, chain: Chain, ids: string[] | null, log: Log, budgetMs = 100000): Promise<Record<string, string>> {
+/** One run of the function. `items` = the payouts to send (a user's own, or the whole queue). A lane (one chain) with an earlier payout that is
+ *  still waiting to be mined does not get a new one yet (keeps the treasury nonce / coins safe); the other lanes carry on. */
+export async function run(db: Db, chain: Chain, items: Item[] | null, log: Log, budgetMs = 100000): Promise<Record<string, string>> {
   const t0 = Date.now(), results: Record<string, string> = {};
   const open = await reconcile(db, chain, log);
-  if (open > 0) { log(`${open} earlier payout(s) are still waiting to be mined; not sending new ones yet (keeps the treasury nonce safe)`); return results; }
-  const list: string[] = ids ?? await db.rpc("payout_list_queued", {});
-  for (const id of list) {
+  const blocked = new Set<string>(Object.keys(open).filter((l) => open[l] > 0));
+  for (const l of blocked) log(`lane ${l}: ${open[l]} earlier payout(s) still waiting to be mined; not sending new ones on it yet`);
+  const list: Item[] = items ?? await db.rpc("payout_queue", {});
+  for (const it of list) {
     if (Date.now() - t0 > budgetMs) break;
-    const r = await processOne(db, chain, id, log);
-    results[id] = r;
-    if (r === "sent_unconfirmed" || r === "unclear" || r === "not_recorded") break;   // do not stack more transactions on top of an unsettled one
+    const lane = chain.lane(it.symbol);
+    if (blocked.has(lane)) continue;
+    const r = await processOne(db, chain, it.id, log, chain.waitMs ? chain.waitMs(it.symbol) : 45000);
+    results[it.id] = r;
+    if (r === "sent_unconfirmed" || r === "unclear" || r === "not_recorded") blocked.add(lane);   // do not stack more transactions on top of an unsettled one
   }
   return results;
 }
