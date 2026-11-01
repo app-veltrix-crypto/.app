@@ -55,10 +55,14 @@ function openUrl(url,title){
   load(url);setLock(url);
 }
 function open(coin){
+  /* Buy = send the user to a trusted site that sells crypto. They make their account there and, when the site asks for a
+     wallet address, they copy it from their Veltrix Deposit section and paste it in. No keys or accounts are needed here. */
   if(!coin)return;
-  titleEl.textContent="Buy "+(coin.name||coin.symbol||"crypto");loadTitle.textContent="Opening secure checkout";
-  page.hidden=false;document.body.classList.add("vb-open");
-  urlFor(coin).then(u=>{if(page.hidden)return;load(u);setLock(u)});
+  const sym=String(coin.symbol||"").trim().toLowerCase();
+  const url=sym?"https://www.moonpay.com/buy/"+encodeURIComponent(sym):"https://www.moonpay.com/buy";
+  const w=window.open(url,"_blank","noopener,noreferrer");
+  if(!w)location.href=url;   /* pop-up blocked: open in this tab instead */
+  if(typeof window.wdToast==="function")window.wdToast("When asked for a wallet address, copy it from Deposit "+String(coin.symbol||"").toUpperCase());
 }
 function close(){
   if(page.hidden)return;tok++;clearTimeout(hintTimer);clearInterval(progTimer);

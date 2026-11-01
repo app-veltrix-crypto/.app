@@ -157,9 +157,9 @@ wrap.innerHTML=`
 while(wrap.firstChild)host.appendChild(wrap.firstChild);
 const el=id=>document.getElementById(id);
 const L=el("vmList"),P=el("vmPick"),C=el("vmChat"),msgsEl=el("vmMsgs"),text=el("vmText"),sendBtn=el("vmSend");
-/* tapping a link in a message: open it in the in-app browser (registered first so the bubble's own tap handlers don't also fire) */
+/* tapping a link in a message: open it in the phone's own browser (most sites refuse to load inside an app window) (registered first so the bubble's own tap handlers don't also fire) */
 msgsEl.addEventListener("click",e=>{const a=e.target.closest("a.vm-link");if(!a)return;e.preventDefault();e.stopImmediatePropagation();
- const url=a.dataset.link;if(window.veltrixBuyBrowser&&veltrixBuyBrowser.openUrl)veltrixBuyBrowser.openUrl(url);else window.open(url,"_blank","noopener,noreferrer")});
+ const url=a.dataset.link;if(!/^https?:\/\//i.test(url||""))return;const w=window.open(url,"_blank","noopener,noreferrer");if(!w)location.href=url});
 let tt;function toast(m){const t=el("vmToast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),2200)}
 function progressToast(m){const t=el("vmToast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),15000)}
 let activeId=null;
