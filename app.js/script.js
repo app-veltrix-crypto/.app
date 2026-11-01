@@ -588,9 +588,8 @@ depositCoinList.addEventListener("click",e=>{
  };
  if(vxSkeleton.cached([activeDepositCoin]))paintDepositDetail();
  else{depositCoinDetails.classList.add("vx-dep-busy");document.getElementById("depositCoinName").innerHTML='<span class="vx" style="display:inline-block;width:130px;height:18px;border-radius:7px"></span>';document.getElementById("depositAddress").textContent="loading address";document.getElementById("depositNetwork").textContent="loading network details loading network details";document.getElementById("depositQrImage").replaceChildren();document.getElementById("copyDepositAddress").disabled=true;const want=activeDepositCoin;vxSkeleton.logos([want],1800).then(()=>{if(activeDepositCoin===want)paintDepositDetail()})}
- depositCoinPicker.hidden=true;depositCoinDetails.hidden=false;
+ depositCoinPicker.hidden=false;depositCoinDetails.hidden=false;
  (document.getElementById("depositTitle")||{}).textContent=`Deposit ${symbol}`;
- depositPage.scrollTop=0;
 });
 document.getElementById("backToDepositCoins").addEventListener("click",()=>{depositCoinDetails.hidden=true;depositCoinPicker.hidden=false;(document.getElementById("depositTitle")||{}).textContent="Deposit crypto"});
 depositPage.addEventListener("click",e=>{if(e.target===depositPage && !depositCoinDetails.hidden){depositCoinDetails.hidden=true;depositCoinPicker.hidden=false;(document.getElementById("depositTitle")||{}).textContent="Deposit crypto"}});

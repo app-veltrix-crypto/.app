@@ -2,70 +2,125 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Verify addresses · Veltrix</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script>try{if(localStorage.getItem("veltrixTheme")!=="light")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script>
+<script src="../app.js/fixedsize.js?v=102"></script>
+<link rel="icon" type="image/png" sizes="32x32" href="../app.assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../app.assets/favicon-192.png">
+<link rel="apple-touch-icon" href="../app.assets/apple-touch-icon.png">
+<title>Address check · Veltrix</title>
+<link rel="stylesheet" href="../app.css/brand.css?v=107">
+<link rel="stylesheet" href="../app.css/skeleton.css?v=102">
 <style>
+/* Address check — built from the same pieces as the app's feature pages:
+   round brand back button, soft white cards, brand gradient coin badges,
+   one green / one red for status, night mode via the app's inverted-colour filter. */
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--ink:#111;--mut:#777;--soft:#9a9ea9;--line:#e8e8e8;--line2:#eef0f3;--chip:#f0f2f7;--chipink:#5b6070;--brand:#2450ff;--ok:#1e7a3c;--okbg:#eaf6ee;--bad:#b3261e;--badbg:#fdf3f2;--warn:#8a5a00;--warnbg:#fff6e0}
-html{-webkit-text-size-adjust:100%}
-body{min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",Arial,sans-serif;background:radial-gradient(circle at 100% 0%,#f5f5f5,transparent 34%),#fff;color:var(--ink);-webkit-font-smoothing:antialiased;padding:max(18px,env(safe-area-inset-top)) 16px max(28px,env(safe-area-inset-bottom));animation:in .45s ease}
-@keyframes in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.wrap{width:100%;max-width:560px;margin:0 auto}
-.eyebrow{display:block;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--mut);margin:6px 0 8px}
-h1{font-size:26px;line-height:1.05;letter-spacing:-1.2px;margin-bottom:8px}
-.lead{color:var(--mut);font-size:12px;line-height:1.6;margin-bottom:18px}
-.lead code,.note code{font:600 11px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--chip);color:var(--chipink);padding:2px 6px;border-radius:6px}
-.card{background:#fff;border:1px solid var(--line2);border-radius:20px;box-shadow:0 12px 40px rgba(20,24,40,.08);padding:16px}
-.sum{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding:14px 16px}
-.sum-ic{width:38px;height:38px;border-radius:12px;background:var(--chip);color:var(--chipink);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.sum-ic svg{width:19px;height:19px}
-.sum b{display:block;font-size:13px;letter-spacing:-.2px}
-.sum small{display:block;margin-top:2px;color:var(--mut);font-size:11px}
-.sum.ok .sum-ic{background:var(--okbg);color:var(--ok)}
-.sum.bad .sum-ic{background:var(--badbg);color:var(--bad)}
-.list{display:flex;flex-direction:column;gap:12px}
-.row{border:1px solid var(--line2);border-radius:20px;padding:14px;background:#fff;box-shadow:0 12px 40px rgba(20,24,40,.08);transition:transform .2s,box-shadow .2s}
-.row:hover{transform:translateY(-2px);box-shadow:0 16px 44px rgba(20,24,40,.12)}
-.top{display:flex;align-items:center;gap:10px}
-.coin{width:34px;height:34px;border-radius:50%;background:#111;color:#fff;font-size:9px;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+:root{--mut:#777;--soft:#9a9ea9;--line:#eef0f3;--chip:#f1f3f8;--warn:#8a5a00;--warn-soft:#fff6e0}
+html{-webkit-text-size-adjust:100%;background:#fff;scroll-behavior:smooth}
+html[data-theme="dark"]{filter:invert(1) hue-rotate(180deg);background:#fff;color-scheme:dark}
+body{min-height:100vh;min-height:100dvh;background:#fff;color:#17181d;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;
+  padding:max(20px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(28px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left));animation:enter .22s ease-out both}
+@keyframes enter{from{opacity:0}to{opacity:1}}
+.wrap{width:100%;max-width:680px;margin:0 auto}
+
+/* ---- Header: round back button + title, like every feature page ---- */
+.head{display:flex;align-items:center;gap:15px;margin:8px 0 18px}
+.back{flex:none;width:40px;height:40px;display:grid;place-items:center;border:0;border-radius:50%;background:var(--brand-soft,#eef2ff);color:var(--brand,#2450ff);text-decoration:none;-webkit-tap-highlight-color:transparent;transition:background .2s,transform .15s}
+.back:active{background:var(--brand-soft-2,#e1e8ff);transform:scale(.95)}
+.back svg{width:20px;height:20px}
+.head h1{flex:1;min-width:0;font-size:25px;letter-spacing:-.9px;line-height:1.1}
+.chip{flex:none;padding:3px 9px;border-radius:20px;background:var(--brand-soft,#eef2ff);color:var(--brand,#2450ff);font-size:9px;font-weight:600;letter-spacing:1.6px;text-transform:uppercase}
+
+/* ---- Cards ---- */
+.card{border:1px solid var(--line);border-radius:20px;background:#fff;box-shadow:0 8px 28px rgba(20,24,40,.06);padding:14px 15px;margin-bottom:12px}
+.eyebrow{display:block;font-size:9px;font-weight:650;letter-spacing:1.4px;text-transform:uppercase;color:var(--ink-2,#5b5f6b);margin-bottom:7px}
+.lead{color:var(--mut);font-size:12px;line-height:1.65}
+.lead b{color:#17181d}
+code.k{font:600 11px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--chip);color:#5b6070;padding:2px 6px;border-radius:6px}
+
+/* ---- Result summary ---- */
+.sum-top{display:flex;align-items:center;gap:12px}
+.sum-ic{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--brand-soft,#eef2ff);color:var(--brand,#2450ff);transition:background .25s,color .25s}
+.sum-ic svg{width:20px;height:20px}
+.sum-top b{display:block;font-size:14px;letter-spacing:-.2px}
+.sum-top small{display:block;margin-top:2px;color:var(--mut);font-size:11px;line-height:1.45}
+.sum.ok .sum-ic{background:var(--pos-soft,#e6f6ee);color:var(--pos,#0f9d58)}
+.sum.bad .sum-ic{background:var(--neg-soft,#fdecee);color:var(--neg,#d93a49)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.stat{border-radius:14px;background:#f7f8fb;padding:10px 6px;text-align:center}
+.stat b{display:block;font-size:20px;letter-spacing:-.6px;line-height:1.1;color:var(--flat,#7b7d85)}
+.stat small{display:block;margin-top:3px;font-size:9px;font-weight:650;letter-spacing:1.2px;text-transform:uppercase;color:var(--soft)}
+.stat.s-pass.on b{color:var(--pos,#0f9d58)}
+.stat.s-check.on b{color:var(--warn)}
+.stat.s-fail.on b{color:var(--neg,#d93a49)}
+
+/* ---- Address list ---- */
+.cap{display:flex;align-items:center;justify-content:space-between;padding:10px 2px 8px;font-size:9px;font-weight:600;letter-spacing:1.6px;text-transform:uppercase;color:var(--mut)}
+.list{display:flex;flex-direction:column;gap:10px}
+.row{border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:0 6px 22px rgba(20,24,40,.05);padding:12px}
+.top{display:flex;align-items:center;gap:11px}
+.coin{flex:none;width:36px;height:36px;border-radius:50%;background:var(--brand-grad,linear-gradient(135deg,#1a86ff,#2450ff 55%,#6d3bff));color:#fff;font-size:9px;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;justify-content:center}
+html[data-theme="dark"] .coin{filter:hue-rotate(180deg) invert(1)}
 .name{flex:1;min-width:0}
 .name b{display:block;font-size:13px;letter-spacing:-.2px}
 .name small{display:block;margin-top:1px;color:var(--soft);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pill{font-size:9px;font-weight:750;letter-spacing:.6px;text-transform:uppercase;padding:4px 9px;border-radius:999px;background:var(--chip);color:var(--chipink);flex-shrink:0}
-.pill.pass{background:var(--okbg);color:var(--ok)}
-.pill.fail{background:var(--badbg);color:var(--bad)}
-.pill.check{background:var(--warnbg);color:var(--warn)}
-.addr{margin-top:10px;display:flex;align-items:center;gap:8px;background:#fafbfd;border:1px dashed #d5d9e3;border-radius:12px;padding:9px 10px}
+.pill{flex:none;font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:var(--chip);color:#5b6070}
+.pill.pass{background:var(--pos-soft,#e6f6ee);color:var(--pos,#0f9d58)}
+.pill.fail{background:var(--neg-soft,#fdecee);color:var(--neg,#d93a49)}
+.pill.check{background:var(--warn-soft);color:var(--warn)}
+.addr{margin-top:10px;display:flex;align-items:center;gap:8px;background:#f7f8fb;border:1px solid var(--line);border-radius:14px;padding:8px 8px 8px 12px}
 .addr code{flex:1;min-width:0;font:500 11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#2a2d38;word-break:break-all}
-.copy{flex-shrink:0;border:0;background:var(--chip);color:var(--chipink);font:inherit;font-size:10px;font-weight:750;padding:6px 10px;border-radius:999px;cursor:pointer;transition:background .2s,color .2s}
-.copy:hover{background:#111;color:#fff}
-.copy:active{transform:scale(.97)}
-.note{margin-top:16px;border:1px solid var(--line2);border-radius:16px;background:#fafbfd;padding:13px 14px;color:var(--mut);font-size:11px;line-height:1.65}
-.note b{color:var(--ink)}
-.note a{color:var(--brand);font-weight:650;text-decoration:none}
-.state{text-align:center;color:var(--mut);font-size:12px;padding:26px 8px}
-.sk{height:112px;border-radius:20px;background:linear-gradient(90deg,#f3f4f8 25%,#eceff5 37%,#f3f4f8 63%);background-size:400% 100%;animation:sh 1.3s ease infinite}
-@keyframes sh{0%{background-position:100% 50%}100%{background-position:0 50%}}
-.err{margin-top:4px;padding:12px 14px;border-radius:14px;border:1px solid #f0c7c4;background:var(--badbg);color:#7a1f19;font-size:12px;line-height:1.6}
-.toast{position:fixed;left:50%;bottom:calc(26px + env(safe-area-inset-bottom));transform:translate(-50%,12px);background:#111;color:#fff;font-size:12px;font-weight:600;padding:10px 16px;border-radius:14px;opacity:0;pointer-events:none;transition:.25s}
+.copy{flex:none;border:0;border-radius:999px;background:var(--brand-soft,#eef2ff);color:var(--brand,#2450ff);font:inherit;font-size:10px;font-weight:700;padding:7px 12px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .2s,color .2s,transform .15s}
+.copy:hover{background:var(--brand,#2450ff);color:#fff}
+.copy:active{transform:scale(.96)}
+
+/* ---- Loading placeholders reuse the app's shimmer (skeleton.css) ---- */
+.vx-card{height:100px;border-radius:18px}
+
+/* ---- Footer note + error ---- */
+.note{margin-top:14px}
+.note a{color:var(--brand,#2450ff);font-weight:650;text-decoration:none}
+.note b{color:#17181d}
+.err{padding:12px 14px;border-radius:14px;border:1px solid rgba(217,58,73,.35);background:var(--neg-soft,#fdecee);color:var(--neg,#d93a49);font-size:12px;line-height:1.6}
+
+/* ---- Toast (same navy as the app's toasts) ---- */
+.toast{position:fixed;left:50%;bottom:calc(36px + env(safe-area-inset-bottom));transform:translate(-50%,12px);width:max-content;max-width:min(calc(100vw - 48px),340px);background:#101a4d;color:#fff;font-size:12px;font-weight:600;line-height:1.45;text-align:center;padding:12px 18px;border-radius:16px;opacity:0;pointer-events:none;transition:.25s;z-index:20000}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <span class="eyebrow">DEVELOPER TOOLS</span>
-  <h1>Address check</h1>
-  <p class="lead">Opens in any browser, no sign-in needed. Uses the public BIP-39 test phrase <code>abandon … about</code>. Rows marked <b>Pass</b> match the published reference address.</p>
 
-  <div class="sum card" id="sum">
-    <span class="sum-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg></span>
-    <div><b id="sumT">Checking addresses…</b><small id="sumS">Deriving from the test phrase</small></div>
-  </div>
+  <section class="card">
+    <span class="eyebrow">Test phrase</span>
+    <p class="lead">Opens in any browser, no sign-in needed. Uses the public BIP-39 test phrase <code class="k">abandon … about</code>. Rows marked <b>Pass</b> match the published reference address.</p>
+  </section>
 
-  <div class="list" id="out"><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>
+  <section class="card sum" id="sum">
+    <div class="sum-top">
+      <span class="sum-ic" id="sumIc"></span>
+      <div><b id="sumT">Checking addresses…</b><small id="sumS">Deriving from the test phrase</small></div>
+    </div>
+    <div class="stats" aria-label="Results">
+      <div class="stat s-pass" id="stPass"><b>–</b><small>Pass</small></div>
+      <div class="stat s-check" id="stCheck"><b>–</b><small>Check</small></div>
+      <div class="stat s-fail" id="stFail"><b>–</b><small>Fail</small></div>
+    </div>
+  </section>
 
-  <div class="note"><b>Before any real deposit:</b> for every coin marked <b>Check</b>, paste the same phrase into <a href="https://iancoleman.io/bip39/" target="_blank" rel="noopener">iancoleman.io/bip39</a> (download it and use it offline) with the same derivation path and compare the address.</div>
+  <div class="cap"><span>Addresses</span><span id="cnt"></span></div>
+  <div class="list" id="out"><div class="vx vx-card"></div><div class="vx vx-card"></div><div class="vx vx-card"></div></div>
+
+  <section class="card note">
+    <span class="eyebrow">Before any real deposit</span>
+    <p class="lead">For every coin marked <b>Check</b>, paste the same phrase into <a target="_blank" rel="noopener" id="back">voltexweb3.online</a> (download it and use it offline) with the same derivation path and compare the address.</p>
+  </section>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -76,8 +131,16 @@ const PHRASE="abandon abandon abandon abandon abandon abandon abandon abandon ab
 const REF={ETH:"0x9858EfFD232B4033E47d90003D41EC34EcaEda94",BTC:"bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu",SOL:"HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk",TRX:"TUEZSdKsoDHQMeZwihtdoBiN46zxhGWYdH",XRP:"rHsMGQEkVNJmpGWs8XUBoTBiAAbwxZN5v3"};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const IC={
+  load:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6l8-3z"/></svg>',
+  ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>',
+  bad:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6l8-3z"/><path d="M12 8.500v4M12 15.800h.01"/></svg>'
+};
 let tt;function toast(m){const t=$("toast");t.textContent=m;t.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("on"),1600)}
-function setSum(cls,t,s){const e=$("sum");e.className="sum "+cls;$("sumT").textContent=t;$("sumS").textContent=s}
+function setSum(cls,t,s){const e=$("sum");e.className="card sum "+cls;$("sumIc").innerHTML=IC[cls==="ok"?"ok":cls==="bad"?"bad":"load"];$("sumT").textContent=t;$("sumS").textContent=s}
+function setStat(id,n){const e=$(id);e.querySelector("b").textContent=n;e.classList.toggle("on",n>0)}
+setSum("","Checking addresses…","Deriving from the test phrase");
+$("back").addEventListener("click",e=>{if(history.length>1&&document.referrer){e.preventDefault();history.back()}});
 $("out").addEventListener("click",e=>{const b=e.target.closest(".copy");if(!b)return;const a=b.dataset.a;
   (navigator.clipboard?navigator.clipboard.writeText(a):Promise.reject()).then(()=>toast("Address copied"),()=>{const t=document.createElement("textarea");t.value=a;document.body.appendChild(t);t.select();try{document.execCommand("copy");toast("Address copied")}catch{toast("Couldn't copy")}t.remove()})});
 VeltrixAddr.deriveAll(PHRASE).then(r=>{
@@ -87,6 +150,8 @@ VeltrixAddr.deriveAll(PHRASE).then(r=>{
     st==="pass"?pass++:st==="fail"?fail++:chk++;
     const label=st==="pass"?"Pass":st==="fail"?"Fail":"Check";
     return `<div class="row"><div class="top"><span class="coin">${esc(x.symbol).slice(0,4)}</span><div class="name"><b>${esc(x.symbol)}</b><small>${esc(x.derivation_path)}</small></div><span class="pill ${st}">${label}</span></div><div class="addr"><code>${esc(x.address)}</code><button type="button" class="copy" data-a="${esc(x.address)}">Copy</button></div></div>`}).join("");
+  $("cnt").textContent=r.rows.length+" coins";
+  setStat("stPass",pass);setStat("stCheck",chk);setStat("stFail",fail);
   if(fail)setSum("bad",fail+" address"+(fail>1?"es":"")+" failed","Do not use this build for deposits until fixed");
   else setSum("ok",pass+" passed"+(chk?" · "+chk+" to verify":""),chk?"Verify the rest offline before any real deposit":"All addresses match the reference");
 }).catch(e=>{$("out").innerHTML=`<div class="err">Error: ${esc(e&&e.message)}</div>`;setSum("bad","Couldn't derive addresses","See the error below")});
