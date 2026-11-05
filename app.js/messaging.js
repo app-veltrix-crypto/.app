@@ -269,7 +269,7 @@ function openChat(uid){
  {const c=store.convs[uid];divAt=(c&&c.userReadAt)||0;divN=unreadOf(c);markReadUser(uid)}
  el("vmChatWho").innerHTML=av(u,"vm-sm")+`<span class="vm-name">${esc(u.name)}${u.support?verifiedBadge:""}</span>`;
  clearStage();text.value="";autosize();setMode();renderMsgs(true);C.hidden=false;
- try{window.vxGame&&window.vxGame.onChat({contactId:uid,persona:u.name,support:!!u.support,real:!!u.real,peerId:u.real?String(uid).slice(5):null})}catch(e){}
+ try{window.vxGame&&window.vxGame.onChat({contactId:uid,persona:u.name,support:!!u.support,real:!!u.real,admin:!u.real&&!u.support,peerId:u.real?String(uid).slice(5):null})}catch(e){}
 }
 function closeChat(){try{window.vxGame&&window.vxGame.onChat(null)}catch(e){}clearStage();closePreview();closeViewer();if(recorder)cancelRec();stopPlayback();C.hidden=true;activeId=null;divN=0;renderConvs();updateBadge()}
 el("vmChatBack").addEventListener("click",closeChat);

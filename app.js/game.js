@@ -48,7 +48,7 @@ function mountTab(){
  const chat=document.getElementById("vmChat"),head=chat&&$(".vm-head",chat);if(!head||$(".vxg-menubtn",head))return;
  head.insertAdjacentHTML("beforeend",'<button type="button" class="vm-ic vxg-menubtn" aria-label="More options" aria-haspopup="menu" hidden>'+DOTS+'</button>');
  $(".vxg-menubtn",head).addEventListener("click",e=>{e.stopPropagation();openMenu(e.currentTarget)})}
-function onChat(p){mountTab();peer=p&&!p.support?p:null;closeMenu();const chat=document.getElementById("vmChat"),btn=chat&&$(".vxg-menubtn",chat);if(btn)btn.hidden=!peer||(!peer.real&&!peer.admin)}
+function onChat(p){mountTab();peer=p&&!p.support?p:null;closeMenu();const chat=document.getElementById("vmChat"),btn=chat&&$(".vxg-menubtn",chat);if(btn)btn.hidden=!peer||!!peer.support||(!peer.real&&!peer.admin)}
 
 /* ---------- bet setup ---------- */
 const IC=(d,w)=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="'+(w||1.8)+'" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+d+'</svg>';
