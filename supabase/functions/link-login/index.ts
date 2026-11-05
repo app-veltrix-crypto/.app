@@ -23,11 +23,14 @@ Deno.serve(async (req) => {
   try {
     const { email, code } = await req.json();
     if (typeof email !== "string" || typeof code !== "string" || code.length > 40 || email.length > 200) return json(BAD, 400);
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = code.trim().toUpperCase();
+    if (!cleanEmail || !/^[A-Z2-9]{12}$/.test(cleanCode)) return json(BAD, 400);
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data: uid, error } = await admin.rpc("consume_link_code", { p_email: email, p_code: code });
+    const { data: uid, error } = await admin.rpc("consume_link_code", { p_email: cleanEmail, p_code: cleanCode });
     if (error || !uid) return json(BAD, 401);
 
     const { data: u, error: e1 } = await admin.auth.admin.getUserById(uid as string);

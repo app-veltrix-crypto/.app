@@ -177,7 +177,7 @@ const realOf=id=>{if(realUsers[id])return realUsers[id];const c=store.convs[id];
 function rememberReal(u){try{if(!u||!u.real)return;const c=store.convs[u.id];if(!c)return;let ch=false;
  if(u.name&&c.name!==u.name){c.name=u.name;ch=true}
  if(u.username&&c.username!==u.username){c.username=u.username;ch=true}
- const ph=u.photo&&String(u.photo).length<20000?u.photo:"";if(ph&&c.photo!==ph){c.photo=ph;ch=true}
+ const ph=u.photo&&String(u.photo).length<120000?u.photo:"";if(ph&&c.photo!==ph){c.photo=ph;ch=true}
  if(ch)saveStore()}catch(e){}}
 /* Re-fetch photos/usernames for saved real-user chats (older chats were saved without them; the other person may also have changed theirs). Once per chat per session. */
 const profTried={};

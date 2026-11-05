@@ -1262,23 +1262,11 @@ document.addEventListener("click",function(event){
 })();
 
 
-/* Security: leaving the app/page while signed in locks it immediately.
-   Returning always requires authentication again, including when a game is open.
-   Do not use a grace period: a quick app switch must not preserve the session UI. */
-(()=>{
- const lockNow=()=>{
-  const a=getAccount();
-  if(!a||dashboardPage.classList.contains("hidden"))return;
-  lockToLogin(a);
- };
- const requireUnlock=()=>{
-  lockNow();
-  const a=getAccount();
-  if(a&&a.fingerprintEnabled&&window.PublicKeyCredential)loginWithFingerprint(true);
- };
- document.addEventListener("visibilitychange",()=>{if(document.hidden)lockNow();else requireUnlock()});
- window.addEventListener("pagehide",lockNow);
- window.addEventListener("pageshow",e=>{if(e.persisted)requireUnlock()});
+/* Leaving the page locks the app: coming back (restored tab, back/forward cache, or away for 30 s+) asks for fingerprint / password again. */
+(()=>{let hiddenAt=0;
+ const lockNow=()=>{const a=getAccount();if(a&&!dashboardPage.classList.contains("hidden"))lockToLogin(a)};
+ document.addEventListener("visibilitychange",()=>{if(document.hidden)hiddenAt=Date.now();else if(hiddenAt&&Date.now()-hiddenAt>=30000){hiddenAt=0;lockNow();const a=getAccount();if(a&&a.fingerprintEnabled&&window.PublicKeyCredential)loginWithFingerprint(true)}else hiddenAt=0});
+ window.addEventListener("pageshow",e=>{if(e.persisted){lockNow();const a=getAccount();if(a&&a.fingerprintEnabled&&window.PublicKeyCredential)loginWithFingerprint(true)}});
 })();
 
 /* A withdrawal changed status: refresh history and balance (a cancelled send returns its amount to the wallet). */
