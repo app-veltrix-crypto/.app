@@ -88,7 +88,8 @@ function avatarSrc(u){
 }
 /* a photo that fails to load is hidden and the user's initials show instead */
 document.addEventListener("error",e=>{const t=e.target;if(t&&t.tagName==="IMG"&&t.dataset&&t.dataset.n&&t.parentElement&&t.parentElement.classList.contains("vm-av")){t.style.display="none";t.parentElement.classList.add("vm-avatar-fallback")}},true);
-const av=(u,cls)=>u.support?`<span class="vm-av ${cls||""} vm-support-logo"><img src="app.assets/veltrix-support-logo.png" alt="Veltrix Support" loading="eager"><span class="vm-avatar-initials">${esc(initials(u.name))}</span></span>`:`<span class="vm-av ${cls||""}" style="background:hsl(${u.hue} 42% 34%)"><img src="${avatarSrc(u)}" data-n="${u.n}" alt="" loading="lazy" decoding="async"><span class="vm-avatar-initials">${esc(initials(u.name))}</span></span>`;
+const realAv=(u,cls)=>`<span class="vm-av vxg-real ${cls||""}" style="background:hsl(${u.hue} 42% 34%)">${u.photo?`<img src="${esc(u.photo)}" data-n="1" alt="" loading="lazy" decoding="async">`:""}<span class="vm-avatar-initials">${esc(initials(u.name))}</span></span>`;
+const av=(u,cls)=>u.real?realAv(u,cls):u.support?`<span class="vm-av ${cls||""} vm-support-logo"><img src="app.assets/veltrix-support-logo.png" alt="Veltrix Support" loading="eager"><span class="vm-avatar-initials">${esc(initials(u.name))}</span></span>`:`<span class="vm-av ${cls||""}" style="background:hsl(${u.hue} 42% 34%)"><img src="${avatarSrc(u)}" data-n="${u.n}" alt="" loading="lazy" decoding="async"><span class="vm-avatar-initials">${esc(initials(u.name))}</span></span>`;
 const fmtT=t=>new Date(t).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
 const fmtSize=b=>b<1024?b+" B":b<1048576?(b/1024).toFixed(0)+" KB":(b/1048576).toFixed(1)+" MB";
 const fmtDur=s=>Math.floor(s/60)+":"+String(Math.floor(s%60)).padStart(2,"0");
@@ -167,7 +168,11 @@ let activeId=null;
 const SUPPORT_USER={id:"veltrix-support",name:"Veltrix Support",n:0,hue:225,key:"veltrix support",support:true};
 const verifiedBadge='<span class="vm-verified" title="Verified official support" aria-label="Verified official support"><svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path class="vm-verified-seal" d="M 12.00,0.55 L 13.35,1.74 L 14.96,0.94 L 15.96,2.44 L 17.72,2.08 L 18.30,3.79 L 20.10,3.90 L 20.21,5.70 L 21.92,6.28 L 21.56,8.04 L 23.06,9.04 L 22.26,10.65 L 23.45,12.00 L 22.26,13.35 L 23.06,14.96 L 21.56,15.96 L 21.92,17.72 L 20.21,18.30 L 20.10,20.10 L 18.30,20.21 L 17.72,21.92 L 15.96,21.56 L 14.96,23.06 L 13.35,22.26 L 12.00,23.45 L 10.65,22.26 L 9.04,23.06 L 8.04,21.56 L 6.28,21.92 L 5.70,20.21 L 3.90,20.10 L 3.79,18.30 L 2.08,17.73 L 2.44,15.96 L 0.94,14.96 L 1.74,13.35 L 0.55,12.00 L 1.74,10.65 L 0.94,9.04 L 2.44,8.04 L 2.08,6.27 L 3.79,5.70 L 3.90,3.90 L 5.70,3.79 L 6.27,2.08 L 8.04,2.44 L 9.04,0.94 L 10.65,1.74 Z"/><path class="vm-verified-check" d="M7.05 12.35 10.15 15.25 16.95 8.65"/></svg></span>';
 window.veltrixWelcomeSupport=function(){try{loadStore();const c=store.convs[SUPPORT_USER.id]=store.convs[SUPPORT_USER.id]||{msgs:[],name:SUPPORT_USER.name};if(!c.msgs)c.msgs=[];if(!c.msgs.some(m=>m.systemWelcome===true)){c.msgs.push({id:"welcome-"+accountId(),from:"them",t:Date.now(),type:"text",text:"Welcome to Veltrix Support! For your security, message our verified Support Team only in this conversation. We will never ask for your password, PIN, or recovery phrase. Please be cautious of impersonators and do not trust support accounts outside this chat.",systemWelcome:true});saveStore()}}catch(e){console.warn("Support welcome could not be created",e)}};
-const userById=id=>id===SUPPORT_USER.id?SUPPORT_USER:DEMO_USERS.find(u=>u.id===id);
+/* real users (found by typing their name in the new-conversation search) have ids like "real-<account id>" */
+const realUsers={};
+const hueOf=s=>{let h=0;for(const ch of String(s))h=(h*31+ch.charCodeAt(0))>>>0;return h%360};
+const realOf=id=>{if(realUsers[id])return realUsers[id];const c=store.convs[id];if(!c||!c.name)return null;return realUsers[id]={id,name:c.name,real:true,hue:hueOf(id),username:"",photo:""}};
+const userById=id=>id===SUPPORT_USER.id?SUPPORT_USER:String(id).indexOf("real-")===0?realOf(id):DEMO_USERS.find(u=>u.id===id);
 
 /* ---------- conversation list ---------- */
 /* Read receipts (WhatsApp style): c.adminReadAt = when the other side last opened this chat; c.userReadAt = when this user did.
@@ -212,7 +217,7 @@ host.addEventListener("click",e=>{const b=e.target.closest("#dashboardPage .wd-a
 let pickList=[],pickShown=0,pickObs=null;
 const PICK_BATCH=80;
 /* Username = the person's name without spaces/punctuation, e.g. "Jane Doe" -> @janedoe */
-const handleOf=u=>"@"+String(u.name).toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"");
+const handleOf=u=>u.real?(u.username?"@"+String(u.username).replace(/^@+/,""):"Veltrix user"):"@"+String(u.name).toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"");
 const userRow=u=>`<button type="button" class="vm-row" data-uid="${u.id}">${av(u)}<span class="vm-body"><span class="vm-name">${esc(u.name)}</span><div class="vm-prev">${esc(handleOf(u))} · ${store.convs[u.id]&&store.convs[u.id].msgs&&store.convs[u.id].msgs.length?"Existing conversation":"Tap to start a conversation"}</div></span></button>`;
 function pickMore(){
  const box=el("vmUsers"),old=box.querySelector(".vm-sentinel");if(old)old.remove();
@@ -220,10 +225,17 @@ function pickMore(){
  box.insertAdjacentHTML("beforeend",next.map(userRow).join(""));
  if(pickShown<pickList.length){const s=document.createElement("div");s.className="vm-sentinel";s.style.height="1px";box.appendChild(s);if(pickObs)pickObs.observe(s)}
 }
-function renderUsers(){
-  /* Default: the full list, exactly as before. Typing narrows it by name OR username (@name). */
+let realQ="",realRes=[],realT=0;
+/* real users are never listed by default: only when 3+ letters of a name/username are typed */
+function searchReal(raw){clearTimeout(realT);if(raw.length<3){realRes=[];realQ="";return}if(raw===realQ)return;
+ realT=setTimeout(async()=>{try{const {data,error}=await veltrixDB.client.rpc("search_users",{p_q:raw});if(error)throw error;
+  if(el("vmPickSearch").value.trim().toLowerCase().replace(/^@+/,"")!==raw)return;
+  realQ=raw;realRes=(data||[]).map(r=>{const id="real-"+r.id;return realUsers[id]={id,name:r.name||"Veltrix user",username:r.username||"",photo:r.photo||"",real:true,hue:hueOf(id)}});renderUsers(true)}catch(e){console.warn("User search failed",e)}},300)}
+function renderUsers(fromSearch){
+  /* Default: the full list, exactly as before. Typing narrows it by name OR username (@name); real users found by that name are shown first. */
   const raw=el("vmPickSearch").value.trim().toLowerCase().replace(/^@+/,""),q=raw.replace(/\s+/g,"");
-  pickList=raw?USERS_SHUFFLED.filter(u=>u.key.includes(raw)||handleOf(u).slice(1).includes(q)):USERS_SHUFFLED;pickShown=0;
+  if(fromSearch!==true)searchReal(raw);
+  pickList=(raw&&realQ===raw?realRes:[]).concat(raw?USERS_SHUFFLED.filter(u=>u.key.includes(raw)||handleOf(u).slice(1).includes(q)):USERS_SHUFFLED);pickShown=0;
   const box=el("vmUsers");box.scrollTop=0;
   if(!pickObs&&"IntersectionObserver"in window)pickObs=new IntersectionObserver(es=>{if(es.some(e=>e.isIntersecting))pickMore()},{root:box,rootMargin:"800px"});
   box.innerHTML=pickList.length?"":`<div class="vm-empty"><h2>No users found</h2></div>`;
@@ -240,8 +252,9 @@ function openChat(uid){
  {const c=store.convs[uid];divAt=(c&&c.userReadAt)||0;divN=unreadOf(c);markReadUser(uid)}
  el("vmChatWho").innerHTML=av(u,"vm-sm")+`<span class="vm-name">${esc(u.name)}${u.support?verifiedBadge:""}</span>`;
  clearStage();text.value="";autosize();setMode();renderMsgs(true);C.hidden=false;
+ try{window.vxGame&&window.vxGame.onChat({contactId:uid,persona:u.name,support:!!u.support,real:!!u.real,peerId:u.real?String(uid).slice(5):null})}catch(e){}
 }
-function closeChat(){clearStage();closePreview();closeViewer();if(recorder)cancelRec();stopPlayback();C.hidden=true;activeId=null;divN=0;renderConvs();updateBadge()}
+function closeChat(){try{window.vxGame&&window.vxGame.onChat(null)}catch(e){}clearStage();closePreview();closeViewer();if(recorder)cancelRec();stopPlayback();C.hidden=true;activeId=null;divN=0;renderConvs();updateBadge()}
 el("vmChatBack").addEventListener("click",closeChat);
 
 function bubble(m){
@@ -273,9 +286,12 @@ function renderMsgs(forceBottom){
 }
 async function addMsg(m,blob){
  const uid=activeId;if(!uid)return;
+ const isReal=String(uid).indexOf("real-")===0;
+ if(isReal&&m.type&&m.type!=="text"){toast("Only text messages can be sent to other users for now");return}
  m.id=Date.now().toString(36)+Math.random().toString(36).slice(2,7);m.from="me";m.t=Date.now();
  if(blob&&!(await putBlob(m.id,blob)))return;
  {const cv=store.convs[uid]=store.convs[uid]||{msgs:[]},cu=userById(uid);if(cu&&!cv.name)cv.name=cu.name;cv.msgs.push(m)}saveStore();
+ if(isReal&&m.type==="text")Promise.resolve(veltrixDB.client.rpc("chat_send_real",{p_to:String(uid).slice(5),p_id:m.id,p_text:m.text})).then(r=>{if(r.error||!r.data||!r.data.ok)toast("Couldn't deliver that message")}).catch(()=>toast("Couldn't deliver that message"));
  if(activeId===uid)renderMsgs(true);
 }
 

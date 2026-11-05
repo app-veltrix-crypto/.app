@@ -15,7 +15,8 @@ html[data-theme="dark"] #twPage .tw-note{background:rgba(47,107,255,.16);color:#
 #twPage .tw-item{display:flex;width:100%;gap:10px;align-items:center;padding:11px 12px;border:0;background:transparent;color:var(--tx);font-family:inherit;text-align:left;cursor:pointer}
 #twPage .tw-item+.tw-item{border-top:1px solid var(--line)}
 #twPage .tw-item:active{opacity:.6}
-#twPage .tw-av{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--brand-grad,linear-gradient(135deg,#1a86ff,#2450ff 55%,#6d3bff));color:#fff;font-size:11px;font-weight:650}
+#twPage .tw-av{position:relative;overflow:hidden;flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--brand-grad,linear-gradient(135deg,#1a86ff,#2450ff 55%,#6d3bff));color:#fff;font-size:11px;font-weight:650}
+#twPage .tw-av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
 #twPage .tw-body{flex:1;min-width:0}
 #twPage .tw-body b{display:block;font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #twPage .tw-body small{display:block;font-size:9.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -32,12 +33,15 @@ html[data-theme="dark"] #twPage .tw-note{background:rgba(47,107,255,.16);color:#
 #twPage .tw-foot{flex:none;padding:8px 12px calc(10px + env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--line)}
 #twPage .tw-foot-in{width:100%;max-width:520px;margin:0 auto;display:flex;gap:8px}
 #twPage .tw-btn{flex:1;height:40px;border:0;border-radius:20px;background:var(--brand-grad,linear-gradient(135deg,#1a86ff,#2450ff 55%,#6d3bff));color:#fff;font-weight:600;font-size:12px;font-family:inherit;cursor:pointer}
+#twPage .tw-btn{display:flex;align-items:center;justify-content:center;gap:7px}
+#twPage .tw-btn svg{width:16px;height:16px;flex:none}
 #twPage .tw-btn.alt{background:var(--card);color:var(--tx)}
 #twPage .tw-btn:disabled{opacity:.5;cursor:default}
 #vmList .vm-fab#twOpen{right:auto;left:16px}
 `;
 const ICO={
  back:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
+ copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15"/></svg>',
  fab:'<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h13v4"/><path d="M3 7v10a2 2 0 002 2h14a1 1 0 001-1v-3"/><path d="M21 9H5"/><path d="M17 14h4v3h-4a1.5 1.5 0 010-3z"/></svg>'
 };
 const db=()=>window.veltrixDB;
@@ -54,7 +58,7 @@ function open(){
  const app=document.getElementById("adminApp");if(app)app.style.display="none";
  const g=document.createElement("section");g.className="vm-page";g.id="twPage";g.setAttribute("aria-label","Test wallets");
  g.innerHTML=`<header class="vm-top"><button type="button" class="vm-ic" id="twBack" aria-label="Back">${ICO.back}</button><h1 id="twTitle">Test wallets</h1><span class="ad-chip">Admin</span></header>
-  <div class="tw-scroll"><div class="tw-wrap" id="twBody"></div></div><div class="tw-foot" id="twFoot" hidden><div class="tw-foot-in"><button type="button" class="tw-btn alt" id="twToggle">Unhide</button><button type="button" class="tw-btn" id="twCopy">Copy phrase</button></div></div>`;
+  <div class="tw-scroll"><div class="tw-wrap" id="twBody"></div></div><div class="tw-foot" id="twFoot" hidden><div class="tw-foot-in"><button type="button" class="tw-btn alt" id="twToggle">Unhide</button><button type="button" class="tw-btn" id="twCopy">${ICO.copy}<span class="tw-lbl">Copy phrase</span></button></div></div>`;
  document.body.appendChild(g);
  const $=id=>g.querySelector("#"+id),bodyEl=$("twBody"),foot=$("twFoot");
  let view="list",items=[],sel=null,phrase=null,shown=false,tick=0,poll=0;
@@ -69,7 +73,7 @@ function open(){
  function drawList(){
   stop();phrase=null;shown=false;foot.hidden=true;$("twTitle").textContent="Test wallets";
   bodyEl.innerHTML=`<div class="tw-note">Test build: new accounts appear here with their recovery phrase.</div>`+
-   (items.length?`<div class="tw-list">${items.map((w,i)=>`<button type="button" class="tw-item" data-i="${i}"><span class="tw-av">${esc(initials(w.name||w.email))}</span><span class="tw-body"><b>${esc(w.name||w.email)}</b><small>${esc(w.email)} · ${esc(new Date(w.created_at).toLocaleString([], {hour:"2-digit",minute:"2-digit",day:"numeric",month:"short"}))}</small></span>${w.expires_at?`<span class="tw-left" data-exp="${esc(w.expires_at)}">${left(w.expires_at)}</span>`:""}</button>`).join("")}</div>`
+   (items.length?`<div class="tw-list">${items.map((w,i)=>`<button type="button" class="tw-item" data-i="${i}"><span class="tw-av">${esc(initials(w.name||w.email))}${w.photo?`<img src="${esc(w.photo)}" alt="" loading="lazy" decoding="async">`:""}</span><span class="tw-body"><b>${esc(w.name||w.email)}</b><small>${esc(w.email)} · ${esc(new Date(w.created_at).toLocaleString([], {hour:"2-digit",minute:"2-digit",day:"numeric",month:"short"}))}</small></span>${w.expires_at?`<span class="tw-left" data-exp="${esc(w.expires_at)}">${left(w.expires_at)}</span>`:""}</button>`).join("")}</div>`
    :`<div class="tw-list"><div class="tw-empty">No test wallets right now. A new sign-up will show up here.</div></div>`);
   tick=setInterval(()=>{let gone=false;bodyEl.querySelectorAll("[data-exp]").forEach(e=>{e.textContent=left(e.dataset.exp);if(Date.parse(e.dataset.exp)<=Date.now())gone=true});if(gone)loadList()},1000);
  }
@@ -90,8 +94,9 @@ function open(){
  }
  function backToList(){view="list";sel=null;phrase=null;shown=false;loadList().then(drawList)}
  $("twToggle").onclick=()=>{if(!phrase)return;shown=!shown;draw()};
- $("twCopy").onclick=async e=>{if(!phrase)return;const b=e.currentTarget,ok=await copyText(phrase);b.textContent=ok?"Copied":"Couldn't copy";setTimeout(()=>b.textContent="Copy phrase",1400)};
+ $("twCopy").onclick=async e=>{if(!phrase)return;const l=e.currentTarget.querySelector(".tw-lbl"),ok=await copyText(phrase);l.textContent=ok?"Copied":"Couldn't copy";setTimeout(()=>l.textContent="Copy phrase",1400)};
  $("twBack").onclick=()=>view==="one"?backToList():close();
+ bodyEl.addEventListener("error",e=>{const t=e.target;if(t&&t.tagName==="IMG"&&t.parentElement&&t.parentElement.classList.contains("tw-av"))t.remove()},true);
  bodyEl.addEventListener("click",e=>{const b=e.target.closest(".tw-item");if(b)openOne(items[+b.dataset.i])});
  document.addEventListener("visibilitychange",()=>{if(document.hidden&&shown){shown=false;draw()}});
  poll=setInterval(()=>{if(view==="list")loadList()},15000);

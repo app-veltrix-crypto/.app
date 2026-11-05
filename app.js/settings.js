@@ -20,8 +20,9 @@
  const stack=[];
  const pages=["twoStepPage","pinPage","devicesPage","linkQrPage","deviceEditPage","notifPage"];
  function openPage(id){const el=$(id);el.hidden=false;el.scrollTop=0;stack.push(id)}
- function back(){const id=stack.pop();if(id)$(id).hidden=true;if(id==="linkQrPage")linkQrDone()}
- function closeAll(){while(stack.length)$(stack.pop()).hidden=true}
+ function back(){const id=stack.pop();if(id)$(id).hidden=true;if(id==="linkQrPage")linkQrDone();if(id==="phrasePage")phraseWipe();if(id==="phrasePwPage")phrasePwClear();if(id==="resetPwPage")resetClear()}
+ function closeAll(){while(stack.length)$(stack.pop()).hidden=true;phraseWipe();phrasePwClear();resetClear()}
+ window.veltrixSettingsClose=closeAll;
  document.querySelectorAll("[data-sx-back]").forEach(b=>b.addEventListener("click",()=>{const top=stack[stack.length-1];if(top==="pinPage"){pinCancel();return}back()}));
  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&stack.length&&!document.querySelector(".sx-dlg:not([hidden])")){if(stack[stack.length-1]==="pinPage")pinCancel();else back()}});
  ["settingsLogout","logoutButton"].forEach(id=>{const b=$(id);if(b)b.addEventListener("click",closeAll)});
@@ -35,7 +36,7 @@
   d.querySelector("[data-n]").onclick=()=>done(null);
   d.querySelector("[data-y]").onclick=()=>{if(inp){const v=inp.value.trim();if(!v){inp.focus();return}done(v)}else done(true)};
   d.addEventListener("click",e=>{if(e.target===d)done(null)});
-  document.body.appendChild(d);if(inp)setTimeout(()=>{inp.focus();inp.select()},40);
+  document.body.appendChild(d);if(inp)setTimeout(()=>{inp.focus();try{const n=inp.value.length;inp.setSelectionRange(n,n)}catch{}},40);
  })}
  window.veltrixDialog=dialog;
  /* ---- two-step verification ---- */
@@ -77,6 +78,83 @@
   else{if(!(await veltrixDB.pin.clear(a))){$("pinError").textContent="Incorrect PIN. Try again.";$("pinError").hidden=false;$("pinA").classList.add("bad");return}
    set("veltrixTwoStep",{on:false});back();paintTfa();veltrixNotify("security","Two-step verification turned off")}
  });
+
+ /* ---- security: reset password, view passwords (recovery phrase) ---- */
+ const rp1=$("resetPw1"),rp2=$("resetPw2"),rpin=[...$("resetPin").querySelectorAll("input")],rpinVal=()=>rpin.map(i=>i.value).join("");
+ function resetCheck(){const a=rp1.value,b=rp2.value,len=a.length>=6,match=len&&a===b,c=$("resetChecks");
+  c.querySelector('[data-c="len"]').classList.toggle("ok",len);c.querySelector('[data-c="match"]').classList.toggle("ok",match);
+  $("resetSave").disabled=!(match&&rpinVal().length===4);$("resetError").hidden=true;$("resetPin").classList.remove("bad")}
+ function resetClear(){rpin.forEach(i=>{i.value="";i.classList.remove("filled")});rp1.value="";rp2.value="";rp1.type="password";rp2.type="password";
+  document.querySelectorAll("#resetPwPage .password-toggle").forEach(b=>{b.innerHTML=EYE_ICON;b.setAttribute("aria-pressed","false")});resetCheck()}
+ [rp1,rp2].forEach(i=>i.addEventListener("input",resetCheck));
+ rpin.forEach((b,i)=>{
+  b.addEventListener("input",()=>{b.value=b.value.replace(/\D/g,"").slice(-1);b.classList.toggle("filled",!!b.value);if(b.value&&i<3)rpin[i+1].focus();else if(b.value)rp1.focus();resetCheck()});
+  b.addEventListener("keydown",e=>{if(e.key==="Backspace"&&!b.value&&i>0){rpin[i-1].value="";rpin[i-1].classList.remove("filled");rpin[i-1].focus();resetCheck()}});
+  b.addEventListener("paste",e=>{const t=(e.clipboardData.getData("text")||"").replace(/\D/g,"").slice(0,4);if(!t)return;e.preventDefault();rpin.forEach((x,j)=>{x.value=t[j]||"";x.classList.toggle("filled",!!x.value)});rpin[Math.min(t.length,3)].focus();resetCheck()});
+ });
+ $("settingsSecurity").addEventListener("click",()=>openPage("securityPage"));
+ $("securityReset").addEventListener("click",async()=>{
+  if(!tfa().on){
+   const ok=await dialog({title:"Turn on two-step verification",msg:"To reset your password you first need to turn on two-step verification and create your 4-digit PIN.",ok:"Turn on"});
+   if(ok)openPin("create");return}
+  resetClear();openPage("resetPwPage");setTimeout(()=>rpin[0].focus(),150)});
+ $("resetSave").addEventListener("click",async()=>{
+  if(rp1.value.length<6||rp1.value!==rp2.value)return;
+  if(rpinVal().length!==4)return;
+  const btn=$("resetSave");btn.disabled=true;btn.textContent="Updating…";
+  try{const c=await veltrixDB.pin.check(rpinVal());
+   if(!c.ok){rpin.forEach(i=>{i.value="";i.classList.remove("filled")});$("resetPin").classList.add("bad");rpin[0].focus();
+    $("resetError").textContent=c.error?"Couldn't check your PIN. Check your connection and try again.":"Incorrect 2FA PIN. Try again.";$("resetError").hidden=false;btn.disabled=true;return}
+   await veltrixDB.setPassword(rp1.value);back();veltrixNotify("security","Your password was updated")}
+  catch(e){const m=String((e&&e.message)||"");
+   $("resetError").textContent=/different from the old|same_password/i.test(m)?"Choose a password you haven't used before.":/reauth|recent/i.test(m)?"For your security, log out and sign in again, then try again.":"Couldn't update your password. Please try again.";
+   $("resetError").hidden=false;btn.disabled=false}
+  finally{btn.textContent="Update password"}
+ });
+ const WARN=[["Your phrase controls your wallet","Anyone who has these words can take everything in your wallet. Keep them to yourself."],["Never share it","Veltrix will never ask for your phrase. Do not send it in chat, email or a screenshot, and do not give it to anyone, even if they say they are support."],["Make sure you are alone","Check that nobody can see your screen or camera, then write the words down on paper and keep them somewhere safe."]];
+ let wi=0;
+ function paintWarn(){$("pwTitle").textContent=WARN[wi][0];$("pwText").textContent=WARN[wi][1];[...$("pwSteps").children].forEach((d,i)=>d.classList.toggle("on",i===wi));$("pwNext").textContent=wi<WARN.length-1?"Next":"I understand, continue"}
+ /* The app password must be confirmed BEFORE the warnings and the recovery phrase can be reached. */
+ const ppw=$("phrasePw"),pgo=$("phrasePwGo"),perr=$("phrasePwError");let pTries=0,pLock=0,pBusy=false;
+ function phrasePwClear(){if(!ppw)return;ppw.value="";ppw.type="password";perr.hidden=true;pgo.disabled=true;pgo.textContent="Continue";pBusy=false;
+  document.querySelectorAll("#phrasePwPage .password-toggle").forEach(b=>{b.innerHTML=EYE_ICON;b.setAttribute("aria-pressed","false")})}
+ ppw.addEventListener("input",()=>{perr.hidden=true;pgo.disabled=!ppw.value||pBusy});
+ ppw.addEventListener("keydown",e=>{if(e.key==="Enter"&&!pgo.disabled)pgo.click()});
+ $("securityPhrase").addEventListener("click",()=>{phrasePwClear();openPage("phrasePwPage");setTimeout(()=>ppw.focus(),150)});
+ pgo.addEventListener("click",async()=>{
+  if(pBusy||!ppw.value)return;
+  const wait=Math.ceil((pLock-Date.now())/1000);
+  if(wait>0){perr.textContent=`Too many attempts. Try again in ${wait}s.`;perr.hidden=false;return}
+  pBusy=true;pgo.disabled=true;pgo.textContent="Checking…";
+  let r={ok:false,error:true};try{r=await veltrixDB.verifyPassword(ppw.value)}catch{}
+  pBusy=false;pgo.textContent="Continue";
+  if(r.ok){pTries=0;back();wi=0;paintWarn();openPage("phraseWarnPage");return}
+  ppw.value="";pgo.disabled=true;
+  if(r.error){perr.textContent="Couldn't check your password. Check your connection and try again."}
+  else{pTries++;if(pTries>=5){pLock=Date.now()+30000;pTries=0;perr.textContent="Too many attempts. Try again in 30s."}else perr.textContent="Incorrect password. Try again."}
+  perr.hidden=false;ppw.focus();
+ });
+ $("pwNext").addEventListener("click",()=>{if(wi<WARN.length-1){wi++;paintWarn();return}back();openPhrase()});
+ let words=null,shown=true;
+ function paintPhrase(note){
+  const g=$("rpGrid");
+  if(!words){g.className="rp-grid empty";g.textContent=note||"";return}
+  g.className="rp-grid"+(shown?"":" blur");
+  g.replaceChildren(...words.map((w,i)=>{const r=document.createElement("span"),n=document.createElement("b"),t=document.createElement("em");n.textContent=i+1;t.textContent=w;r.append(n,t);return r}));
+  $("rpToggleText").textContent=shown?"Hide":"Unhide";
+ }
+ function phraseWipe(){words=null;shown=true;const g=$("rpGrid");if(g){g.replaceChildren();g.className="rp-grid empty"}$("rpError").hidden=true}
+ async function openPhrase(){
+  words=null;shown=true;$("rpError").hidden=true;paintPhrase("Loading…");openPage("phrasePage");
+  try{
+   const r=await veltrixDB.wallet.myPhrase();
+   if(!r||!r.ok||!r.phrase){paintPhrase(r&&r.reason==="no_wallet"?"Your wallet isn't ready yet. Please try again in a moment.":"Couldn't load your recovery phrase.");return}
+   words=String(r.phrase).trim().split(/\s+/);paintPhrase();
+  }catch(e){console.error("recovery phrase",e);paintPhrase("Couldn't load your recovery phrase. Make sure schema_phase21_security_phrase.sql has been run in Supabase.")}
+ }
+ $("rpToggle").addEventListener("click",()=>{if(!words)return;shown=!shown;paintPhrase()});
+ $("rpCopy").addEventListener("click",async()=>{if(!words)return;try{await navigator.clipboard.writeText(words.join(" "));toast("Recovery phrase copied")}catch{toast("Copy not supported")}});
+ document.addEventListener("visibilitychange",()=>{if(document.hidden&&words&&shown){shown=false;paintPhrase()}});
  /* ---- linked devices ---- */
  const ICON={desktop:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>',phone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>'};
  function detect(){const u=navigator.userAgent;

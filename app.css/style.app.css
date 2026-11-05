@@ -855,6 +855,8 @@ button.sx-card{cursor:none}
 html[data-theme="dark"]{filter:invert(1) hue-rotate(180deg);background:#fff;color-scheme:dark}
 html[data-theme="dark"] img,html[data-theme="dark"] video,html[data-theme="dark"] picture,html[data-theme="dark"] #linkQrImage,html[data-theme="dark"] #depositQrImage,html[data-theme="dark"] .profile-ui-avatar-button img{filter:invert(1) hue-rotate(180deg)}
 html[data-theme="dark"] .profile-ui-identity{filter:invert(1) hue-rotate(180deg)}
+/* The identity card already undoes the page filter, so a photo inside it must NOT be inverted a second time (that made it look negative/odd). */
+html[data-theme="dark"] .profile-ui-identity img,html[data-theme="dark"] .profile-ui-identity .profile-ui-avatar-button img{filter:none}
 
 
 /* Row highlight: fill the whole card edge-to-edge (settings + edit profile). */
@@ -1075,3 +1077,14 @@ html[data-theme="dark"] #splash .sp-name-dark{display:block}
 .wd .wd-amount{align-items:baseline;gap:0}.wd .wd-amount .wd-cur{font-size:inherit;font-weight:inherit;color:inherit;margin-right:1px}
 .wd-pnl.wd-greet{font-size:13px;font-weight:600;color:var(--wd-text,#444)}
 #sdTagWrap{margin-top:14px}
+
+/* Dashboard header: no gap above it, and it stays pinned while the page scrolls.
+   The 14px top padding on .wd-screen used to push the sticky header down at rest, so it
+   slid up into place as soon as the page moved. The header already adds the safe-area inset itself. */
+.dashboard-page.wd .wd-screen{padding-top:0!important}
+.dashboard-page.wd .wd-header{position:sticky;top:0;margin-top:0;z-index:30}
+html,body{overscroll-behavior-y:none}
+
+/* Dialog inputs (Rename device): no blue text-selection highlight over the name */
+.profile-ui-dialog-card input::selection{background:transparent;color:inherit}
+.profile-ui-dialog-card input::-moz-selection{background:transparent;color:inherit}

@@ -55,17 +55,54 @@ function paintBadge(){
 function range(){const el=document.querySelector("[data-notification-range].is-selected");return el?el.dataset.notificationRange:"all"}
 function inRange(t,r){if(r==="all")return true;const n=new Date(),t0=new Date(n.getFullYear(),n.getMonth(),n.getDate()).getTime(),x=new Date(t).getTime();
   if(r==="today")return x>=t0;if(r==="yesterday")return x>=t0-864e5&&x<t0;if(r==="7days")return x>=t0-6*864e5;if(r==="30days")return x>=t0-29*864e5;return true}
+/* ---- coin chips: "All" + every supported coin, shared by notifications and history ---- */
+const FALLBACK_COINS=[["BTC","Bitcoin"],["ETH","Ethereum"],["USDT","Tether"],["BNB","BNB"],["SOL","Solana"],["XRP","XRP"],["USDC","USDC"],["TRX","TRON"],["AVAX","Avalanche"],["SHIB","Shiba Inu"],["LINK","Chainlink"],["LTC","Litecoin"]].map(x=>({symbol:x[0],name:x[1]}));
+function coinList(){try{if(typeof cryptoFallback!=="undefined"&&cryptoFallback.length)return cryptoFallback.map(c=>({symbol:String(c.symbol).toUpperCase(),name:c.name,color:c.color}))}catch{}return FALLBACK_COINS}
+function chipLogo(c){try{return coinLogoHTML(c)}catch{return "<span>"+esc(c.symbol.slice(0,1))+"</span>"}}
+function paintChips(el,sel){
+  if(!el)return;
+  if(!el.dataset.built){
+    el.innerHTML=`<button type="button" role="tab" class="vx-chip" data-chip="all"><span class="vx-chip-t">All</span></button>`+coinList().map(c=>`<button type="button" role="tab" class="vx-chip" data-chip="${esc(c.symbol)}"><span class="vx-chip-logo">${chipLogo(c)}</span><span class="vx-chip-t">${esc(c.name)}</span></button>`).join("");
+    el.dataset.built="1";
+  }
+  el.querySelectorAll(".vx-chip").forEach(b=>{const on=b.dataset.chip===sel;b.classList.toggle("on",on);b.setAttribute("aria-selected",String(on))});
+  fadeSync(el);requestAnimationFrame(()=>fadeSync(el));
+}
+/* soft fade on whichever side of the chip row still has more to scroll */
+function fadeSync(el){if(!el)return;const max=el.scrollWidth-el.clientWidth;el.classList.toggle("fade-l",el.scrollLeft>2);el.classList.toggle("fade-r",max>2&&el.scrollLeft<max-2)}
+document.addEventListener("scroll",e=>{const t=e.target;if(t&&t.classList&&t.classList.contains("vx-chips"))fadeSync(t)},true);
+window.addEventListener("resize",()=>document.querySelectorAll(".vx-chips").forEach(fadeSync));
+function centerChip(b){try{b.scrollIntoView({inline:"center",block:"nearest",behavior:"smooth"})}catch{}}
+function emptyBlock(title,sub,cta){return `<span class="vx-empty-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 6.5V12.5l3.2 3.2"/></svg></span><h2>${title}</h2><p>${esc(sub)}</p>${cta?`<button type="button" class="vx-empty-btn" data-tx-cta="deposit">${esc(cta)}</button>`:""}`}
+const coinName=sym=>{const c=coinList().find(x=>x.symbol===sym);return c?c.name:sym};
+
+/* a notification belongs to a coin when it names it: a stored `symbol` field, or the coin's ticker / name in the text */
+let coinRx=null;
+function rxFor(){if(coinRx)return coinRx;const q=s=>s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+  coinRx=coinList().map(c=>({s:c.symbol,sym:new RegExp("(^|[^A-Za-z0-9])"+q(c.symbol)+"([^A-Za-z0-9]|$)"),nm:new RegExp("(^|[^A-Za-z])"+q(c.name)+"([^A-Za-z]|$)","i")}));return coinRx}
+function notifCoin(n){
+  if(n._c!==undefined)return n._c;
+  let r=null;
+  if(n.symbol)r=String(n.symbol).toUpperCase();
+  else{const t=(n.title||"")+" "+(n.body||"");for(const x of rxFor()){if(x.sym.test(t)||x.nm.test(t)){r=x.s;break}}}
+  n._c=r;return r;
+}
+let nCoin="all";
 function paintNotifs(){
-  const list=$("notifList"),empty=document.querySelector("#notificationPage .wd-notification-empty");if(!list)return;
-  const rows=notifs.filter(n=>inRange(n.created_at,range()));
-  empty.hidden=notifs.length>0&&rows.length>0;
-  if(!notifs.length){list.hidden=true;empty.querySelector("h2").textContent="No notifications yet";empty.querySelector("p").textContent="Your updates and alerts will appear here.";return}
-  if(!rows.length){list.hidden=true;empty.hidden=false;empty.querySelector("h2").textContent="Nothing in this period";empty.querySelector("p").textContent="Try a different date filter.";return}
-  list.hidden=false;
-  let html="",last=null;
-  for(const n of rows){const k=dayKey(n.created_at);if(k!==last){html+=`<div class="wd-act-day">${esc(dayLabel(k))}</div>`;last=k}
-    html+=`<button type="button" class="wd-act-row${n.read?"":" unread"}" data-nid="${esc(n.id)}"><span class="wd-act-ic ${topicCls(n.topic)}">${topicIcon(n.topic)}</span><span class="wd-act-main"><b>${esc(n.title)}</b><small>${esc(n.body)}</small></span><span class="wd-act-side"><em>${esc(ago(n.created_at))}</em>${n.read?"":"<i></i>"}</span></button>`}
-  list.innerHTML=html;
+  const list=$("notifList"),empty=$("notifEmpty");if(!list||!empty)return;
+  paintChips($("notifChips"),nCoin);
+  const rows=notifs.filter(n=>inRange(n.created_at,range())&&(nCoin==="all"||notifCoin(n)===nCoin));
+  if(rows.length){
+    empty.hidden=true;list.hidden=false;
+    let html="",last=null;
+    for(const n of rows){const k=dayKey(n.created_at);if(k!==last){html+=`<div class="wd-act-day">${esc(dayLabel(k))}</div>`;last=k}
+      html+=`<button type="button" class="wd-act-row${n.read?"":" unread"}" data-nid="${esc(n.id)}"><span class="wd-act-ic ${topicCls(n.topic)}">${topicIcon(n.topic)}</span><span class="wd-act-main"><b>${esc(n.title)}</b><small>${esc(n.body)}</small></span><span class="wd-act-side"><em>${esc(ago(n.created_at))}</em>${n.read?"":"<i></i>"}</span></button>`}
+    list.innerHTML=html;return;
+  }
+  list.hidden=true;empty.hidden=false;
+  if(!notifs.length)empty.innerHTML=emptyBlock("Your notifications<br>will be shown here","You're all caught up!");
+  else if(nCoin!=="all"&&!notifs.some(n=>notifCoin(n)===nCoin))empty.innerHTML=emptyBlock("No "+esc(coinName(nCoin))+" notifications","Updates about "+coinName(nCoin)+" will be shown here.");
+  else empty.innerHTML=emptyBlock("Nothing in this period","Try a different date filter or coin.");
 }
 async function loadNotifs(){if(!signedIn())return;try{notifs=await db().notif.list();paintBadge();paintNotifs()}catch(e){console.error("Notifications could not be loaded",e)}}
 async function push(topic,msg,title){
@@ -89,19 +126,33 @@ function openNotif(id){
   if(!n.read){n.read=true;paintBadge();paintNotifs();db().notif.markRead(id).catch(()=>{})}
 }
 document.addEventListener("click",e=>{
+  const ic=e.target.closest(".vx-info-close");if(ic){const c=ic.closest("[data-info-card]");if(c)c.hidden=true;return}
+  const chip=e.target.closest("#notifChips [data-chip]");if(chip){nCoin=chip.dataset.chip;paintNotifs();centerChip(chip);return}
   const row=e.target.closest("#notifList [data-nid]");if(row){openNotif(row.dataset.nid);return}
   if(e.target.closest("#notificationDetailBack")){closeFeature("notificationDetailPage",true);openNotifId=null;return}
-  if(e.target.closest("#notificationDeleteBtn")){deleteOpen();return}
   if(e.target.closest("#notifyButton")){loadNotifs();return}
   if(e.target.closest("#notificationFilterApply")){setTimeout(paintNotifs,0);return}
 });
-async function deleteOpen(){
-  const id=openNotifId;if(!id)return;
+async function deleteNotif(id){
+  if(!id)return;
   const ok=window.veltrixDialog?await veltrixDialog({title:"Delete this notification?",msg:"It will be removed from your notifications.",ok:"Delete",danger:true}):confirm("Delete this notification?");
   if(!ok)return;
-  try{await db().notif.remove(id);notifs=notifs.filter(n=>n.id!==id);openNotifId=null;closeFeature("notificationDetailPage",true);paintBadge();paintNotifs();toast("Notification deleted")}
+  try{await db().notif.remove(id);notifs=notifs.filter(n=>n.id!==id);if(openNotifId===id){openNotifId=null;closeFeature("notificationDetailPage",true)}paintBadge();paintNotifs();toast("Notification deleted")}
   catch{toast("Couldn't delete. Please try again.")}
 }
+/* press and hold a notification in the list to delete it (transactions can't be deleted) */
+let lpT=null,lpX=0,lpY=0,lpFired=false;
+const lpClear=()=>{clearTimeout(lpT);lpT=null};
+document.addEventListener("pointerdown",e=>{
+  const row=e.target.closest("#notifList [data-nid]");if(!row)return;
+  lpFired=false;lpX=e.clientX;lpY=e.clientY;lpClear();
+  lpT=setTimeout(()=>{lpT=null;lpFired=true;try{navigator.vibrate&&navigator.vibrate(15)}catch{}deleteNotif(row.dataset.nid)},550);
+},true);
+document.addEventListener("pointermove",e=>{if(lpT&&(Math.abs(e.clientX-lpX)>10||Math.abs(e.clientY-lpY)>10))lpClear()},true);
+["pointerup","pointercancel","scroll"].forEach(t=>document.addEventListener(t,lpClear,true));
+document.addEventListener("contextmenu",e=>{if(e.target.closest("#notifList [data-nid]")){e.preventDefault()}},true);
+/* the click that ends a long-press must not also open the notification */
+document.addEventListener("click",e=>{if(lpFired&&e.target.closest("#notifList [data-nid]")){e.stopImmediatePropagation();e.preventDefault();lpFired=false}},true);
 
 /* ====================================================== TRANSACTION HISTORY */
 let txRows=[],txAll=[],openTx=null,openRows=[];
@@ -352,16 +403,24 @@ async function retryNet(){
   catch(e){toast(netErr(e)?"Still no connection":"Couldn't connect. Please try again.")}
   finally{lab("Try again")}
 }
+let txCoin="all",txRng="all";
+function txPass(t){return(txCoin==="all"||String(t.symbol).toUpperCase()===txCoin)&&inRange(t.created_at,txRng)}
 function paintAll(net){
+  paintChips($("txChips"),txCoin);
   if(net==="offline")showOffline();
   if(net&&!txAll.length){$("txAllList").innerHTML=net==="offline"?"":netCard(net,false);return}
   if(!net)hideOffline();
-  if(!txAll.length){$("txAllList").innerHTML='<div class="wd-act-note">No transactions yet.</div>';return}
-  let html="",last=null;txAll.forEach((t,i)=>{const k=dayKey(t.created_at);if(k!==last){html+=`<div class="wd-act-day">${esc(dayLabel(k))}</div>`;last=k}html+=txRowHTML(t,i,"a")});
-  $("txAllList").innerHTML=html;
+  let html="",last=null,count=0;
+  txAll.forEach((t,i)=>{if(!txPass(t))return;count++;const k=dayKey(t.created_at);if(k!==last){html+=`<div class="wd-act-day">${esc(dayLabel(k))}</div>`;last=k}html+=txRowHTML(t,i,"a")});
+  if(count){$("txAllList").innerHTML=html;return}
+  let box;
+  if(!txAll.length)box=emptyBlock("Your activity<br>will be shown here","Make your first transaction!","Add Funds");
+  else if(txCoin!=="all"&&!txAll.some(t=>String(t.symbol).toUpperCase()===txCoin))box=emptyBlock("No "+esc(coinName(txCoin))+" activity","Make your first "+txCoin+" transaction!","Add Funds");
+  else box=emptyBlock("Nothing in this period","Try a different date filter or coin.");
+  $("txAllList").innerHTML=`<div class="vx-empty" role="status">${box}</div>`;
 }
 async function openAll(){
-  $("txHistoryTitle").textContent="Crypto history";
+  $("txHistoryTitle").textContent="History";
   if(!txAll.length)vxSkeleton.fill($("txAllList"),6,"tx");
   openFeature("txHistoryPage");loadAll();
 }
@@ -384,6 +443,14 @@ document.addEventListener("scroll",e=>{
   dots.forEach((d,i)=>d.classList.toggle("on",i===idx));
 },true);
 document.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("wd-txc-card")){e.preventDefault();e.target.click()}});
+/* tx history: coin chips + date filter sheet */
+function txSheet(open){const s=$("txFilterSheet"),b=$("txFilterBackdrop");if(!s||!b)return;s.hidden=!open;b.hidden=!open;$("txFilterButton").setAttribute("aria-expanded",String(open));document.body.classList.toggle("wd-filter-open",open)}
+document.addEventListener("click",e=>{
+  const chip=e.target.closest("#txChips [data-chip]");if(chip){txCoin=chip.dataset.chip;paintAll();centerChip(chip);return}
+  if(e.target.closest("#txFilterButton")){txSheet(true);return}
+  if(e.target.closest("#txFilterClose,#txFilterBackdrop,#txFilterApply")){txSheet(false);return}
+  const ro=e.target.closest("[data-tx-range]");if(ro){txRng=ro.dataset.txRange;document.querySelectorAll("[data-tx-range]").forEach(x=>x.classList.toggle("is-selected",x===ro));paintAll();return}
+});
 document.addEventListener("click",e=>{
   if(e.target.closest("#txOfflineRetry")){retryNet();return}
   if(e.target.closest("#wdOffSheetRetry")){retryNet();return}
@@ -391,7 +458,7 @@ document.addEventListener("click",e=>{
   if(e.target.closest("[data-net-retry]")){e.stopPropagation();if(isOffline()){toast("Still no connection");return}refreshTx();if(!$("txHistoryPage").hidden)loadAll();return}
     if(e.target.closest("#tdShare")){receiptAction("share");return}
   if(e.target.closest("#tdDownload")){receiptAction("download");return}
-  const cta=e.target.closest("[data-tx-cta]");if(cta){if(window.openDepositPage)openDepositPage();return}
+  const cta=e.target.closest("[data-tx-cta]");if(cta){if(!$("txHistoryPage").hidden)closeFeature("txHistoryPage");if(window.openDepositPage)openDepositPage();return}
   const r=e.target.closest("[data-tx]");if(r){const [src,i]=r.dataset.tx.split(":");const t=(src==="a"?txAll:txRows)[+i];if(t)openDetail(t);return}
   if(e.target.closest("#txViewAll")){openAll();return}
   if(e.target.closest("#txHistoryBack")){closeFeature("txHistoryPage");return}

@@ -3,7 +3,7 @@ const loginPage=document.getElementById("loginPage"),signupPage=document.getElem
 const signupForm=document.getElementById("signupForm"),loginForm=document.getElementById("loginForm"),profilePicture=document.getElementById("profilePicture"),profilePreview=document.getElementById("profilePreview"),locationInput=document.getElementById("location"),locationButton=document.getElementById("locationButton"),locationStatus=document.getElementById("locationStatus"),locationNotice=document.getElementById("locationNotice"),fingerprintToggle=document.getElementById("fingerprintToggle"),fingerprintStatus=document.getElementById("fingerprintStatus"),fingerprintLoginButton=document.getElementById("fingerprintLoginButton"),signupMessage=document.getElementById("signupMessage"),loginMessage=document.getElementById("loginMessage");
 
 document.addEventListener("DOMContentLoaded",async()=>{try{const account=await veltrixDB.restore();if(account){lockToLogin(account);if(account.fingerprintEnabled&&window.PublicKeyCredential)loginWithFingerprint(true)}else showPage(window.veltrixWelcome?"welcomePage":"loginPage")}catch(e){console.error(e);showPage("loginPage")}finally{if(window.__splash)window.__splash.release("boot")}});
-function showPage(id){const wp=document.getElementById("welcomePage");if(wp)wp.classList.add("hidden");loginPage.classList.add("hidden");signupPage.classList.add("hidden");dashboardPage.classList.add("hidden");document.getElementById(id).classList.remove("hidden");if(id==="signupPage"&&typeof showSignupStep==="function")showSignupStep(1);window.scrollTo({top:0,behavior:"smooth"})}
+function showPage(id){const wp=document.getElementById("welcomePage");if(wp)wp.classList.add("hidden");loginPage.classList.add("hidden");signupPage.classList.add("hidden");dashboardPage.classList.add("hidden");const pc=document.getElementById("passcodePage");if(pc)pc.classList.add("hidden");document.getElementById(id).classList.remove("hidden");if(id==="signupPage"&&typeof showSignupStep==="function")showSignupStep(1);window.scrollTo({top:0,behavior:"smooth"})}
 function getAccount(){return veltrixDB.get()}
 function saveAccount(a){veltrixDB.set(a)}
 const EYE_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',EYE_OFF_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>';
@@ -73,7 +73,7 @@ function onLocationError(e){
 profilePicture.addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;if(!f.type.startsWith("image/")){showMessage(signupMessage,"Please select an image file.","error");return}const r=new FileReader();r.onload=e=>profilePreview.innerHTML=`<img src="${e.target.result}" alt="Profile preview">`;r.readAsDataURL(f)});
 
 fingerprintToggle.addEventListener("change",handleFingerprintToggle);
-async function handleFingerprintToggle(){if(!fingerprintToggle.checked){fingerprintStatus.textContent="Biometric login is disabled.";return}if(!window.PublicKeyCredential){fingerprintToggle.checked=false;fingerprintStatus.textContent="Biometric authentication is not supported by this browser.";return}try{fingerprintStatus.textContent="Setting up biometric authentication...";const challenge=crypto.getRandomValues(new Uint8Array(32)),userId=crypto.getRandomValues(new Uint8Array(16));const c=await navigator.credentials.create({publicKey:{challenge,rp:{name:"Veltrix"},user:{id:userId,name:document.getElementById("signupEmail").value||"user",displayName:document.getElementById("fullName").value||"Veltrix User"},pubKeyCredParams:[{type:"public-key",alg:-7},{type:"public-key",alg:-257}],authenticatorSelection:{authenticatorAttachment:"platform",userVerification:"required"},timeout:60000,attestation:"none"}});if(c){fingerprintStatus.textContent="Biometric authentication enabled on this device.";fingerprintToggle.dataset.enabled="true"}}catch{fingerprintToggle.checked=false;fingerprintStatus.textContent="Biometric setup was cancelled or unavailable."}}
+async function handleFingerprintToggle(){if(!fingerprintToggle.checked){fingerprintStatus.textContent="Biometric login is disabled.";fingerprintToggle.dataset.enabled="";fpPending="";return}if(!window.PublicKeyCredential){fingerprintToggle.checked=false;fingerprintStatus.textContent="Biometric authentication is not supported by this browser.";return}try{fingerprintStatus.textContent="Setting up biometric authentication...";fpPending=await fpCreate(document.getElementById("signupEmail").value,document.getElementById("fullName").value);fingerprintStatus.textContent="Biometric authentication enabled on this device.";fingerprintToggle.dataset.enabled="true"}catch{fingerprintToggle.checked=false;fingerprintToggle.dataset.enabled="";fpPending="";fingerprintStatus.textContent="Biometric setup was cancelled or unavailable."}}
 
 signupForm.addEventListener("submit",handleSignup);
 let signupSubmitting=false;
@@ -121,14 +121,16 @@ async function handleSignup(e){
     return;
   }
   
-  signupSubmitting=true;createAccountButton.disabled=true;
+  signupSubmitting=true;createAccountButton.disabled=true;let stage="start";
   try{
     const fullName=document.getElementById("fullName").value.trim(),email=document.getElementById("signupEmail").value.trim().toLowerCase(),password=document.getElementById("signupPassword").value,location=detectedLocation,dateOfBirth=document.getElementById("dateOfBirth").value;
-    let profileImage;
+    let profileImage;stage="photo";
     try{profileImage=await convertImageToDataURL(profilePicture.files[0])}
-    catch{if(profilePicture.files[0].size>1.5*1024*1024)throw new Error("photo");profileImage=await readFileAsDataURL(profilePicture.files[0])}
+    catch{try{if(profilePicture.files[0].size>1.5*1024*1024)throw 0;profileImage=await readFileAsDataURL(profilePicture.files[0])}catch{profileImage=undefined}}   /* a photo that cannot be read must never block the account: continue without it */
+    stage="signup";
     const imp=window.veltrixWelcome?veltrixWelcome.importPhrase():null;if(imp&&window.veltrixWallet)veltrixWallet.setImport(imp);
     const r=await veltrixDB.signUp({email,password,fullName,location,dateOfBirth,profileImage,fingerprintEnabled:fingerprintToggle.checked&&fingerprintToggle.dataset.enabled==="true"});
+    if(fpPending){fpSave(email,fpPending);fpPending=""}
     if(imp&&window.veltrixWallet){if(r.needsConfirm)await veltrixWallet.stashPending(email,password,imp);veltrixWelcome.clear()}
     if(r.needsConfirm){showMessage(signupMessage,"Account created. Check your email to confirm it, then sign in.","success");return}
     showMessage(signupMessage,"Your account has been created successfully.","success");
@@ -153,9 +155,28 @@ async function handleSignup(e){
       message = "Your browser is blocking site storage. Enable cookies/site data for this page, then reload and try again.";
     } else if (name === "NotSupportedError" || name === "EncodingError" || /canvas|image/.test(detail)) {
       message = "We couldn't process that profile picture. Try a JPG or PNG image.";
+    } else if (/already registered|already been registered|already exists|user_already_exists|email_exists/.test(detail + " " + String(err && err.code || "").toLowerCase())) {
+      message = "An account with this email already exists. Use a different email to create a new account, or go back and sign in to the existing one.";
+    } else if (/rate limit|too many|over_email_send_rate_limit|429/.test(detail + " " + String(err && (err.code || err.status) || "").toLowerCase())) {
+      message = "Too many sign-up attempts. Please wait a few minutes and try again.";
+    } else if (/failed to fetch|networkerror|network request|load failed|retryablefetch/.test(detail + " " + name.toLowerCase())) {
+      message = "Couldn't reach the server. Check your internet connection and try again.";
+    } else if (/signups? (are |is )?(not allowed|disabled)|signup_disabled/.test(detail + " " + String(err && err.code || "").toLowerCase())) {
+      message = "New sign-ups are currently turned off.";
+    } else if (/database error|saving new user/.test(detail)) {
+      message = "The server couldn't set up your profile (database error). Please contact support.";
+    } else if (/password/.test(detail)) {
+      message = "That password isn't accepted. Try a longer, stronger password.";
+    } else if (/valid email|email address.*invalid|invalid.*email/.test(detail)) {
+      message = "Please enter a valid email address.";
+    } else if (detail) {
+      message = "Account creation failed: " + String(err.message).slice(0, 160);
     }
 
     console.error("Veltrix account creation failed:", err);
+    if (message === "Account creation failed. Please refresh the page and try again.") {
+      message = "Account creation failed (v120, step: " + stage + (name ? ", " + name : "") + (err && (err.code || err.status) ? ", " + (err.code || err.status) : "") + (detail ? ", " + detail.slice(0, 120) : ", no details") + ").";
+    }
     showMessage(signupMessage, message, "error");
     signupSubmitting=false;
     createAccountButton.disabled=false;
@@ -178,11 +199,46 @@ function convertImageToDataURL(file,max=400){return new Promise((resolve,reject)
 
 loginForm.addEventListener("submit",async e=>{e.preventDefault();clearMessage(loginMessage);const email=document.getElementById("loginEmail").value.trim().toLowerCase(),password=document.getElementById("loginPassword").value;try{if(window.veltrixWallet)await veltrixWallet.unlockPending(email,password);await veltrixDB.signIn(email,password);showDashboard();if(window.veltrixNotify)veltrixNotify("login","New login on "+veltrixDB.deviceInfo().name+".")}catch{showMessage(loginMessage,"The email address or password is incorrect.","error")}});
 
-fingerprintLoginButton.addEventListener("click",loginWithFingerprint);
-function lockToLogin(a){try{closeProfileScreens()}catch{}document.body.classList.remove("wd-feature-open");showPage("loginPage");document.getElementById("loginEmail").value=a.email||"";document.getElementById("loginPassword").value="";showMessage(loginMessage,a.fingerprintEnabled&&window.PublicKeyCredential?"Welcome back. Use your fingerprint, or your email and password, to continue.":"Welcome back. Enter your password to continue.","success")}
-async function loginWithFingerprint(auto){if(auto!==true)clearMessage(loginMessage);const account=getAccount();if(!account)return showMessage(loginMessage,"Sign in with your email and password first.","error");if(!account.fingerprintEnabled)return showMessage(loginMessage,"Fingerprint login has not been enabled for this account.","error");if(!window.PublicKeyCredential)return showMessage(loginMessage,"Biometric authentication is not supported by this browser.","error");try{const challenge=crypto.getRandomValues(new Uint8Array(32));await navigator.credentials.get({publicKey:{challenge,userVerification:"required",timeout:60000}});showDashboard()}catch{if(auto!==true)showMessage(loginMessage,"Biometric authentication was cancelled or could not be completed.","error")}}
+fingerprintLoginButton.addEventListener("click",()=>loginWithFingerprint());
+/* ---- fingerprint (WebAuthn) ----
+   The credential created when fingerprint login is switched on is remembered on THIS device (its id, per email) and is asked for
+   by id at login. Before, the id was thrown away and login asked for "any" credential, which phones refuse, so it never worked. */
+const FP_KEY="veltrixFpCred";let fpPending="",fpBusy=false;
+const fpB64=u=>btoa(String.fromCharCode(...new Uint8Array(u))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const fpBytes=t=>{t=String(t).replace(/-/g,"+").replace(/_/g,"/");while(t.length%4)t+="=";return Uint8Array.from(atob(t),c=>c.charCodeAt(0))};
+function fpMap(){try{return JSON.parse(localStorage.getItem(FP_KEY)||"{}")||{}}catch{return{}}}
+function fpGet(email){return fpMap()[String(email||"").toLowerCase()]||""}
+function fpSave(email,id){try{const m=fpMap();m[String(email||"").toLowerCase()]=id;localStorage.setItem(FP_KEY,JSON.stringify(m))}catch{}}
+async function fpCreate(email,name){
+  const c=await navigator.credentials.create({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rp:{name:"Veltrix"},user:{id:crypto.getRandomValues(new Uint8Array(16)),name:email||"user",displayName:name||"Veltrix User"},pubKeyCredParams:[{type:"public-key",alg:-7},{type:"public-key",alg:-257}],authenticatorSelection:{authenticatorAttachment:"platform",userVerification:"required",residentKey:"preferred"},timeout:60000,attestation:"none"}});
+  if(!c)throw new Error("no credential");return fpB64(c.rawId)}
+async function fpAssert(id){
+  const r=await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),allowCredentials:[{type:"public-key",id:fpBytes(id),transports:["internal"]}],userVerification:"required",timeout:60000}});
+  if(!r)throw new Error("no assertion")}
+/* an account with fingerprint on, signed in on a device that has no credential yet (new phone, cleared data): set it up right after a normal sign-in */
+function fpEnsure(a){if(!a||!a.fingerprintEnabled||!window.PublicKeyCredential||fpBusy||fpGet(a.email))return;if(veltrixDB.isLinked&&veltrixDB.isLinked())return;fpBusy=true;
+  setTimeout(()=>{try{wdToast("Setting up fingerprint login on this device")}catch{}fpCreate(a.email,a.fullName).then(id=>fpSave(a.email,id)).catch(()=>{}).finally(()=>{fpBusy=false})},700)}
+function fpReady(a){return !!(a&&a.fingerprintEnabled&&window.PublicKeyCredential&&fpGet(a.email))}
+function lockToLogin(a){try{closeProfileScreens()}catch{}try{if(window.veltrixSettingsClose)veltrixSettingsClose()}catch{}document.body.classList.remove("wd-feature-open");
+ if(window.veltrixPasscode&&veltrixPasscode.wanted()){veltrixPasscode.show(a);return}
+ showPage("loginPage");document.getElementById("loginEmail").value=a.email||"";document.getElementById("loginPassword").value="";showMessage(loginMessage,fpReady(a)?"Welcome back. Use your fingerprint, or your email and password, to continue.":"Welcome back. Enter your password to continue.","success")}
+async function loginWithFingerprint(auto){
+ const onPc=!!(window.veltrixPasscode&&veltrixPasscode.visible());
+ const say=(t,k)=>onPc?veltrixPasscode.say(t,k):showMessage(loginMessage,t,k||"error");
+ if(auto!==true&&!onPc)clearMessage(loginMessage);
+ const account=getAccount();
+ if(!account)return say("Sign in with your email and password first.");
+ if(!account.fingerprintEnabled)return say("Fingerprint login has not been enabled for this account.");
+ if(!window.PublicKeyCredential)return say("Biometric authentication is not supported by this browser.");
+ const id=fpGet(account.email);
+ if(!id){if(auto!==true)say(onPc?"Unlock with your passcode once to set up fingerprint on this device.":"Sign in with your password once to set up fingerprint on this device.");return}
+ if(fpBusy)return;fpBusy=true;
+ try{await fpAssert(id);showDashboard()}
+ catch{if(auto!==true)say(onPc?"Fingerprint was cancelled. Enter your passcode instead.":"Biometric authentication was cancelled or could not be completed.")}
+ finally{fpBusy=false}
+}
 
-function showDashboard(){const a=getAccount();if(!a)return showPage("loginPage");populateDashboard(a);showPage("dashboardPage");if(window.veltrixSpeak)window.veltrixSpeak(`Hello ${a.fullName||"there"}, welcome to Veltrix, your gateway to clean, smooth cryptocurrency transactions.`)}
+function showDashboard(){const a=getAccount();if(!a)return showPage("loginPage");populateDashboard(a);showPage("dashboardPage");fpEnsure(a);if(window.veltrixSpeak)window.veltrixSpeak(`Hello ${a.fullName||"there"}, welcome to Veltrix, your gateway to clean, smooth cryptocurrency transactions.`)}
 
 /* =========================================================
    DASHBOARD (crypto wallet home)
@@ -448,7 +504,9 @@ document.getElementById("toggleBalance").addEventListener("click",()=>{balanceHi
 
   document.getElementById("stackNext").addEventListener("click",()=>advance(1));
   document.getElementById("stackPrev").addEventListener("click",()=>advance(-1));
+  stack.addEventListener("click",e=>{if(e.target.closest&&e.target.closest(".wd-stack-close"))advance(1)});
   stack.addEventListener("pointerdown",e=>{
+    if(e.target.closest&&e.target.closest(".wd-stack-close"))return;
     if(locked)return;
     activeCard=cards()[0];if(!activeCard)return;
     startX=e.clientX;startY=e.clientY;pointerId=e.pointerId;dragging=true;
@@ -754,7 +812,7 @@ document.getElementById("settingsBack").addEventListener("click",closeProfileScr
 document.getElementById("settingsAvatarButton").addEventListener("click",openProfileDetails);
 document.getElementById("editProfileShortcut").addEventListener("click",openProfileDetails);
 document.getElementById("profileDetailsBack").addEventListener("click",()=>{detailsPage.hidden=true;settingsPage.hidden=false;updateProfileScreens()});
-async function doLogout(){closeProfileScreens();const a=getAccount();if(a&&a.fingerprintEnabled&&window.PublicKeyCredential&&!(veltrixDB.isLinked&&veltrixDB.isLinked())){lockToLogin(a);return}await veltrixDB.signOut();showPage("loginPage");if(a)document.getElementById("loginEmail").value=a.email||""}
+async function doLogout(){closeProfileScreens();const a=getAccount();if(a&&!(veltrixDB.isLinked&&veltrixDB.isLinked())&&((window.veltrixPasscode&&veltrixPasscode.wanted())||(a.fingerprintEnabled&&window.PublicKeyCredential))){lockToLogin(a);return}await veltrixDB.signOut();showPage("loginPage");if(a)document.getElementById("loginEmail").value=a.email||""}
 document.getElementById("settingsLogout").addEventListener("click",doLogout);
 document.addEventListener("click",()=>{accountMenu.classList.add("hidden");avatarBtn.setAttribute("aria-expanded","false")});
 const editDialog=document.getElementById("profileEditDialog"),editInput=document.getElementById("profileEditInput"),editLabel=document.getElementById("profileEditLabel");let activeProfileField="name";

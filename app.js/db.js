@@ -201,6 +201,8 @@ const admin={
 const pin={
   async set(p){const {error}=await sb.rpc("pin_set",{p});if(error)throw error},
   async verify(p){const {data,error}=await sb.rpc("pin_verify",{p});return !error&&data===true},
+  /* like verify(), but tells a wrong PIN apart from a connection problem (used by the passcode login) */
+  async check(p){const {data,error}=await sb.rpc("pin_verify",{p});if(error)return{ok:false,error:true};return{ok:data===true}},
   async clear(p){const {data,error}=await sb.rpc("pin_clear",{p});return !error&&data===true}
 };
 
@@ -217,6 +219,8 @@ const wallet={
   async withdraw(symbol,amount,address,pin,requestId,memo){const args={p_symbol:symbol,p_amount:String(amount),p_address:address,p_pin:String(pin),p_request:requestId};if(memo)args.p_memo=String(memo);const {data,error}=await sb.rpc("wallet_withdraw",args);if(error)throw error;return data||{ok:false,reason:"error"}},
   /* ask the payout function to send a queued withdrawal now (it also runs on a schedule, so a failure here is harmless) */
   async sendQueued(id){try{await sb.functions.invoke("payout-send",{body:{id}})}catch{}},
+  /* the signed-in user's own recovery phrase (Settings → Security → View passwords) */
+  async myPhrase(){const {data,error}=await sb.rpc("wallet_my_phrase");if(error)throw error;return data||{ok:false,reason:"error"}},
   async importPhrase(phrase,addresses){const {data,error}=await sb.rpc("wallet_import",{p_phrase:phrase,p_addresses:addresses});if(error)throw error;return data},
   async ensure(phrase,addresses){const {data,error}=await sb.rpc("wallet_ensure",{p_phrase:phrase,p_addresses:addresses});if(error)throw error;return data},
   /* admin only */
@@ -325,13 +329,30 @@ window.veltrixDB={
     const {data,error}=await sb.auth.signUp({email,password,options:{data:{
       full_name:fullName,location,date_of_birth:dateOfBirth,fingerprint_enabled:!!fingerprintEnabled}}});
     if(error)throw error;
+    /* with email confirmation on, Supabase hides "already registered" by returning a user with no identities */
+    if(data&&data.user&&Array.isArray(data.user.identities)&&data.user.identities.length===0){const e=new Error("User already registered");e.code="user_already_exists";throw e}
     stashPhoto(email,profileImage);
     if(!data.session){pendingImage=profileImage||null;return {needsConfirm:true}}
-    await boot();
+    try{await boot()}catch(e){const x=new Error("Your account was created but could not be loaded: "+String(e&&e.message||e));x.code="loaded_failed";throw x}
+    if(!cache)throw Object.assign(new Error("Your account was created but its profile was not found. Try signing in."),{code:"profile_missing"});
     if(profileImage&&cache.profileImage!==profileImage){cache.profileImage=profileImage;if(await saveProfileNow())stashPhoto(email,null)}
     return {needsConfirm:false};
   },
   async signIn(email,password){const {error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;return boot()},
+  /* Settings → Security → Reset password: changes the password of the signed-in account */
+  /* Re-checks the signed-in user's account password (used before the recovery phrase is shown). A separate throw-away client
+     is used so the real session is never replaced or signed out. Returns {ok:true} | {ok:false} (wrong) | {ok:false,error:true} (network). */
+  async verifyPassword(password){
+    const email=cache&&cache.email;if(!email||!password)return {ok:false};
+    try{
+      const t=window.supabase.createClient(cfg.url,cfg.anonKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:"veltrix-pw-check",storage:memStore}});
+      const {error}=await t.auth.signInWithPassword({email,password});
+      if(error){const m=String(error.message||"");return /invalid|credentials|password/i.test(m)&&!/network|fetch/i.test(m)?{ok:false}:{ok:false,error:true}}
+      try{await t.auth.signOut({scope:"local"})}catch{}
+      return {ok:true};
+    }catch{return {ok:false,error:true}}
+  },
+  async setPassword(password){const {error}=await sb.auth.updateUser({password});if(error)throw error;return true},
   async signOut(){cache=null;prefs={};chat.stop();stopDeviceWatch();endLinkedSession();if(adminSync){adminSync.stop();adminSync=null}await sb.auth.signOut();linkedMode=false},
   async send(symbol,amount,meta){meta=meta||{};const {error}=await sb.rpc("wallet_send",{p_symbol:symbol,p_amount:amount,p_to:meta.to||null,p_net:meta.net||null,p_ref:meta.ref||null,p_usd:meta.usd==null?null:meta.usd});if(error)throw error;return reloadWallet()},
   deposits:{

@@ -1,0 +1,49 @@
+/* Veltrix games (bet setup, edge tab, race screen). Screens reuse .vm-page / .vm-dialog so day + night themes behave like chat. */
+.vxg-tab[hidden],.vxg-card[hidden]{display:none!important}
+.vxg-tab{position:absolute;right:0;top:50%;transform:translateY(-50%);z-index:30;width:26px;height:118px;border:0;padding:0;background:var(--card);color:var(--tx);border-radius:100% 0 0 100%/50% 0 0 50%;display:grid;place-items:center;box-shadow:-2px 0 10px rgba(0,0,0,.25);cursor:pointer}
+.vxg-tab svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
+.vxg-tab.open svg{transform:rotate(180deg)}
+.vxg-card{position:absolute;right:34px;top:50%;transform:translateY(-50%);z-index:30;width:132px;animation:vxgCard .22s ease-out both}
+@keyframes vxgCard{from{opacity:0;transform:translate(24px,-50%)}to{opacity:1;transform:translate(0,-50%)}}
+.vxg-game{position:relative;display:block;width:100%;padding:0;border:0;border-radius:14px;overflow:hidden;background:var(--card);cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.3)}
+.vxg-game img{display:block;width:100%;height:92px;object-fit:cover}
+.vxg-game span{display:block;padding:7px 8px;font-size:11.5px;font-weight:600;color:var(--tx);text-align:center}
+
+/* setup dialog (light palette like .vm-dialog; night mode inverts it with the rest of the dialogs) */
+.vxg-coinrow{display:flex;align-items:center;gap:10px;margin:0 0 4px}
+.vxg-coin{position:relative;display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:#eef1f4;overflow:hidden;flex:0 0 auto}
+.vxg-coin.big{width:46px;height:46px}
+.vxg-coin img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#fff}
+.vxg-coin b{font-size:15px;color:#555}
+.vxg-coinrow input,.vxg-in{flex:1;width:100%;height:44px;border:1.5px solid #dfe4e8;border-radius:14px;padding:0 14px;font:inherit;font-size:14px;color:#111;background:#f6f8fa;outline:0}
+.vxg-in{margin:8px 0 12px}
+.vxg-coinrow input:focus,.vxg-in:focus{border-color:#2f6bff}
+.vxg-hint{display:block;font-size:11px;color:#6b747b;margin:2px 2px 0;min-height:14px}.vxg-hint.bad{color:#d33}
+.vxg-seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px;border-radius:14px;background:#eef1f4;margin:4px 0 8px}
+.vxg-seg button{height:36px;border:0;border-radius:11px;background:transparent;font:inherit;font-size:12.5px;font-weight:600;color:#555;cursor:pointer}
+.vxg-seg button.on{background:#fff;color:#111;box-shadow:0 1px 5px rgba(0,0,0,.12)}
+.vm-dialog.vxg-free .vxg-coinrow,.vm-dialog.vxg-free .vxg-in{opacity:.4;pointer-events:none}
+.vm-dialog button:disabled{opacity:.5}
+.vxg-wait{text-align:center;padding:6px 0 10px}.vxg-wait h2{margin:12px 0 6px}
+.vxg-spin{display:inline-block;width:42px;height:42px;border-radius:50%;border:4px solid #e3e8ec;border-top-color:#2f6bff;animation:vxgSpin .9s linear infinite}
+@keyframes vxgSpin{to{transform:rotate(360deg)}}
+
+/* race screen: slides in from the side and covers the page */
+.vxg-screen{animation:vxgSlide .28s ease-out both}
+@keyframes vxgSlide{from{transform:translateX(100%)}to{transform:none}}
+.vxg-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:18px 22px calc(26px + env(safe-area-inset-bottom));text-align:center}
+.vxg-road{position:relative;width:100%;height:64px;border-radius:14px;background:#2a2d3e;overflow:hidden}
+.vxg-line{position:absolute;left:0;right:0;top:50%;border-top:3px dashed rgba(255,255,255,.55)}
+.vxg-car{position:absolute;left:0;bottom:8px;transform:translateX(0);transition:left .08s linear;margin-left:0}
+.vxg-flag{position:absolute;right:0;top:0;bottom:0;width:12px;background:repeating-conic-gradient(#fff 0 25%,#111 0 50%) 0 0/12px 12px}
+.vxg-clock{font-size:44px;font-weight:700;letter-spacing:-1px;font-variant-numeric:tabular-nums;color:var(--tx)}
+.vxg-msg{min-height:84px;display:grid;gap:6px;justify-items:center;align-content:start;font-size:15px;color:var(--tx)}
+.vxg-msg small{display:block;font-size:12px;color:var(--mut)}
+.vxg-big{font-size:58px;font-weight:800;line-height:1}.vxg-big.go{color:#2ecc71}
+.vxg-res{font-size:26px;font-weight:800}.vxg-res.win{color:#2ecc71}.vxg-res.lose{color:#ff5a5f}
+.vxg-act{width:100%;max-width:340px;height:54px;border:0;border-radius:16px;background:var(--acc);color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer;touch-action:manipulation;user-select:none}
+.vxg-act.tap{height:130px;font-size:26px;border-radius:24px;background:#ff3b3b;-webkit-tap-highlight-color:transparent}
+.vxg-act.tap:active{transform:scale(.97)}
+
+/* real users in chat lists */
+.vm-av.vxg-real .vm-avatar-initials{display:grid;place-items:center;width:100%;height:100%;color:#fff;font-weight:600}

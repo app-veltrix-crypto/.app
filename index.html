@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<script src="app.js/devicegate.js?v=101"></script>
+<script src="app.js/devicegate.js?v=102"></script>
 <script src="app.js/fixedsize.js?v=102"></script>
 <script>try{if(localStorage.getItem("veltrixTheme")!=="light")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script>
 <link rel="icon" type="image/png" sizes="32x32" href="app.assets/favicon-32.png">
@@ -18,10 +18,11 @@
 <link rel="preload" as="image" href="app.assets/splash-logo.png">
 <link rel="preload" as="image" href="app.assets/splash-logo-name-light.png">
 <link rel="stylesheet" href="app.css/style.css?v=105">
-<link rel="stylesheet" href="app.css/style.app.css?v=107">
+<link rel="stylesheet" href="app.css/style.app.css?v=111">
 <link rel="stylesheet" href="app.css/messaging.css?v=110">
+<link rel="stylesheet" href="app.css/game.css?v=2">
 <link rel="stylesheet" href="app.css/brand.css?v=107">
-<link rel="stylesheet" href="app.css/activity.css?v=119">
+<link rel="stylesheet" href="app.css/activity.css?v=125">
 <link rel="stylesheet" href="app.css/skeleton.css?v=102">
 <link rel="stylesheet" href="app.css/scrolllock.css?v=101">
 <link rel="stylesheet" href="app.css/buybrowser.css?v=105">
@@ -29,7 +30,9 @@
 <link rel="stylesheet" href="app.css/depositlist.css?v=103">
 <link rel="stylesheet" href="app.css/welcome.css?v=108">
 <link rel="stylesheet" href="app.css/login.css?v=102">
+<link rel="stylesheet" href="app.css/passcode.css?v=3">
 <link rel="stylesheet" href="app.css/fixedsize.css?v=101">
+<link rel="stylesheet" href="app.css/slides.css?v=1">
 </head>
 <body>
 <div id="splash" translate="no" role="status" aria-live="polite" aria-label="Loading Veltrix">
@@ -38,17 +41,33 @@
 </div>
 
 <section class="wd-feature-page wd-act-page" id="notificationDetailPage" hidden aria-labelledby="ndTitle" style="z-index:12100">
-  <header class="wd-feature-header wd-notification-header"><button type="button" class="wd-feature-back" id="notificationDetailBack" aria-label="Back to notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg></button><h1>Notification</h1><button type="button" class="wd-act-trash" id="notificationDeleteBtn" aria-label="Delete this notification" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button></header>
+  <header class="wd-feature-header wd-notification-header"><button type="button" class="wd-feature-back" id="notificationDetailBack" aria-label="Back to notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg></button><h1>Notification</h1><span aria-hidden="true"></span></header>
   <div class="nd-wrap">
     <div class="nd-hero"><span class="wd-act-ic big" id="ndIcon"></span><span class="wd-act-chip" id="ndTopic"></span><h2 id="ndTitle"></h2><p class="wd-act-time" id="ndTime"></p></div>
     <div class="nd-card"><span class="nd-eyebrow">MESSAGE</span><p class="wd-act-body" id="ndBody"></p></div>
     <div class="nd-card nd-rows" id="ndRows"></div>
+    <article class="vx-info-card" data-info-card><div class="wd-stack-copy"><h3>Stay on top of every alert</h3><span class="wd-stack-footer">Security &amp; price updates <b aria-hidden="true">&#8250;</b></span></div><img class="wd-stack-art" src="app.assets/slide-notification.svg" alt="" width="260" height="190" draggable="false" decoding="async"><button type="button" class="vx-info-close" aria-label="Dismiss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></article>
   </div>
 </section>
 
-<section class="wd-feature-page wd-act-page" id="txHistoryPage" hidden aria-labelledby="txHistoryTitle" style="z-index:12050">
-  <header class="wd-feature-header wd-notification-header"><button type="button" class="wd-feature-back" id="txHistoryBack" aria-label="Back to dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg></button><h1 id="txHistoryTitle">Transaction history</h1><span aria-hidden="true"></span></header>
+<section class="wd-feature-page wd-act-page vx-hist" id="txHistoryPage" hidden aria-labelledby="txHistoryTitle" style="z-index:12050">
+  <header class="wd-feature-header wd-notification-header"><button type="button" class="wd-feature-back" id="txHistoryBack" aria-label="Back to dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5 8 12l7 7"/></svg></button><h1 id="txHistoryTitle">History</h1><button type="button" class="wd-notification-filter" id="txFilterButton" aria-label="Filter history by date" title="Filter history by date" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9.5M18.5 7H20M4 17h1.5M10.5 17H20"/><circle cx="16" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/></svg></button></header>
+  <div class="vx-chips" id="txChips" role="tablist" aria-label="Filter by cryptocurrency"></div>
   <div class="wd-act-list" id="txAllList"></div>
+  <div class="wd-notification-filter-backdrop" id="txFilterBackdrop" hidden></div>
+  <section class="wd-notification-filter-sheet" id="txFilterSheet" role="dialog" aria-modal="true" aria-labelledby="txFilterTitle" hidden>
+    <div class="wd-notification-sheet-handle" aria-hidden="true"></div>
+    <div class="wd-notification-sheet-heading"><div><span>HISTORY</span><h2 id="txFilterTitle">Filter by date</h2></div><button type="button" id="txFilterClose" aria-label="Close date filter">×</button></div>
+    <p class="wd-notification-filter-help">Choose which time period to view.</p>
+    <div class="wd-notification-date-options" role="group" aria-label="Date range">
+      <button type="button" class="is-selected" data-tx-range="all"><span>All</span><small>View all transactions</small><i aria-hidden="true">✓</i></button>
+      <button type="button" data-tx-range="today"><span>Today</span><small>Transactions from today</small><i aria-hidden="true">✓</i></button>
+      <button type="button" data-tx-range="yesterday"><span>Yesterday</span><small>Transactions from yesterday</small><i aria-hidden="true">✓</i></button>
+      <button type="button" data-tx-range="7days"><span>Last 7 days</span><small>The past week</small><i aria-hidden="true">✓</i></button>
+      <button type="button" data-tx-range="30days"><span>Last 30 days</span><small>The past month</small><i aria-hidden="true">✓</i></button>
+    </div>
+    <button type="button" class="wd-notification-apply" id="txFilterApply">Done</button>
+  </section>
 </section>
 
 <section class="wd-feature-page wd-act-page wd-off-page" id="txOfflinePage" hidden aria-labelledby="offTitle" style="z-index:12100">
@@ -74,6 +93,7 @@
   <div class="nd-wrap">
     <div class="nd-hero"><span class="wd-act-ic big" id="tdIcon"></span><span class="wd-act-chip" id="tdStatus"></span><h2 id="tdAmount"></h2><p class="wd-act-time" id="tdSub"></p></div>
     <div class="nd-card nd-rows" id="tdRows"></div>
+    <article class="vx-info-card" data-info-card><div class="wd-stack-copy"><h3>Keep a receipt for every transaction</h3><span class="wd-stack-footer">Share or download <b aria-hidden="true">&#8250;</b></span></div><img class="wd-stack-art" src="app.assets/slide-receipt.svg" alt="" width="260" height="190" draggable="false" decoding="async"><button type="button" class="vx-info-close" aria-label="Dismiss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></article>
   </div>
   <div class="td-actions">
     <button type="button" class="td-btn alt" id="tdShare"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="m8.3 10.7 7.4-4.2M8.3 13.3l7.4 4.2"/></svg>Share</button>
@@ -153,6 +173,23 @@
 <div id="loginMessage" class="message"></div>
 <div class="switch-auth"><span>Don't have an account?</span><button type="button" onclick="showPage('signupPage')">Create account</button></div>
 </div></div>
+</section>
+
+<section id="passcodePage" class="auth-page hidden" aria-label="Enter passcode">
+<div class="pc-wrap">
+<div class="pc-head"><h2>Enter passcode</h2><p>Unlock wallet</p></div>
+<div class="pc-dots" id="pcDots" role="status" aria-live="polite" aria-label="0 of 4 digits entered"><i></i><i></i><i></i><i></i></div>
+<p class="pc-msg" id="pcMsg" hidden></p>
+<div class="pc-pad" id="pcPad" translate="no">
+<button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+<button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+<button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+<button type="button" class="pc-side" id="pcFp" aria-label="Use fingerprint"><svg aria-hidden="true" fill="currentColor"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M112 320C112 205.1 205.1 112 320 112C383.1 112 439.6 140.1 477.8 184.5C486.4 194.6 501.6 195.7 511.6 187.1C521.6 178.5 522.8 163.3 514.2 153.3C467.3 98.6 397.7 64 320 64C178.6 64 64 178.6 64 320L64 360C64 373.3 74.7 384 88 384C101.3 384 112 373.3 112 360L112 320zM570.5 267.1C567.8 254.1 555 245.8 542.1 248.6C529.2 251.4 520.8 264.1 523.6 277C526.5 290.9 528.1 305.3 528.1 320.1L528.1 360.1C528.1 373.4 538.8 384.1 552.1 384.1C565.4 384.1 576.1 373.4 576.1 360.1L576.1 320.1C576.1 302 574.2 284.3 570.6 267.2zM320 144C301 144 282.6 147 265.5 152.6C250.3 157.6 246.8 176.3 257.2 188.5C264.3 196.8 276 199.3 286.6 196.4C297.2 193.5 308.4 192 320 192C390.7 192 448 249.3 448 320L448 344.9C448 370.1 446.5 395.2 443.6 420.2C441.9 434.8 453 448 467.8 448C479.6 448 489.7 439.4 491.1 427.7C494.4 400.3 496.1 372.7 496.1 345L496.1 320.1C496.1 222.9 417.3 144.1 320.1 144.1zM214.7 212.7C205.6 202.1 189.4 201.3 180.8 212.3C157.7 242.1 144 279.4 144 320L144 344.9C144 369.1 141.4 393.3 136.2 416.8C132.8 432.4 144.1 447.9 160.1 447.9C170.6 447.9 180 440.9 182.3 430.6C188.7 402.5 192 373.8 192 344.8L192 319.9C192 292.7 200.5 267.5 214.9 246.8C222.1 236.4 222.9 222.2 214.7 212.6zM320 224C267 224 224 267 224 320L224 344.9C224 380.8 219.4 416.4 210.2 451C206.4 465.3 216.9 480 231.7 480C241.2 480 249.6 473.8 252.1 464.6C262.6 425.6 268 385.4 268 344.9L268 320C268 291.3 291.3 268 320 268C348.7 268 372 291.3 372 320L372 344.9C372 381.2 368.5 417.3 361.6 452.8C358.9 466.7 369.3 480 383.4 480C393.6 480 402.4 473 404.4 463C412.1 424.2 416 384.7 416 344.9L416 320C416 267 373 224 320 224zM344 320C344 306.7 333.3 296 320 296C306.7 296 296 306.7 296 320L296 344.9C296 404.8 285 464.2 263.5 520.1L257.6 535.4C252.8 547.8 259 561.7 271.4 566.4C283.8 571.1 297.7 565 302.4 552.6L308.3 537.3C331.9 475.9 344 410.7 344 344.9L344 320z"/></svg></button>
+<button type="button" data-k="0">0</button>
+<button type="button" class="pc-side" id="pcDel" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="m13 9.5 5 5M18 9.5l-5 5"/></svg></button>
+</div>
+<button type="button" class="pc-forgot" id="pcForgot">Forgot passcode?</button>
+</div>
 </section>
 
 <section id="signupPage" class="auth-page hidden">
@@ -258,11 +295,11 @@
 <section class="wd-card-stack-section" aria-label="Wallet highlights">
   <div class="wd-stack-heading"><div><span class="wd-stack-kicker">YOUR WALLET</span><h2>Discover more</h2></div><span class="wd-stack-hint">Swipe left</span></div>
   <div class="wd-card-stack" id="walletCardStack" aria-roledescription="carousel" aria-label="Five wallet information cards">
-    <article class="wd-stack-card card-violet" data-stack-card><div class="wd-stack-card-top"><span class="wd-stack-icon">↗</span><span class="wd-stack-count">01 / 05</span></div><div><span class="wd-stack-label">MARKET PULSE</span><h3>Stay in the know.</h3><p>Keep an eye on market movement and explore what's changing.</p></div><span class="wd-stack-footer">Market overview <b>↗</b></span></article>
-    <article class="wd-stack-card card-ink" data-stack-card><div class="wd-stack-card-top"><span class="wd-stack-icon">⌁</span><span class="wd-stack-count">02 / 05</span></div><div><span class="wd-stack-label">SECURITY CENTER</span><h3>Your wallet, protected.</h3><p>Review your account security settings and keep your details up to date.</p></div><span class="wd-stack-footer">Review security <b>↗</b></span></article>
-    <article class="wd-stack-card card-mint" data-stack-card><div class="wd-stack-card-top"><span class="wd-stack-icon">◷</span><span class="wd-stack-count">03 / 05</span></div><div><span class="wd-stack-label">ACTIVITY</span><h3>Everything in one place.</h3><p>Your recent wallet activity will be easier to follow as you start transacting.</p></div><span class="wd-stack-footer">View activity <b>↗</b></span></article>
-    <article class="wd-stack-card card-amber" data-stack-card><div class="wd-stack-card-top"><span class="wd-stack-icon">✳</span><span class="wd-stack-count">04 / 05</span></div><div><span class="wd-stack-label">SMART HABITS</span><h3>Make every move count.</h3><p>Take a moment to check your assets and understand your portfolio.</p></div><span class="wd-stack-footer">Explore tips <b>↗</b></span></article>
-    <article class="wd-stack-card card-blue" data-stack-card><div class="wd-stack-card-top"><span class="wd-stack-icon">◇</span><span class="wd-stack-count">05 / 05</span></div><div><span class="wd-stack-label">VELTRIX GUIDE</span><h3>A clearer way forward.</h3><p>Get familiar with your wallet tools and the basics of managing digital assets.</p></div><span class="wd-stack-footer">Wallet guide <b>↗</b></span></article>
+    <article class="wd-stack-card card-violet" data-stack-card><div class="wd-stack-copy"><h3>Stay in the know, track the market</h3><p class="wd-stack-sr">Keep an eye on market movement and explore what's changing.</p><span class="wd-stack-footer">Market overview <b aria-hidden="true">&#8250;</b></span></div><img class="wd-stack-art" src="app.assets/slide-market.svg" alt="" width="260" height="190" draggable="false" decoding="async"><button type="button" class="wd-stack-close" aria-label="Dismiss card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></article>
+    <article class="wd-stack-card card-ink" data-stack-card><div class="wd-stack-copy"><h3>Your wallet, fully protected</h3><p class="wd-stack-sr">Review your account security settings and keep your details up to date.</p><span class="wd-stack-footer">Review security <b aria-hidden="true">&#8250;</b></span></div><img class="wd-stack-art" src="app.assets/slide-security.svg" alt="" width="260" height="190" draggable="false" decoding="async"><button type="button" class="wd-stack-close" aria-label="Dismiss card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></article>
+    <article class="wd-stack-card card-mint" data-stack-card><div class="wd-stack-copy"><h3>Everything in one place</h3><p class="wd-stack-sr">Your recent wallet activity will be easier to follow as you start transacting.</p><span class="wd-stack-footer">View activity <b aria-hidden="true">&#8250;</b></span></div><img class="wd-stack-art" src="app.assets/slide-activity.svg" alt="" width="260" height="190" draggable="false" decoding="async"><button type="button" class="wd-stack-close" aria-label="Dismiss card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></article>
+    <article class="wd-stack-card card-amber" data-stack-card><div class="wd-stack-copy"><h3>Make every move count, the smart way</h3><p class="wd-stack-sr">Take a moment to check your assets and understand your portfolio.</p><span class="wd-stack-footer">Explore tips <b aria-hidden="true">&#8250;</b></span></div><img class="wd-stack-art" src="app.assets/slide-habits.svg" alt="" width="260" height="190" draggable="false" decoding="async"><button type="button" class="wd-stack-close" aria-label="Dismiss card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></article>
+    <article class="wd-stack-card card-blue" data-stack-card><div class="wd-stack-copy"><h3>A clearer way forward with Veltrix</h3><p class="wd-stack-sr">Get familiar with your wallet tools and the basics of managing digital assets.</p><span class="wd-stack-footer">Wallet guide <b aria-hidden="true">&#8250;</b></span></div><img class="wd-stack-art" src="app.assets/slide-guide.svg" alt="" width="260" height="190" draggable="false" decoding="async"><button type="button" class="wd-stack-close" aria-label="Dismiss card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></article>
   </div>
   <div class="wd-stack-controls"><button type="button" id="stackPrev" aria-label="Previous card"></button><div class="wd-stack-dots" id="stackDots" aria-label="Card position"></div><button type="button" id="stackNext" aria-label="Next card"></button></div>  
 </section>
@@ -298,25 +335,24 @@
   </div>
 </section>
 
-<section class="wd-feature-page" id="notificationPage" hidden aria-labelledby="notificationTitle">
+<section class="wd-feature-page vx-hist" id="notificationPage" hidden aria-labelledby="notificationTitle">
   <header class="wd-feature-header wd-notification-header">
-    <button type="button" class="wd-feature-back" data-close-feature aria-label="Back to dashboard"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-bell-slash-fill" viewBox="0 0 16 16">
-  <path d="M5.164 14H15c-1.5-1-2-5.902-2-7q0-.396-.06-.776zm6.288-10.617A5 5 0 0 0 8.995 2.1a1 1 0 1 0-1.99 0A5 5 0 0 0 3 7c0 .898-.335 4.342-1.278 6.113zM10 15a2 2 0 1 1-4 0zm-9.375.625a.53.53 0 0 0 .75.75l14.75-14.75a.53.53 0 0 0-.75-.75z"/>
-</svg></button>
+    <button type="button" class="wd-feature-back" data-close-feature aria-label="Back to dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5 8 12l7 7"/></svg></button>
     <h1 id="notificationTitle">Notifications</h1>
-    <button type="button" class="wd-notification-filter" id="notificationFilterButton" aria-label="Filter notifications by date" title="Filter notifications by date" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg></button>
+    <button type="button" class="wd-notification-filter" id="notificationFilterButton" aria-label="Filter notifications by date" title="Filter notifications by date" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9.5M18.5 7H20M4 17h1.5M10.5 17H20"/><circle cx="16" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/></svg></button>
   </header>
+  <div class="vx-chips" id="notifChips" role="tablist" aria-label="Filter by cryptocurrency"></div>
   <div class="wd-act-list" id="notifList" hidden></div>
-  <div class="wd-empty-state wd-notification-empty">
-    <div class="wd-empty-illustration" aria-hidden="true" style="border-radius: 50px;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path fill="currentColor" d="M320 496C342.1 496 360 513.9 360 536C360 558.1 342.1 576 320 576C297.9 576 280 558.1 280 536C280 513.9 297.9 496 320 496zM320 64C346.5 64 368 85.5 368 112C368 112.6 368 113.1 368 113.7L352 417.7C351.1 434.7 337 448 320 448C303 448 289 434.7 288 417.7L272 113.7C272 113.1 272 112.6 272 112C272 85.5 293.5 64 320 64z"/></svg></div>
-    <h2>No notifications yet</h2><p>Your updates and alerts will appear here.</p>
+  <div class="vx-empty" id="notifEmpty" role="status">
+    <span class="vx-empty-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 6.5V12.5l3.2 3.2"/></svg></span>
+    <h2>Your notifications<br>will be shown here</h2><p>You're all caught up!</p>
   </div>
   <div class="wd-notification-filter-backdrop" id="notificationFilterBackdrop" hidden></div>
   <section class="wd-notification-filter-sheet" id="notificationFilterSheet" role="dialog" aria-modal="true" aria-labelledby="notificationFilterTitle" hidden>
     <div class="wd-notification-sheet-handle" aria-hidden="true"></div>
     <div class="wd-notification-sheet-heading"><div><span>NOTIFICATIONS</span><h2 id="notificationFilterTitle">Filter by date</h2></div><button type="button" id="notificationFilterClose" aria-label="Close date filter">×</button></div>
     <p class="wd-notification-filter-help">Choose which time period to view.</p>
-    <div class="wd-notification-date-options" role="group" aria-label="Notification date range">
+    <div class="wd-notification-date-options" role="group" aria-label="Date range">
       <button type="button" class="is-selected" data-notification-range="all"><span>All</span><small>View all notifications</small><i aria-hidden="true">✓</i></button>
       <button type="button" data-notification-range="today"><span>Today</span><small>Notifications from today</small><i aria-hidden="true">✓</i></button>
       <button type="button" data-notification-range="yesterday"><span>Yesterday</span><small>Notifications from yesterday</small><i aria-hidden="true">✓</i></button>
@@ -385,6 +421,9 @@
 </svg></span><span class="profile-ui-row-copy"><strong>Two-step verification</strong><small>Add an extra layer of security</small></span><svg class="profile-ui-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   </div>
   <div class="profile-ui-list">
+    <button type="button" class="profile-ui-row" id="settingsSecurity"><span class="profile-ui-icon"><svg viewBox="0 0 24 24" style="fill:none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9.5" rx="2.2"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3"/></svg></span><span class="profile-ui-row-copy"><strong>Security</strong><small>Password and recovery phrase</small></span><svg class="profile-ui-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+  <div class="profile-ui-list">
     <button type="button" class="profile-ui-row" id="settingsDevices"><span class="profile-ui-icon"><svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="currentColor" class="bi bi-phone-flip" viewBox="0 0 16 16">
   <path fill-rule="evenodd" d="M11 1H5a1 1 0 0 0-1 1v6a.5.5 0 0 1-1 0V2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v6a.5.5 0 0 1-1 0V2a1 1 0 0 0-1-1m1 13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a.5.5 0 0 0-1 0v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2a.5.5 0 0 0-1 0zM1.713 7.954a.5.5 0 1 0-.419-.908c-.347.16-.654.348-.882.57C.184 7.842 0 8.139 0 8.5c0 .546.408.94.823 1.201.44.278 1.043.51 1.745.696C3.978 10.773 5.898 11 8 11q.148 0 .294-.002l-1.148 1.148a.5.5 0 0 0 .708.708l2-2a.5.5 0 0 0 0-.708l-2-2a.5.5 0 1 0-.708.708l1.145 1.144L8 10c-2.04 0-3.87-.221-5.174-.569-.656-.175-1.151-.374-1.47-.575C1.012 8.639 1 8.506 1 8.5c0-.003 0-.059.112-.17.115-.112.31-.242.6-.376Zm12.993-.908a.5.5 0 0 0-.419.908c.292.134.486.264.6.377.113.11.113.166.113.169s0 .065-.13.187c-.132.122-.352.26-.677.4-.645.28-1.596.523-2.763.687a.5.5 0 0 0 .14.99c1.212-.17 2.26-.43 3.02-.758.38-.164.713-.357.96-.587.246-.229.45-.537.45-.919 0-.362-.184-.66-.412-.883s-.535-.411-.882-.571M7.5 2a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1z"/>
 </svg></span><span class="profile-ui-row-copy"><strong>Linked devices</strong><small>Use Veltrix on other devices</small></span><svg class="profile-ui-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -448,6 +487,59 @@
     <p class="sx-error" id="pinError" hidden></p>
   </div>
   <div class="sx-foot"><button type="button" class="sx-main" id="pinSave" disabled>Save</button></div>
+</section>
+<section id="securityPage" class="profile-ui-page sx-page" hidden aria-label="Security">
+  <header class="profile-ui-header"><button type="button" class="profile-ui-back" data-sx-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Security</h1><span class="profile-ui-header-spacer"></span></header>
+  <div class="sx-body">
+    <p class="sx-lead left">Manage how your account and wallet are protected.</p>
+    <button type="button" class="sx-card sx-link-row" id="securityReset"><span class="sx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M16 7l3 3M14 9l2 2"/></svg></span><span class="sx-grow"><strong>Reset password</strong><small>Choose a new password for your account.</small></span><svg class="sx-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    <button type="button" class="sx-card sx-link-row" id="securityPhrase"><span class="sx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sx-grow"><strong>View recovery phrase</strong><small>Show your wallet recovery phrase.</small></span><svg class="sx-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+  </div>
+</section>
+<section id="resetPwPage" class="profile-ui-page sx-page" hidden aria-label="Reset password">
+  <header class="profile-ui-header"><button type="button" class="profile-ui-back" data-sx-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Reset password</h1><span class="profile-ui-header-spacer"></span></header>
+  <div class="sx-body">
+    <p class="sx-lead left">Enter your 2FA PIN, then choose a new password. You will use it the next time you sign in with your email.</p>
+    <label class="sx-label">Two-step verification PIN</label>
+    <div class="sx-pin" id="resetPin" translate="no"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="2FA PIN digit 1"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="2FA PIN digit 2"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="2FA PIN digit 3"><input inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password" autocomplete="off" aria-label="2FA PIN digit 4"></div>
+    <div class="input-group"><label for="resetPw1">New password</label><div class="password-field"><input type="password" id="resetPw1" placeholder="Enter a new password" autocomplete="new-password"><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" onclick="togglePassword('resetPw1', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div class="input-group"><label for="resetPw2">Confirm new password</label><div class="password-field"><input type="password" id="resetPw2" placeholder="Re-enter the new password" autocomplete="new-password"><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" onclick="togglePassword('resetPw2', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <ul class="sx-checks" id="resetChecks"><li data-c="len">At least 6 characters</li><li data-c="match">Passwords match</li></ul>
+    <p class="sx-error" id="resetError" hidden></p>
+  </div>
+  <div class="sx-foot"><button type="button" class="sx-main" id="resetSave" disabled>Update password</button></div>
+</section>
+<section id="phrasePwPage" class="profile-ui-page sx-page" hidden aria-label="Confirm password">
+  <header class="profile-ui-header"><button type="button" class="profile-ui-back" data-sx-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Confirm it's you</h1><span class="profile-ui-header-spacer"></span></header>
+  <div class="sx-body">
+    <p class="sx-lead left">For your security, enter your app password before you can view your recovery phrase.</p>
+    <div class="input-group"><label for="phrasePw">App password</label><div class="password-field"><input type="password" id="phrasePw" placeholder="Enter your password" autocomplete="current-password"><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false" onclick="togglePassword('phrasePw', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <p class="sx-error" id="phrasePwError" hidden></p>
+  </div>
+  <div class="sx-foot"><button type="button" class="sx-main" id="phrasePwGo" disabled>Continue</button></div>
+</section>
+<section id="phraseWarnPage" class="profile-ui-page sx-page" hidden aria-label="Before you continue">
+  <header class="profile-ui-header"><button type="button" class="profile-ui-back" data-sx-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Before you continue</h1><span class="profile-ui-header-spacer"></span></header>
+  <div class="sx-body center">
+    <div class="pw-ic" id="pwIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.4v.1"/></svg></div>
+    <h3 class="pw-title" id="pwTitle"></h3>
+    <p class="pw-text" id="pwText"></p>
+    <div class="pw-steps" id="pwSteps" aria-hidden="true"><i></i><i></i><i></i></div>
+  </div>
+  <div class="sx-foot"><button type="button" class="sx-main" id="pwNext">Next</button></div>
+</section>
+<section id="phrasePage" class="profile-ui-page sx-page" hidden aria-label="Recovery phrase">
+  <header class="profile-ui-header"><button type="button" class="profile-ui-back" data-sx-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Recovery phrase</h1><span class="profile-ui-header-spacer"></span></header>
+  <div class="sx-body">
+    <p class="sx-lead left">Write these words down in order and keep them somewhere safe and private.</p>
+    <div class="rp-grid" id="rpGrid" translate="no" aria-live="polite"></div>
+    <p class="sx-error" id="rpError" hidden></p>
+    <p class="rp-note">Make sure nobody can see your screen. Copied text can be read by other apps.</p>
+  </div>
+  <div class="sx-foot rp-foot">
+    <button type="button" class="rp-btn rp-alt" id="rpToggle"><span id="rpToggleText">Hide</span></button>
+    <button type="button" class="rp-btn rp-copy" id="rpCopy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15"/></svg><span>Copy phrase</span></button>
+  </div>
 </section>
 <section id="devicesPage" class="profile-ui-page sx-page" hidden aria-label="Linked devices">
   <header class="profile-ui-header"><button type="button" class="profile-ui-back" data-sx-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Linked devices</h1><span class="profile-ui-header-spacer"></span></header>
@@ -573,18 +665,20 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
 <script src="app.js/addrgen.js?v=102"></script>
 <script src="app.js/supabase-config.js?v=105"></script>
-<script src="app.js/db.js?v=110"></script>
+<script src="app.js/db.js?v=114"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
 <script src="app.js/qr.js?v=106"></script>
 <script src="app.js/skeleton.js?v=103"></script>
 <script src="app.js/welcome.js?v=105"></script>
-<script src="app.js/script.js?v=117"></script>
-<script src="app.js/messaging.js?v=109"></script>
+<script src="app.js/script.js?v=120"></script>
+<script src="app.js/messaging.js?v=111"></script>
+<script src="app.js/game.js?v=2"></script>
 <script src="app.js/truecolor.js?v=101"></script>
-<script src="app.js/settings.js?v=110"></script>
+<script src="app.js/settings.js?v=114"></script>
+<script src="app.js/passcode.js?v=1"></script>
 <script src="app.js/wallet.js?v=104"></script>
 <script src="app.js/receipt-logo.js?v=101"></script>
-<script src="app.js/activity.js?v=119"></script>
+<script src="app.js/activity.js?v=123"></script>
 <script src="app.js/scrolllock.js?v=101"></script>
 <script src="app.js/buybrowser.js?v=106"></script>
 <script src="app.js/i18n.js?v=106"></script>

@@ -56,6 +56,7 @@ function loadStore(){
  for(const aid of Object.keys(raw)){const o=raw[aid];if(!o||!o.convs)continue;
   const who=dir[aid]||{name:"User "+aid.slice(0,4),photo:""};
   for(const cid of Object.keys(o.convs)){const c=o.convs[cid];if(!c||!Array.isArray(c.msgs)||!c.msgs.length)continue;
+   if(String(cid).indexOf("real-")===0)continue;                      /* private chats between two real users are not admin threads (the admin could otherwise "reply as" a real person) */
    const cname=c.name||(cid===SUPPORT_ID?SUPPORT_NAME:"this contact"),id=tid(aid,cid);
    store.convs[id]={user:{id,name:who.name,photo:who.photo||"",accountId:aid,contactId:cid,contactName:cname},msgs:c.msgs,rc:c,lastRead:Math.max(c.adminReadAt||0,reads[id]||0)}}}
 }
@@ -175,8 +176,9 @@ function openChat(uid,user){
  loadStore();const u=userOf(uid)||user;if(!u)return;activeId=uid;activeUser=u;{const c=store.convs[uid];divAt=(c&&c.lastRead)||0;divN=c?unreadOf(c):0}editingId=null;el("vmEditing").hidden=true;
  el("vmChatWho").innerHTML=av(u,"vm-sm")+`<span class="ad-who"><span class="vm-name">${esc(u.name)}</span><small>Replying as ${esc(u.contactName||"contact")}</small></span>`;
  clearStage();text.value="";autosize();setMode();markRead(uid);renderMsgs(true);C.hidden=false;
+ try{window.vxGame&&window.vxGame.onChat({admin:true,accountId:u.accountId,contactId:u.contactId,persona:u.contactName||"",support:u.contactId==="veltrix-support"})}catch(e){}
 }
-function closeChat(){clearStage();closePreview();closeViewer();if(recorder)cancelRec();stopPlayback();C.hidden=true;activeId=null;activeUser=null;divN=0;renderConvs()}
+function closeChat(){try{window.vxGame&&window.vxGame.onChat(null)}catch(e){}clearStage();closePreview();closeViewer();if(recorder)cancelRec();stopPlayback();C.hidden=true;activeId=null;activeUser=null;divN=0;renderConvs()}
 el("vmChatBack").addEventListener("click",closeChat);
 
 function bubble(m){
