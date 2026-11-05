@@ -8,7 +8,7 @@
  var root=document.documentElement;
  var okPop=typeof HTMLElement!=="undefined"&&typeof HTMLElement.prototype.showPopover==="function";
  var okBf=!!(window.CSS&&CSS.supports&&(CSS.supports("backdrop-filter","blur(1px)")||CSS.supports("-webkit-backdrop-filter","blur(1px)")));
- var SEL=".vm-page,.vm-viewer,.vm-toast,.vm-dialog-backdrop,.vm-upload-menu,.vm-camera";
+ var SEL=".vm-page,.vm-viewer,.vm-toast,.vm-dialog-backdrop,.vm-upload-menu,.vm-camera,.vxg-menu-wrap,.vxg-loader";
  var EMO=/(?:[\u{1F1E6}-\u{1F1FF}]{2}|[0-9#*]\uFE0F?\u20E3|\p{Extended_Pictographic}(?:\uFE0F|[\u{1F3FB}-\u{1F3FF}])?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|[\u{1F3FB}-\u{1F3FF}])?)*)/gu;
  var HAS=new RegExp(EMO.source,"u");
  var SKIP={TEXTAREA:1,INPUT:1,SCRIPT:1,STYLE:1,SELECT:1,OPTION:1};
