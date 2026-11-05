@@ -135,6 +135,8 @@
       '<head><meta charset="UTF-8">' +
       '<meta name="viewport" content="width=device-width,initial-scale=1">' +
       '<meta name="robots" content="noindex,nofollow">' +
+      '<meta name="theme-color" content="' + (theme === "dark" ? "#000000" : "#ffffff") + '">' +
+      '<meta name="color-scheme" content="' + theme + '">' +
       '<link rel="icon" type="image/png" sizes="32x32" href="app.assets/favicon-32.png">' +
       "<title>Veltrix · Mobile only</title><style>" + css + "</style></head>" +
       "<body>" + html + "</body>";

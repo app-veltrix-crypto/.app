@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script src="app.js/devicegate.js?v=102"></script>
 <script src="app.js/fixedsize.js?v=102"></script>
-<script>try{if(localStorage.getItem("veltrixTheme")!=="light")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script>
+<script>/* Set day/night BEFORE first paint, including the browser's own colours (address bar, status bar, scrollbars, form controls) */try{var d=localStorage.getItem("veltrixTheme")!=="light",h=document.documentElement,m=function(n,c){var e=document.querySelector('meta[name="'+n+'"]');if(!e){e=document.createElement("meta");e.name=n;document.head.appendChild(e)}e.setAttribute("content",c)};if(d)h.setAttribute("data-theme","dark");m("theme-color",d?"#000000":"#ffffff");m("color-scheme",d?"dark":"light");m("apple-mobile-web-app-status-bar-style",d?"black":"default")}catch(e){}</script>
 <link rel="icon" type="image/png" sizes="32x32" href="app.assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="app.assets/favicon-192.png">
 <link rel="apple-touch-icon" href="app.assets/apple-touch-icon.png">
@@ -18,7 +18,7 @@
 <link rel="preload" as="image" href="app.assets/splash-logo.png">
 <link rel="preload" as="image" href="app.assets/splash-logo-name-light.png">
 <link rel="stylesheet" href="app.css/style.css?v=105">
-<link rel="stylesheet" href="app.css/style.app.css?v=111">
+<link rel="stylesheet" href="app.css/style.app.css?v=112">
 <link rel="stylesheet" href="app.css/messaging.css?v=110">
 <link rel="stylesheet" href="app.css/game.css?v=11">
 <link rel="stylesheet" href="app.css/brand.css?v=107">
@@ -685,6 +685,6 @@
 <script src="app.js/scrolllock.js?v=101"></script>
 <script src="app.js/buybrowser.js?v=106"></script>
 <script src="app.js/i18n.js?v=106"></script>
-<script src="app.js/chrome.js?v=105"></script>
+<script src="app.js/chrome.js?v=106"></script>
 </body>
 </html>

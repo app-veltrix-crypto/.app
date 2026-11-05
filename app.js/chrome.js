@@ -1,10 +1,11 @@
-/* Keeps the browser's own colours (address bar, status bar, task-bar title) identical to the screen the app is showing.
+/* Keeps the browser's own colours (address bar, status bar, scrollbars, form controls, task-bar title) identical to the screen the app is showing.
    It reads the real background colour at the top of the visible screen, turns it into the night-mode colour when night mode
    is on, and writes it to <meta name="theme-color">. It re-checks on every screen change, theme change and resize. */
 (function(){
 "use strict";
 let meta=document.querySelector('meta[name="theme-color"]');
 if(!meta){meta=document.createElement("meta");meta.name="theme-color";document.head.appendChild(meta)}
+const setMeta=(n,c)=>{let e=document.querySelector('meta[name="'+n+'"]');if(!e){e=document.createElement("meta");e.name=n;document.head.appendChild(e)}if(e.getAttribute("content")!==c)e.setAttribute("content",c)};
 const clamp=x=>Math.max(0,Math.min(1,x));
 const parse=s=>{const m=String(s).match(/rgba?\(([^)]+)\)/);if(!m)return null;const p=m[1].split(/[ ,\/]+/).filter(Boolean).map(Number);return{r:p[0],g:p[1],b:p[2],a:p.length>3?p[3]:1}};
 const hex=a=>"#"+a.map(v=>Math.round(v).toString(16).padStart(2,"0")).join("");
@@ -26,6 +27,8 @@ function sync(){
   let c;try{c=topColor()}catch{c={r:255,g:255,b:255,a:1}}
   const isDark=document.documentElement.getAttribute("data-theme")==="dark";
   const out=hex(isDark?night(c):[c.r,c.g,c.b]);
+  /* day = light browser UI, night = dark browser UI (scrollbars, form controls, iOS status bar) */
+  setMeta("color-scheme",isDark?"dark":"light");setMeta("apple-mobile-web-app-status-bar-style",isDark?"black":"default");
   if(out!==last){last=out;meta.setAttribute("content",out);strip.style.background=out;strip.style.filter=isDark?"hue-rotate(180deg) invert(1)":"none"}
 }
 let t=null;const later=(ms=60)=>{clearTimeout(t);t=setTimeout(sync,ms)};

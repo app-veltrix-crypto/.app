@@ -852,7 +852,10 @@ button.sx-card{cursor:none}
 /* ===== Day & night mode ===== */
 .sx-switch.on i{background:var(--wd-accent,#20243a)}.sx-switch.on i::after{transform:translateX(18px)}
 #settingsTheme .sx-switch{pointer-events:none}
+html{color-scheme:light}
 html[data-theme="dark"]{filter:invert(1) hue-rotate(180deg);background:#fff;color-scheme:dark}
+/* The page is drawn light and then inverted by the filter, so native controls inside it must be drawn light too (they come out dark). The root stays "dark" so the browser's own scrollbar / overscroll area are dark. */
+html[data-theme="dark"] body{color-scheme:light}
 html[data-theme="dark"] img,html[data-theme="dark"] video,html[data-theme="dark"] picture,html[data-theme="dark"] #linkQrImage,html[data-theme="dark"] #depositQrImage,html[data-theme="dark"] .profile-ui-avatar-button img{filter:invert(1) hue-rotate(180deg)}
 html[data-theme="dark"] .profile-ui-identity{filter:invert(1) hue-rotate(180deg)}
 /* The identity card already undoes the page filter, so a photo inside it must NOT be inverted a second time (that made it look negative/odd). */
