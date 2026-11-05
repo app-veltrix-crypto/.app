@@ -38,9 +38,9 @@ MB.prototype.cone=function(cx,y0,cz,r,h,n,c0,c1,r2){r2=r2||0;const L=Math.hypot(
   const n0=[ca0*h/L,(r-r2)/L,sa0*h/L],n1=[ca1*h/L,(r-r2)/L,sa1*h/L];
   const b0=[cx+ca0*r,y0,cz+sa0*r],b1=[cx+ca1*r,y0,cz+sa1*r],t0=[cx+ca0*r2,y0+h,cz+sa0*r2],t1=[cx+ca1*r2,y0+h,cz+sa1*r2];
   this.vert(b0,n0,c0);this.vert(b1,n1,c0);this.vert(t1,n1,c1);this.vert(b0,n0,c0);this.vert(t1,n1,c1);this.vert(t0,n0,c1)}};
-MB.prototype.ell=function(cx,cy,cz,rx,ry,rz,c0,c1,lat,lon){lat=lat||5;lon=lon||8;
- const P=(i,j)=>{const th=i/lat*Math.PI,ph=j/lon*6.2832,x=Math.sin(th)*Math.cos(ph),y=Math.cos(th),z=Math.sin(th)*Math.sin(ph);
-  const f=(y+1)/2,c=[lerp(c0[0],c1[0],f),lerp(c0[1],c1[1],f),lerp(c0[2],c1[2],f)];return{p:[cx+x*rx,cy+y*ry,cz+z*rz],n:[x/rx*Math.max(rx,rz),y/ry*Math.max(rx,rz),z/rz*Math.max(rx,rz)],c}};
+MB.prototype.ell=function(cx,cy,cz,rx,ry,rz,c0,c1,lat,lon,jit){lat=lat||5;lon=lon||8;jit=jit||0;
+ const P=(i,j2)=>{const th=i/lat*Math.PI,ph=j2/lon*6.2832,x=Math.sin(th)*Math.cos(ph),y=Math.cos(th),z=Math.sin(th)*Math.sin(ph);
+  const f=(y+1)/2,c=[lerp(c0[0],c1[0],f),lerp(c0[1],c1[1],f),lerp(c0[2],c1[2],f)];const j=1+(jit?(rnd(i*7.3+j2*3.1+cx*5+cy)-.5)*jit:0);return{p:[cx+x*rx*j,cy+y*ry*j,cz+z*rz*j],n:[x/rx*Math.max(rx,rz),y/ry*Math.max(rx,rz),z/rz*Math.max(rx,rz)],c}};
  for(let i=0;i<lat;i++)for(let j=0;j<lon;j++){const A=P(i,j),B=P(i+1,j),C=P(i+1,j+1),D=P(i,j+1);
   for(const t of[[A,B,C],[A,C,D]])for(const q of t)this.vert(q.p,q.n,q.c)}};
 /* append a prebuilt local geometry with yaw/scale/translate and a colour tint */
@@ -58,39 +58,66 @@ const terr=(d,y)=>{const a=Math.abs(d);if(a<=FLAT)return y;if(a>=EMB)return G;le
 const pt=(f,d,y)=>[f.x+f.rx*d,y,f.z+f.rz*d];
 function roadDist(x,z){let m=1e9;for(let i=0;i<=NS;i+=2){const dx=PX[i]-x,dz=PZ[i]-z,d=dx*dx+dz*dz;if(d<m)m=d}return Math.sqrt(m)}
 /* ---------- local tree geometry ---------- */
-function pineGeo(){const m=new MB();m.cone(0,0,0,.24,1.8,6,[.3,.2,.12],[.25,.17,.1],.18);
- m.cone(0,1.1,0,2.0,2.8,8,[.1,.27,.12],[.14,.36,.15]);m.cone(0,2.7,0,1.55,2.5,8,[.11,.3,.13],[.16,.4,.17]);m.cone(0,4.1,0,1.05,2.3,8,[.13,.34,.15],[.2,.46,.2]);return m}
-function roundGeo(){const m=new MB();m.cone(0,0,0,.3,2.5,6,[.32,.22,.14],[.26,.18,.11],.2);
- m.ell(0,3.3,0,1.9,1.6,1.9,[.1,.26,.1],[.2,.45,.17]);m.ell(.9,3.9,.3,1.4,1.2,1.4,[.12,.3,.11],[.24,.5,.18]);m.ell(-.8,3.6,-.5,1.3,1.2,1.3,[.1,.28,.11],[.21,.47,.17]);return m}
+function pineGeo(){const m=new MB();m.cone(0,0,0,.26,2.0,7,[.28,.19,.11],[.22,.15,.09],.16);
+ m.cone(0,.9,0,2.1,2.4,9,[.06,.2,.1],[.12,.32,.14]);m.cone(0,2.2,0,1.75,2.3,9,[.07,.23,.11],[.14,.37,.16]);m.cone(0,3.4,0,1.35,2.2,9,[.09,.27,.12],[.17,.42,.18]);
+ m.cone(0,4.5,0,.95,2.0,8,[.11,.31,.14],[.2,.46,.2]);m.cone(0,5.4,0,.55,1.6,8,[.14,.36,.16],[.26,.52,.22]);return m}
+function roundGeo(){const m=new MB();m.cone(0,0,0,.34,2.7,7,[.3,.2,.12],[.24,.16,.1],.2);m.cone(.0,1.8,0,.16,1.6,5,[.26,.18,.11],[.22,.15,.09],.08);
+ m.ell(0,3.4,0,2.0,1.65,2.0,[.06,.2,.07],[.22,.46,.16],5,8,.28);m.ell(1.0,4.0,.3,1.45,1.25,1.45,[.09,.26,.08],[.27,.52,.18],4,7,.3);
+ m.ell(-.9,3.7,-.5,1.35,1.2,1.35,[.07,.22,.08],[.24,.5,.17],4,7,.3);m.ell(.1,4.7,-.2,1.1,.95,1.1,[.13,.32,.1],[.33,.58,.2],3,6,.3);return m}
+function bushGeo(){const m=new MB();m.ell(0,.35,0,.9,.55,.8,[.07,.2,.08],[.2,.44,.16],4,7,.3);m.ell(.6,.3,.3,.55,.4,.5,[.08,.24,.09],[.24,.48,.17],3,6,.3);return m}
 function signGeo(){const m=new MB();m.box(0,0,0,.09,2.4,.09,[.3,.3,.32]);m.box(0,2.0,0,1.5,.8,.08,[.15,.35,.85]);m.box(0,2.25,.05,1.2,.08,.02,[.95,.95,.95]);m.box(0,2.05,.05,.8,.08,.02,[.95,.95,.95]);return m}
-const PINE=pineGeo(),ROUND=roundGeo(),SIGN=signGeo();
+const PINE=pineGeo(),ROUND=roundGeo(),BUSH=bushGeo(),SIGN=signGeo();
 /* ---------- houses ---------- */
 const WALLS={a:[[.86,.8,.7],[.78,.72,.64],.9&&[.9,.88,.84],[.72,.56,.48]],b:[[.72,.78,.84],[.82,.84,.86],[.62,.67,.74],[.78,.8,.72]],c:[[.55,.58,.65],[.66,.62,.56]]};
 function houseGeo(kind,seed){
  const m=new MB(),pick=a=>a[Math.floor(rnd(seed*3.1)*a.length)];
  const cfg={a:{w:9,d:7+rnd(seed)*3,fl:2},b:{w:11,d:15+rnd(seed)*4,fl:4+Math.floor(rnd(seed+1)*3)},c:{w:10,d:10,fl:8+Math.floor(rnd(seed+2)*4)}}[kind];
- const wall=pick(WALLS[kind]),w=cfg.w,d=cfg.d,H=cfg.fl*3+(kind==="a"?.6:1),base=-(1-G);   /* body goes down into the slope */
- const top=H,bot=-14;
+ const wall=pick(WALLS[kind]),w=cfg.w,d=cfg.d,H=cfg.fl*3+(kind==="a"?.6:1);
+ const top=H,bot=-14,TRIM=[.93,.93,.9],DK=[.08,.08,.1];
  m.box(0,bot,0,w,top-bot,d,wall);
- const glass=[.14,.2,.28],warm=[.82,.7,.42];
- const win=(face,u,y,wd,hh,c)=>{ // face: 0 front(-x) 1 +z 2 -z 3 back(+x)
-  if(face===0)m.quad([-w/2-.04,y-hh/2,u-wd/2],[-w/2-.04,y+hh/2,u-wd/2],[-w/2-.04,y+hh/2,u+wd/2],[-w/2-.04,y-hh/2,u+wd/2],c,[-1,0,0]);
-  else if(face===1)m.quad([u-wd/2,y-hh/2,d/2+.04],[u+wd/2,y-hh/2,d/2+.04],[u+wd/2,y+hh/2,d/2+.04],[u-wd/2,y+hh/2,d/2+.04],c,[0,0,1]);
-  else if(face===2)m.quad([u-wd/2,y-hh/2,-d/2-.04],[u-wd/2,y+hh/2,-d/2-.04],[u+wd/2,y+hh/2,-d/2-.04],[u+wd/2,y-hh/2,-d/2-.04],c,[0,0,-1])};
- const sp=kind==="a"?2.9:2.6,ww=kind==="a"?1.2:1.15,wh=kind==="a"?1.45:1.5;
- for(let f=0;f<cfg.fl;f++){const y=1.0+f*3+1.0;
+ m.box(0,0,0,w+.18,.9,d+.18,[wall[0]*.55,wall[1]*.55,wall[2]*.58]);                      /* plinth */
+ m.box(0,top-.35,0,w+.12,.35,d+.12,TRIM);                                                 /* cornice band */
+ for(const[sx,sz]of[[-1,-1],[1,-1],[-1,1],[1,1]])m.box(sx*w/2,0,sz*d/2,.28,top,.28,[wall[0]*.9,wall[1]*.9,wall[2]*.9]);   /* corner pilasters */
+ const full=kind==="a",glass=[.1,.15,.22],sky=[.34,.42,.56],warm=[3,2.2,1.05];
+ const win=(face,u,y,wd,hh,lit)=>{
+  const gc=lit?warm:glass,gt=lit?[3.2,2.5,1.3]:sky,o=.05;
+  const Q=(a,b,c,dd,col,n)=>m.quad(a,b,c,dd,col,n);
+  const X=face===0?-w/2-o:0,Zp=face===1?d/2+o:face===2?-d/2-o:0;
+  if(face===0){const x=X,z0=u-wd/2,z1=u+wd/2,h=y-hh/2,t=y+hh/2,mid=y+hh*.1;
+   Q([x,h,z0],[x,mid,z0],[x,mid,z1],[x,h,z1],gc,[-1,0,0]);Q([x,mid,z0],[x,t,z0],[x,t,z1],[x,mid,z1],gt,[-1,0,0]);
+   m.box(x-.03,t,u,.12,.12,wd+.3,TRIM);m.box(x-.06,h-.14,u,.2,.14,wd+.36,TRIM);if(full){m.box(x-.02,h,z0-.05,.1,hh,.1,TRIM);m.box(x-.02,h,z1+.05,.1,hh,.1,TRIM);m.box(x-.03,h,u,.07,hh,.07,TRIM)}}
+  else{const sg=face===1?1:-1,z=Zp,x0=u-wd/2,x1=u+wd/2,h=y-hh/2,t=y+hh/2,mid=y+hh*.1,nn=[0,0,sg];
+   if(face===1){Q([x0,h,z],[x1,h,z],[x1,mid,z],[x0,mid,z],gc,nn);Q([x0,mid,z],[x1,mid,z],[x1,t,z],[x0,t,z],gt,nn)}
+   else{Q([x0,h,z],[x0,mid,z],[x1,mid,z],[x1,h,z],gc,nn);Q([x0,mid,z],[x0,t,z],[x1,t,z],[x1,mid,z],gt,nn)}
+   m.box(u,t,z+sg*.03,wd+.3,.12,.12,TRIM);m.box(u,h-.14,z+sg*.06,wd+.36,.14,.2,TRIM);if(full){m.box(x0-.05,h,z+sg*.02,.1,hh,.1,TRIM);m.box(x1+.05,h,z+sg*.02,.1,hh,.1,TRIM);m.box(u,h,z+sg*.03,.07,hh,.07,TRIM)}}};
+ const sp=kind==="a"?2.9:2.6,ww=kind==="a"?1.2:1.15,wh=kind==="a"?1.5:1.55;
+ for(let f=0;f<cfg.fl;f++){const y=1.0+f*3+1.1;
   const cols=Math.max(1,Math.floor((d-1)/sp));for(let k=0;k<cols;k++){const u=-d/2+(d/cols)*(k+.5);
-   if(!(f===0&&k===Math.floor(cols/2)))win(0,u,y,ww,wh,rnd(seed*7+f*13+k)<.18?warm:glass)}
+   if(!(f===0&&k===Math.floor(cols/2)))win(0,u,y,ww,wh,rnd(seed*7+f*13+k)<.2);
+   else if(kind!=="a"){}
+   if(kind!=="a"&&f>0&&rnd(seed+f*3+k)<.5){m.box(-w/2-.45,y-hh2(wh),u,.9,.12,ww+.5,[.42,.42,.46]);m.box(-w/2-.85,y-hh2(wh),u-(ww+.4)/2,.06,.9,.06,DK);m.box(-w/2-.85,y-hh2(wh),u+(ww+.4)/2,.06,.9,.06,DK);m.box(-w/2-.88,y-hh2(wh)+.8,u,.04,.06,ww+.4,DK)}}   /* balconies */
   const rows=Math.max(1,Math.floor((w-1)/sp));for(let k=0;k<rows;k++){const u=-w/2+(w/rows)*(k+.5);
-   win(1,u,y,ww,wh,rnd(seed*5+f*11+k)<.15?warm:glass);win(2,u,y,ww,wh,rnd(seed*9+f*3+k)<.15?warm:glass)}}
- m.box(-w/2-.04,0,0,.05,2.1,1.0,[.34,.2,.12]);
- if(kind==="a"){const rc=pick([[.5,.22,.17],[.32,.32,.36],[.42,.27,.2]]),rh=2.7,o=.5,x0=-w/2-o,x1=w/2+o,z0=-d/2-o,z1=d/2+o;
-  m.quad([x0,top,z0],[x0,top,z1],[0,top+rh,z1],[0,top+rh,z0],rc,[-rh,w/2+o,0]);m.quad([x1,top,z1],[x1,top,z0],[0,top+rh,z0],[0,top+rh,z1],rc,[rh,w/2+o,0]);
+   win(1,u,y,ww,wh,rnd(seed*5+f*11+k)<.18);win(2,u,y,ww,wh,rnd(seed*9+f*3+k)<.18)}
+  if(kind!=="a"&&f<cfg.fl-1)m.box(0,1.0+f*3+2.9,0,w+.08,.12,d+.08,[wall[0]*.85,wall[1]*.85,wall[2]*.88])}   /* floor lines */
+ /* entrance: door, frame, step, canopy, lamp */
+ m.box(-w/2-.05,.9,0,.08,2.2,1.2,TRIM);m.box(-w/2-.09,.9,0,.06,2.05,1.0,[.3,.16,.1]);m.box(-w/2-.13,1.4,.36,.05,.08,.08,[.8,.7,.3]);
+ m.box(-w/2-.7,0,0,1.4,.25,2.2,[.55,.55,.58]);m.box(-w/2-.8,2.9,0,1.6,.14,2.2,[.28,.28,.32]);
+ m.box(-w/2-.12,2.3,.8,.1,.16,.1,[3,2.6,1.6]);
+ if(kind==="a"){const rc=pick([[.46,.2,.15],[.3,.3,.34],[.4,.26,.2],[.22,.26,.3]]),rh=2.9,o=.6,x0=-w/2-o,x1=w/2+o,z0=-d/2-o,z1=d/2+o,rd=[rc[0]*.75,rc[1]*.75,rc[2]*.75];
+  m.quad([x0,top,z0],[x0,top,z1],[0,top+rh,z1],[0,top+rh,z0],rc,[-rh,w/2+o,0]);m.quad([x1,top,z1],[x1,top,z0],[0,top+rh,z0],[0,top+rh,z1],rd,[rh,w/2+o,0]);
   m.tri([-w/2,top,-d/2],[w/2,top,-d/2],[0,top+rh,-d/2],wall,[0,0,-1]);m.tri([-w/2,top,d/2],[0,top+rh,d/2],[w/2,top,d/2],wall,[0,0,1]);
-  m.box(w*.2,top+rh*.5,d*.15,.7,rh*.9,.7,[.4,.25,.2])}
- else m.box(0,top,0,w+.5,.5,d+.5,[.3,.3,.33]);
+  m.box(0,top+rh-.05,0,.22,.14,d+2*o+.1,[rc[0]*.6,rc[1]*.6,rc[2]*.6]);                                        /* ridge */
+  m.box(-w/2-o,top-.1,0,.16,.16,d+2*o,TRIM);m.box(w/2+o,top-.1,0,.16,.16,d+2*o,TRIM);                          /* gutters */
+  m.box(w*.2,top+rh*.35,d*.15,.8,rh*1.05,.8,[.46,.3,.24]);m.box(w*.2,top+rh*.35+rh*1.05,d*.15,1.0,.18,1.0,[.3,.3,.32]);  /* chimney + cap */
+  m.box(0,top+.9,-d/2-.02,1.4,1.2,.12,TRIM);m.quad([-.55,top+1.0,-d/2-.09],[-.55,top+2.0,-d/2-.09],[.55,top+2.0,-d/2-.09],[.55,top+1.0,-d/2-.09],[.1,.15,.22],[0,0,-1]);}   /* gable window */
+ else{m.box(0,top,0,w+.5,.55,d+.5,[.3,.3,.33]);m.box(0,top+.55,0,w+.3,.35,d+.3,[.42,.42,.46]);
+  m.box(w*.18,top+.55,d*.2,2.2,1.1,1.6,[.5,.5,.54]);m.box(-w*.2,top+.55,-d*.18,1.4,.8,1.2,[.46,.46,.5]);
+  if(kind==="c"){m.box(0,top+.55,0,.12,4.5,.12,[.6,.6,.64]);m.box(0,top+5,0,.5,.12,.5,[3,.3,.3])}}
+ /* garden: hedges + shrubs in front (built into the house geometry) */
+ for(const k of[-1,1])m.ell(-w/2-1.4,.2,k*(d/2-1),.9,.7,1.2,[.06,.2,.07],[.2,.44,.15],3,6,.25);
  return{m,w,d};
 }
+const hh2=wh=>wh/2;
 /* ---------- world build (CPU, once) ---------- */
 let WORLD=null;
 function buildWorld(){
@@ -147,6 +174,8 @@ function buildWorld(){
   if(roadDist(x,z)<lat-1.5||!free(x,z,2.4))continue;
   const kind=rnd(i*4.1+side)<.55?"pine":"round",sc=.8+rnd(i*7.7+side)*.9,y=terr(d,f.y);
   place(chunks[Math.floor(i/CH)].plain,kind==="pine"?PINE:ROUND,x,y,z,rnd(i+side)*6.28,sc,.82+rnd(i*2.7)*.3);occ.push([x,z,1.8*sc])}}
+ for(let i=3;i<NS;i+=5){const sd=rnd(i*2.9)<.5?-1:1,lat=9+rnd(i*1.3)*3,d=sd*lat,f=sample(i+rnd(i)*3),x=f.x+f.rx*d,z=f.z+f.rz*d;if(roadDist(x,z)<lat-1.2||!free(x,z,1.2))continue;
+  place(chunks[Math.floor(i/CH)].plain,BUSH,x,terr(d,f.y),z,rnd(i)*6.28,.8+rnd(i*3.3)*.7,.85+rnd(i*5.1)*.3)}
  const lamps=[],LAMP=new MB();LAMP.box(0,0,0,.16,7.2,.16,[.2,.2,.24]);LAMP.box(0,7.15,0,.7,.12,.35,[.4,.4,.45]);
  for(let i=LEAD+8;i<NS-30;i+=26){const f=sample(i),C=chunks[Math.floor(i/CH)];for(const sd of[-1,1]){const d=sd*(KERB+2.3);place(C.plain,LAMP,f.x+f.rx*d,f.y,f.z+f.rz*d,0,1);lamps.push({i,x:f.x+f.rx*d,y:f.y+7.1,z:f.z+f.rz*d,pool:[f.x+f.rx*sd*3.2,f.y+.05,f.z+f.rz*sd*3.2]})}}
  /* huge ground + distant hills / city ring */
@@ -164,11 +193,11 @@ function buildWorld(){
 function TAIL_SAFE(){return 170}
 /* ---------- the five cars (looks only: every car drives exactly the same so bets stay fair) ---------- */
 const CARS=[
- {paint:[.62,.025,.04],stripe:[.95,.95,.95],wing:1,h:1,w:1},
- {paint:[.03,.2,.15],stripe:[.95,.78,.2],wing:0,h:.96,w:1.03},
- {paint:[.85,.3,.03],stripe:[.04,.04,.05],wing:2,h:1.03,w:.97},
- {paint:[.03,.03,.04],stripe:[.75,.75,.8],wing:0,h:1,w:1},
- {paint:[.62,.68,.78],stripe:[.1,.28,.8],wing:1,h:1.02,w:1}];
+ {paint:[.5,.02,.035],rim:[.1,.1,.12],wing:0,h:1,w:1,m:0},       /* Apex GT: Rocket Bunny BRZ, red */
+ {paint:[.02,.16,.11],rim:[.72,.74,.78],wing:0,h:.98,w:1.02,m:1}, /* Nova S: Acura CDX, green */
+ {paint:[.8,.26,.03],rim:[.08,.08,.1],wing:0,h:1,w:1,m:2},        /* Blaze D: Skyline C110, orange */
+ {paint:[.012,.012,.016],rim:[.07,.07,.08],wing:0,h:1,w:1,m:0},   /* Phantom S: Rocket Bunny BRZ, black */
+ {paint:[.55,.6,.7],rim:[.14,.14,.16],wing:0,h:1.01,w:1,m:1}];    /* Frost B: Acura CDX, silver-blue */
 /* ---------- the car (modelled once, local coords: +z forward, +x left, y up) ---------- */
 const cr=(a,b,c,d,t)=>.5*((2*b)+(-a+c)*t+(2*a-5*b+4*c-d)*t*t+(-a+3*b-3*c+d)*t*t*t);
 function crAt(arr,t){const n=arr.length,i=Math.floor(clamp(t,0,n-1.001)),f=t-i,g=k=>arr[clamp(k,0,n-1)];return cr(g(i-1),g(i),g(i+1),g(i+2),f)}
@@ -194,50 +223,90 @@ function loft(mb,st,N,col,exp,roofCol,glassCol,ringsPer){
   for(let k=0;k<N;k++){const k2=(k+1)%N;const n=[0,0,s];mb.vert(cen,n,col);mb.vert(rings[r][k],n,col);mb.vert(rings[r][k2],n,col)}}
  return{rings,Z,YB,YT,W,R,S}
 }
-function buildCar(v){
+function buildCarOld(v){
  const body=new MB(),paint=v.paint;
- const bst=[[-2.26,.4,.74,.86],[-2.2,.34,.88,.94],[-1.9,.29,.96,.99],[-1.2,.26,.99,1.0],[-.3,.25,.97,1.0],[.7,.26,.94,.99],[1.4,.29,.85,.97],[1.9,.31,.72,.92],[2.2,.34,.6,.78],[2.29,.4,.52,.5]];
- const B=loft(body,bst.map(q=>[q[0],q[1],q[2]*v.h,q[3]*v.w]),28,paint,3.4,null,null,5);
- const cst=[[-1.38,.9,1.02,.76],[-1.1,.9,1.26,.76],[-.6,.9,1.43,.77],[.1,.9,1.46,.77],[.62,.9,1.32,.75],[1.1,.9,1.02,.7]];
- const cab=new MB();const C=loft(cab,cst.map(q=>[q[0],q[1],q[2]*v.h,q[3]*v.w]),24,paint,3,paint,[.05,.07,.1],5);
- /* stripes */
- const stripes=new MB(),OR=v.stripe;
- const topY=(L,z,d,off)=>{const Zs=L.Z;let t=0;const n=Zs.length;for(let i=0;i<n-1;i++)if(z>=Zs[i]&&z<=Zs[i+1]){t=i+(z-Zs[i])/(Zs[i+1]-Zs[i]);break}
-  const yb=crAt(L.YB,t),yt=crAt(L.YT,t),w=crAt(L.W,t),yc=(yb+yt)/2,hh=(yt-yb)/2,q=Math.min(1,Math.abs(d)/w);return yc+hh*Math.pow(Math.max(0,1-Math.pow(q,3.4)),1/3.4)+.006};
- const strip=(src,z0,z1,d0,d1,n,exp)=>{for(let i=0;i<n;i++){const za=lerp(z0,z1,i/n),zb=lerp(z0,z1,(i+1)/n);
-   for(const s of[-1,1]){const e0=s*d0,e1=s*d1;stripes.quad([e0,topY(src,za,e0),za],[e1,topY(src,za,e1),za],[e1,topY(src,zb,e1),zb],[e0,topY(src,zb,e0),zb],OR,[0,1,0])}}};
- for(const dd of[[.1,.3],[.4,.6]]){strip(B,-2.1,-1.35,dd[0],dd[1],8);strip(B,1.35,2.1,dd[0],dd[1],8);strip(C,-.95,.75,dd[0],dd[1],14)}
- /* details: lights, diffuser, spoiler, exhaust, plate */
- const det=new MB();
- det.box(0,.3,-2.22,1.5,.16,.14,[.03,.03,.035]);                       /* diffuser */
- det.box(0,.99,-2.02,1.5,.035,.26,[.05,.05,.06]); /* lip spoiler */
- if(v.wing){const wy=1.08+v.wing*.06;det.box(0,wy,-2.1,1.95,.05,.42,[.02,.02,.025]);for(const q of[-1,1]){det.box(q*.62,.98,-2.08,.05,wy-.95,.3,[.02,.02,.025]);det.box(q*.98,wy-.06,-2.1,.04,.2,.44,[.02,.02,.025])}}
- for(const s of[-1,1]){det.cone(s*.55,.34,-2.36,.07,.2,10,[.7,.72,.75],[.5,.52,.55],.065)}
- const dg=new MB();for(const s of[-1,1]){const g=new MB();g.cone(0,0,0,.07,.2,10,[.7,.72,.75],[.5,.52,.55],.065)}
- /* exhaust tubes along z: rotate cone (built along y) so it points back */
- const ex=new MB();for(const s of[-1,1]){const g=new MB();g.cone(0,0,0,.06,.14,10,[.72,.74,.78],[.45,.47,.5],.055);
+ /* Vanquish-style GT: long bonnet, set-back cabin, fastback, wide haunches */
+ const bst=[[-2.3,.38,.8,.8],[-2.24,.32,.93,.93],[-2.0,.28,.99,1.0],[-1.5,.26,1.0,1.03],[-.8,.25,.99,1.03],[0,.25,.96,1.01],[.8,.26,.92,1.0],[1.4,.28,.86,.98],[1.9,.3,.77,.93],[2.2,.32,.65,.82],[2.33,.36,.55,.6]];
+ const B=loft(body,bst.map(q=>[q[0],q[1],q[2]*v.h,q[3]*v.w]),32,paint,3.4,null,null,6);
+ const cst=[[-1.62,.9,.97,.68],[-1.25,.9,1.2,.74],[-.7,.9,1.37,.77],[0,.9,1.42,.77],[.55,.9,1.3,.74],[1.02,.9,1.07,.68],[1.28,.9,.95,.6]];
+ const cab=new MB();loft(cab,cst.map(q=>[q[0],q[1],q[2]*v.h,q[3]*v.w]),28,paint,3,paint,[.025,.035,.055],6);
+ const stripes=new MB();
+ const topY=(L,z,d)=>{const Zs=L.Z;let t=0;const n=Zs.length;for(let i=0;i<n-1;i++)if(z>=Zs[i]&&z<=Zs[i+1]){t=i+(z-Zs[i])/(Zs[i+1]-Zs[i]);break}
+  const yb=crAt(L.YB,t),yt=crAt(L.YT,t),w=crAt(L.W,t),yc=(yb+yt)/2,hh=(yt-yb)/2,q=Math.min(1,Math.abs(d)/w);return yc+hh*Math.pow(Math.max(0,1-Math.pow(q,3.4)),1/3.4)+.008};
+ const strip=(mb,src,z0,z1,d0,d1,n,col)=>{for(let i=0;i<n;i++){const za=lerp(z0,z1,i/n),zb=lerp(z0,z1,(i+1)/n);
+  for(const s of[-1,1]){const e0=s*d0,e1=s*d1;mb.quad([e0,topY(src,za,e0),za],[e1,topY(src,za,e1),za],[e1,topY(src,zb,e1),zb],[e0,topY(src,zb,e0),zb],col,[0,1,0])}}};
+ const BLK=[.012,.012,.015],CH=[.82,.84,.88];
+ /* bonnet vents */
+ for(let k=0;k<4;k++)strip(stripes,B,.85+k*.2,.97+k*.2,.34,.58,2,BLK);
+ const det=new MB(),chrome=new MB();
+ det.box(0,.27,2.16,1.55,.035,.34,[.015,.015,.02]);                 /* front splitter */
+ det.box(0,.3,-2.22,1.5,.16,.14,[.02,.02,.025]);                    /* diffuser */
+ det.box(0,.99,-2.04,1.45,.03,.24,[.02,.02,.025]);                  /* ducktail lip */
+ if(v.wing)det.box(0,1.04,-2.1,1.6,.04,.3,[.02,.02,.025]);
+ /* grille: chrome frame + dark mesh with slats */
+ det.box(0,.31,2.3,1.0,.21,.05,[.01,.01,.012]);
+ chrome.box(0,.51,2.3,1.08,.025,.06,CH);chrome.box(0,.29,2.3,1.08,.025,.06,CH);
+ for(const s of[-1,1])chrome.box(s*.54,.3,2.3,.025,.23,.06,CH);
+ for(let k=-4;k<=4;k++)chrome.box(k*.115,.31,2.33,.012,.19,.02,[.55,.57,.6]);
+ chrome.box(0,.4,2.335,.012,.2,.02,CH);
+ for(const s of[-1,1]){det.box(s*.82,.34,2.12,.26,.12,.05,[.01,.01,.012]);chrome.box(s*.82,.4,2.13,.26,.012,.05,CH)}  /* intakes */
+ /* side strakes + vents, mirrors, door handle hints */
+ for(const s of[-1,1]){
+  det.box(s*.985,.6,.95,.04,.12,.46,[.015,.015,.02]);chrome.box(s*.99,.54,.95,.035,.012,.5,CH);chrome.box(s*.99,.66,.95,.035,.012,.5,CH);
+  chrome.box(s*.99,.36,-.2,.03,.012,1.5,[.55,.57,.62]);                       /* sill line */
+  det.box(s*.88,.99,.88,.2,.1,.13,[.012,.012,.015]);det.box(s*.8,.97,.88,.1,.05,.05,[.012,.012,.015]);   /* mirror */
+  det.box(s*.99,.8,-.5,.03,.03,.22,[.04,.04,.05]);                              /* door handle */
+  det.box(s*1.0,.74,-1.45,.04,.2,.4,[.015,.015,.02])}                           /* rear haunch vent */
+ /* exhaust tips */
+ const ex=new MB();for(const s of[-1,1]){const g=new MB();g.cone(0,0,0,.075,.16,12,[.8,.82,.86],[.45,.47,.5],.07);
   for(let q=0;q<g.a.length;q+=12){const y=g.a[q+1],z=g.a[q+2];g.a[q+1]=z;g.a[q+2]=-y;const ny=g.a[q+4],nz=g.a[q+5];g.a[q+4]=nz;g.a[q+5]=-ny}
-  place(ex,g,s*.56,.4,-2.2,0,.8)}
+  place(ex,g,s*.5,.4,-2.2,0,.9);place(ex,g,s*.7,.4,-2.2,0,.9)}
+ /* lights: dark housings + bright LED strips */
  const lights=new MB();
- for(const s of[-1,1])lights.box(s*.66,.7,-2.3,.46,.11,.05,[1,1,1]);
- lights.box(0,.72,-2.3,.82,.035,.05,[1,1,1]);
- const head=new MB();for(const s of[-1,1])head.box(s*.68,.6,2.3,.42,.09,.05,[1,.97,.85]);
- const plate=new MB();plate.quad([-.27,.45,-2.31],[-.27,.6,-2.31],[.27,.6,-2.31],[.27,.45,-2.31],[1,1,1],[0,0,-1],[1,1],[1,0],[0,0],[0,1]);
- /* wheels (axis along x) */
- const tire=new MB(),rim=new MB(),RT=.36,WT=.27;
- {const n=22;for(let i=0;i<n;i++){const a0=i/n*6.2832,a1=(i+1)/n*6.2832,c0=Math.cos(a0),s0=Math.sin(a0),c1=Math.cos(a1),s1=Math.sin(a1),tc=[.035,.035,.04];
-   const q=(a,b,c)=>[a,b,c];
-   tire.quad(q(-WT/2,s0*RT,c0*RT),q(WT/2,s0*RT,c0*RT),q(WT/2,s1*RT,c1*RT),q(-WT/2,s1*RT,c1*RT),tc,[0,s0+s1,c0+c1]);
-   for(const sx of[-1,1])tire.quad(q(sx*WT/2,s0*.25,c0*.25),q(sx*WT/2,s0*RT,c0*RT),q(sx*WT/2,s1*RT,c1*RT),q(sx*WT/2,s1*.25,c1*.25),[.05,.05,.055],[sx,0,0])}
-  for(const sx of[-1,1]){const x=sx*(WT/2+.004);
-   rim.quad([x,-.01,-.01],[x,.01,-.01],[x,.01,.01],[x,-.01,.01],[.6,.62,.66],[sx,0,0]);
-   for(let sp=0;sp<5;sp++){const a=sp/5*6.2832,aw=.34,r0=.05,r1=.25;
-    const P=(r,aa)=>[x,Math.sin(aa)*r,Math.cos(aa)*r];rim.quad(P(r0,a-aw*.35),P(r1,a-aw*.5),P(r1,a+aw*.5),P(r0,a+aw*.35),[.74,.76,.8],[sx,0,0])}
-   const n2=20;for(let i=0;i<n2;i++){const a0=i/n2*6.2832,a1=(i+1)/n2*6.2832,P=(r,aa)=>[x,Math.sin(aa)*r,Math.cos(aa)*r];
-    rim.quad(P(.22,a0),P(.265,a0),P(.265,a1),P(.22,a1),[.8,.82,.86],[sx,0,0])}}}
- const shadow=new MB();shadow.quad([-1.5,.02,-2.9],[1.5,.02,-2.9],[1.5,.02,2.9],[-1.5,.02,2.9],[0,0,0,.55],[0,1,0],[0,0],[1,0],[1,1],[0,1]);
- return{body,cab,stripes,det,ex,lights,head,plate,tire,rim,shadow};
+ for(const s of[-1,1]){det.box(s*.66,.7,-2.29,.5,.14,.05,[.04,.01,.01]);lights.box(s*.66,.7,-2.32,.44,.08,.03,[1,1,1])}
+ lights.box(0,.72,-2.32,.78,.03,.03,[1,1,1]);
+ const head=new MB();
+ for(const s of[-1,1]){det.box(s*.7,.57,2.27,.46,.14,.06,[.01,.012,.016]);head.box(s*.72,.6,2.31,.4,.035,.03,[1.2,1.2,1.15]);head.box(s*.74,.54,2.31,.3,.025,.03,[1,1,.95])}
+ const plate=new MB();plate.quad([-.27,.45,-2.325],[-.27,.6,-2.325],[.27,.6,-2.325],[.27,.45,-2.325],[1,1,1],[0,0,-1],[1,1],[1,0],[0,0],[0,1]);
+ /* wheels: 10-spoke alloys, brake discs, separate calipers */
+ const tire=new MB(),rim=new MB(),cal=new MB(),RT=.37,WT=.28,RC=v.rim||[.7,.72,.76];
+ {const n=26;for(let i=0;i<n;i++){const a0=i/n*6.2832,a1=(i+1)/n*6.2832,c0=Math.cos(a0),s0=Math.sin(a0),c1=Math.cos(a1),s1=Math.sin(a1),tc=[.03,.03,.035];
+   tire.quad([-WT/2,s0*RT,c0*RT],[WT/2,s0*RT,c0*RT],[WT/2,s1*RT,c1*RT],[-WT/2,s1*RT,c1*RT],tc,[0,s0+s1,c0+c1]);
+   for(const sx of[-1,1]){tire.quad([sx*WT/2,s0*.26,c0*.26],[sx*WT/2,s0*RT,c0*RT],[sx*WT/2,s1*RT,c1*RT],[sx*WT/2,s1*.26,c1*.26],[.06,.06,.065],[sx,0,0]);
+    tire.quad([sx*WT/2,s0*.3,c0*.3],[sx*WT/2,s0*.31,c0*.31],[sx*WT/2,s1*.31,c1*.31],[sx*WT/2,s1*.3,c1*.3],[.11,.11,.12],[sx,0,0])}}
+  for(const sx of[-1,1]){const x=sx*(WT/2+.004),P=(r,aa,dx)=>[x+(dx||0)*sx,Math.sin(aa)*r,Math.cos(aa)*r];
+   for(let sp=0;sp<10;sp++){const a=sp/10*6.2832,aw=.2;rim.quad(P(.06,a-aw*.3),P(.26,a-aw*.45),P(.26,a+aw*.45),P(.06,a+aw*.3),RC,[sx,0,0])}
+   const n2=24;for(let i=0;i<n2;i++){const a0=i/n2*6.2832,a1=(i+1)/n2*6.2832;
+    rim.quad(P(.24,a0),P(.27,a0),P(.27,a1),P(.24,a1),[RC[0]*1.1,RC[1]*1.1,RC[2]*1.1],[sx,0,0]);
+    rim.quad(P(0,a0),P(.07,a0),P(.07,a1),P(0,a1),[.5,.5,.54],[sx,0,0]);
+    rim.quad(P(0,a0,-.07),P(.25,a0,-.07),P(.25,a1,-.07),P(0,a1,-.07),[.02,.02,.025],[sx,0,0]);                    /* dark barrel behind spokes */
+    rim.quad(P(.14,a0,-.04),P(.235,a0,-.04),P(.235,a1,-.04),P(.14,a1,-.04),[.36,.37,.4],[sx,0,0])}}                   /* brake disc */
+  for(const sx of[-1,1])cal.box(sx*.075,.07,.16,.05,.15,.2,[.78,.05,.06])}
+ const arch=new MB();   /* dark wheel-arch liners so the wheels sit inside the body */
+ for(const[wx,wz]of[[.93,1.38],[-.93,1.38],[.93,-1.32],[-.93,-1.32]]){const s=Math.sign(wx),n=18;
+  for(let i=0;i<n;i++){const a0=i/n*6.2832,a1=(i+1)/n*6.2832,R=.46,x=s*.92;
+   arch.quad([x,.36+Math.sin(a0)*R,wz+Math.cos(a0)*R],[x,.36,wz],[x,.36,wz],[x,.36+Math.sin(a1)*R,wz+Math.cos(a1)*R],[.01,.01,.012],[s,0,0])}
+  arch.quad([s*.92,.36,wz-.46],[s*.92,.36,wz+.46],[s*.92,.8,wz+.46],[s*.92,.8,wz-.46],[.01,.01,.012],[s,0,0])}
+ const shadow=new MB();shadow.quad([-1.6,.02,-3.0],[1.6,.02,-3.0],[1.6,.02,3.0],[-1.6,.02,3.0],[0,0,0,.6],[0,1,0],[0,0],[1,0],[1,1],[0,1]);
+ for(let q=0;q<arch.a.length;q++)det.a.push(arch.a[q]);
+ return{body,cab,stripes,det,chrome,ex,lights,head,plate,tire,rim,cal,shadow};
 }
+/* ---------- real car models (carmodel.js): three different cars; positions uint16, normals int8, indices uint16 (smooth source normals) ---------- */
+function b64u(t,T){const bin=atob(t),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new T(u.buffer)}
+function decChunk(c,col,mx){const P=b64u(c.p,Uint16Array),N=b64u(c.n,Int8Array),ix=b64u(c.i,Uint16Array),b=c.b,V=P.length/3,vb=new Float32Array(V*12),sx=mx?-1:1;
+ for(let v=0;v<V;v++){const o=v*12,q=v*3;vb[o]=(b[0]+P[q]*b[3])*sx;vb[o+1]=b[1]+P[q+1]*b[4];vb[o+2]=b[2]+P[q+2]*b[5];
+  let nx=N[q]/127,ny=N[q+1]/127,nz=N[q+2]/127;const l=Math.hypot(nx,ny,nz)||1;vb[o+3]=nx/l*sx;vb[o+4]=ny/l;vb[o+5]=nz/l;vb[o+6]=col[0];vb[o+7]=col[1];vb[o+8]=col[2];vb[o+9]=1}
+ return{vb,ix}}
+const decG=(list,col,mx)=>list.map(c=>decChunk(c,col,mx));
+function buildCar(v,idx){
+ const Ms=window.vxCarModels,M=Ms&&Ms[v.m|0];if(!M)return buildCarOld(v);
+ const o={mdl:1},C=M.col;
+ for(const k in M.g)o[k]=decG(M.g[k],C[k]||[1,1,1]);
+ const TC=[.03,.03,.035],RC=[1,1,1];
+ for(const ax of["wf","wr"])for(const m of[0,1]){o[ax+"t"+m]=decG(M[ax].tire,TC,m);o[ax+"r"+m]=decG(M[ax].rim,RC,m)}
+ const F=M.wc.F,R=M.wc.R;o.wh=[[F[0],F[1],F[2],"wf",0],[-F[0],F[1],F[2],"wf",1],[R[0],R[1],R[2],"wr",0],[-R[0],R[1],R[2],"wr",1]];o.tl=M.tl;o.hl=M.hl;
+ const shadow=new MB();shadow.quad([-1.5,.02,-3.1],[1.5,.02,-3.1],[1.5,.02,3.1],[-1.5,.02,3.1],[0,0,0,.6],[0,1,0],[0,0],[1,0],[1,1],[0,1]);o.shadow=shadow;
+ return o}
 /* ---------- textures drawn on a canvas ---------- */
 function cvs(w,h){const c=document.createElement("canvas");c.width=w;c.height=h;return c}
 function roadTex(){const c=cvs(512,256),x=c.getContext("2d");x.fillStyle="#1f2027";x.fillRect(0,0,512,256);
@@ -259,7 +328,7 @@ const FS="#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprec
  +"varying vec3 vN;varying vec3 vP;varying vec4 vC;varying vec2 vU;varying float vD;uniform sampler2D tx;uniform vec3 sunD,sunC,skyA,gndA,eye,fogC,mul,rf;uniform float fogD,unlit,spec,shin;"
  +"void main(){vec4 t=texture2D(tx,vU);vec3 b=vC.rgb*t.rgb*mul;vec3 col;if(unlit>.5){col=b;}else{vec3 n=normalize(vN);vec3 v=normalize(eye-vP);if(dot(n,v)<0.)n=-n;"
  +"float nd=max(dot(n,sunD),0.);vec3 amb=mix(gndA,skyA,n.y*.5+.5);col=b*(amb+sunC*nd);"
- +"if(spec>0.){vec3 h=normalize(sunD+v);col+=sunC*spec*pow(max(dot(n,h),0.),shin)*step(.0,nd);float fr=pow(1.-max(dot(n,v),0.),4.);col+=rf*spec*fr*(.35+.9*t.r);}}"
+ +"if(spec>0.){vec3 h=normalize(sunD+v);col+=sunC*spec*pow(max(dot(n,h),0.),shin)*step(.0,nd);float fr=pow(1.-max(dot(n,v),0.),4.);vec3 r=reflect(-v,n);vec3 env=r.y>0.?mix(vec3(.95,.5,.55),vec3(.2,.25,.55),clamp(r.y*1.6,0.,1.)):vec3(.06,.05,.08);col+=env*spec*(fr*.85+.05)*(.4+.8*t.r);}}"
  +"float dd=length(vP-eye);float f=1.-exp(-fogD*fogD*dd*dd);col=mix(col,fogC,clamp(f,0.,1.));gl_FragColor=vec4(col,vC.a*t.a);}";
 const SVS="attribute vec2 p;varying vec2 uv;void main(){uv=p*.5+.5;gl_Position=vec4(p,.9999,1.);}";
 const SFS="precision mediump float;varying vec2 uv;uniform float hz,asp,yaw;"
@@ -293,7 +362,12 @@ function create(canvas){
  const gch=WORLD.chunks.map(c=>({road:mk(c.road),grass:mk(c.grass),plain:mk(c.plain)}));
  const gGround=mk(WORLD.ground),gRing=mk(WORLD.ring),gGate=mk(WORLD.gate),gBanner=mk(WORLD.banner);
  const gPine=mk(PINE),gRound=mk(ROUND);
- const gcs=CARS.map(v=>{const c=buildCar(v),o={};for(const k in c)o[k]=mk(c[k]);return o});
+ /* GPU buffers are built once per car MODEL (not per paint job) and only when a car is first drawn */
+ const mkI=d=>{const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,d.vb,gl.STATIC_DRAW);const ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,d.ix,gl.STATIC_DRAW);bufs.push(b,ib);return{b,ib,n:d.ix.length}};
+ const upl=v=>Array.isArray(v)?v.map(upl):(v&&v.vb?mkI(v):(v&&v.a?mk(v):v));
+ const MG={},hasM=!!window.vxCarModels;
+ const gcs=CARS.map((v,i)=>({paint:v.paint,rim:v.rim||[.7,.72,.76],key:hasM?"m"+(v.m|0):"c"+i,idx:i}));
+ const GC=i=>{const e=gcs[i]||gcs[0];if(!e.ready){const k=e.key;if(!MG[k]){const c=buildCar(CARS[e.idx],e.idx),o={};for(const q in c)o[q]=upl(c[q]);MG[k]=o}Object.assign(e,MG[k]);e.paint=CARS[e.idx].paint;e.rim=CARS[e.idx].rim||[.7,.72,.76];e.ready=1}return e};
  const mq=new MB();mq.quad([-.5,-.5,0],[.5,-.5,0],[.5,.5,0],[-.5,.5,0],[1,1,1],[0,0,1],[0,1],[1,1],[1,0],[0,0]);const gQuad=mk(mq);
  const mf=new MB();mf.quad([-.5,0,-.5],[.5,0,-.5],[.5,0,.5],[-.5,0,.5],[1,1,1],[0,1,0],[0,0],[1,0],[1,1],[0,1]);const gFlat=mk(mf);
  const mfl=new MB();mfl.quad([-60,0,-60],[60,0,-60],[60,0,60],[-60,0,60],[.1,.1,.13],[0,1,0]);const gFloor=mk(mfl);
@@ -301,22 +375,33 @@ function create(canvas){
  const skyBuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,skyBuf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);bufs.push(skyBuf);
  const I=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
  const state={mul:[1,1,1],unlit:0,spec:0,shin:20,fog:.0056};
- function draw(m,model,t,o){if(!m)return;o=o||{};gl.uniformMatrix4fv(U.md,false,new Float32Array(model||I));
+ function draw(m,model,t,o){if(!m)return;if(Array.isArray(m)){for(const q of m)draw(q,model,t,o);return}o=o||{};gl.uniformMatrix4fv(U.md,false,new Float32Array(model||I));
   gl.uniform1f(U.unlit,o.unlit||0);gl.uniform1f(U.spec,o.spec||0);gl.uniform1f(U.shin,o.shin||20);gl.uniform3fv(U.mul,o.mul||[1,1,1]);gl.uniform1f(U.fogD,o.fog==null?state.fog:o.fog);
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,t||WHITE);gl.bindBuffer(gl.ARRAY_BUFFER,m.b);
-  gl.vertexAttribPointer(0,3,gl.FLOAT,false,48,0);gl.vertexAttribPointer(1,3,gl.FLOAT,false,48,12);gl.vertexAttribPointer(2,4,gl.FLOAT,false,48,24);gl.vertexAttribPointer(3,2,gl.FLOAT,false,48,40);gl.drawArrays(gl.TRIANGLES,0,m.n)}
- let W=0,H=0,dpr=1;
+  gl.vertexAttribPointer(0,3,gl.FLOAT,false,48,0);gl.vertexAttribPointer(1,3,gl.FLOAT,false,48,12);gl.vertexAttribPointer(2,4,gl.FLOAT,false,48,24);gl.vertexAttribPointer(3,2,gl.FLOAT,false,48,40);if(m.ib){gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,m.ib);gl.drawElements(gl.TRIANGLES,m.n,gl.UNSIGNED_SHORT,0)}else gl.drawArrays(gl.TRIANGLES,0,m.n)}
+ let W=0,H=0,dpr=1,LIMPX=/Android/i.test(navigator.userAgent)?950000:1250000,slow=0;
  function size(){dpr=Math.min(window.devicePixelRatio||1,2);const r=canvas.getBoundingClientRect();let w=Math.max(2,Math.round(r.width*dpr)),h=Math.max(2,Math.round(r.height*dpr));
-  const lim=1250000;if(w*h>lim){const k=Math.sqrt(lim/(w*h));w=Math.round(w*k);h=Math.round(h*k)}W=w;H=h;canvas.width=W;canvas.height=H;gl.viewport(0,0,W,H)}
+  const lim=LIMPX;if(w*h>lim){const k=Math.sqrt(lim/(w*h));w=Math.round(w*k);h=Math.round(h*k)}W=w;H=h;canvas.width=W;canvas.height=H;gl.viewport(0,0,W,H)}
  /* camera state (smoothed) */
  const cam={x:0,y:0,z:0,h:0,init:false,lastT:0,steerV:0,carH:0,spin:0,shake:0};
  const falls=new Map();
  const GQ=[],FL=[];cam.me=0;cam.opp=null;cam.show=null;
  /* draws one car + queues its glow sprites (tail/head lights, road streaks, under-glow) */
  function drawCar(c,show){const car=mul(T4(c.px,c.py+(c.bump||0),c.pz),mul(RY(c.h),mul(RX(-(c.pitch||0)*.9),RZ(c.lean||0)))),g=c.g;
-  draw(g.body,car,null,{spec:1.5,shin:48});draw(g.cab,car,null,{spec:1.7,shin:70});draw(g.stripes,car,null,{spec:.4,shin:30});draw(g.det,car,null,{spec:.3,shin:20});draw(g.ex,car,null,{spec:.8,shin:30});
+  if(g.mdl){draw(g.body,car,null,{spec:2.2,shin:100,mul:g.paint});draw(g.glass,car,null,{spec:2.6,shin:140});draw(g.dark,car,null,{spec:.6,shin:30});draw(g.chrome,car,null,{spec:1.8,shin:90});draw(g.amber,car,null,{spec:.8,shin:40});
+   draw(g.lights,car,null,{unlit:1,mul:c.brake?[2.2,.3,.3]:[1.3,.1,.14]});draw(g.head,car,null,{unlit:1,mul:[1.4,1.35,1.1]});
+   for(const[wx,wy,wz,ax,m]of g.wh){const wm=mul(car,mul(T4(wx,wy,wz),mul(RY(ax==="wf"?c.sw||0:0),RX(-(c.spin||0)))));draw(g[ax+"t"+m],wm,null,{spec:.15,shin:8});draw(g[ax+"r"+m],wm,null,{spec:1.3,shin:45,mul:g.rim})}
+   const W3=(x,y,z)=>[car[0]*x+car[4]*y+car[8]*z+car[12],car[1]*x+car[5]*y+car[9]*z+car[13],car[2]*x+car[6]*y+car[10]*z+car[14]];
+   const tc=c.brake?[1,.12,.1]:[.7,.05,.06];
+   for(const q of[-1,1]){GQ.push({p:W3(q*g.tl[0],g.tl[1],g.tl[2]),s:c.brake?3.4:2.1,c:tc,n:1});GQ.push({p:W3(q*g.hl[0],g.hl[1],g.hl[2]),s:2.6,c:[.9,.9,.8],n:1})}
+   if(!show){const f=[Math.sin(c.h),Math.cos(c.h)];
+    FL.push({p:[c.px-f[0]*6.6,c.py,c.pz-f[1]*6.6],h:c.h,w:2.4,l:9,t:STREAK,c:c.brake?[.9,.08,.08]:[.5,.04,.05]});
+    FL.push({p:[c.px,c.py,c.pz],h:c.h,w:6,l:8,t:GLOW,c:[.05,.14,.55]})}
+   else FL.push({p:[c.px,c.py,c.pz],h:0,w:11,l:11,t:GLOW,c:[.14,.2,.5]});
+   return}
+  draw(g.body,car,null,{spec:2.1,shin:90});draw(g.cab,car,null,{spec:2.4,shin:120});draw(g.stripes,car,null,{spec:1.2,shin:60});draw(g.det,car,null,{spec:.6,shin:30});draw(g.chrome,car,null,{spec:1.6,shin:80});draw(g.ex,car,null,{spec:.8,shin:30});
   draw(g.lights,car,null,{unlit:1,mul:c.brake?[2.2,.3,.3]:[1.3,.1,.14]});draw(g.head,car,null,{unlit:1,mul:[1.4,1.35,1.1]});draw(g.plate,car,PLATE,{});
-  for(const[wx,wz,front]of[[.93,1.38,1],[-.93,1.38,1],[.93,-1.32,0],[-.93,-1.32,0]]){const wm=mul(car,mul(T4(wx,.36,wz),mul(RY(front?c.sw||0:0),RX(-(c.spin||0)))));draw(g.tire,wm,null,{spec:.1,shin:8});draw(g.rim,wm,null,{spec:.9,shin:30})}
+  for(const[wx,wz,front]of[[.93,1.38,1],[-.93,1.38,1],[.93,-1.32,0],[-.93,-1.32,0]]){const wm=mul(car,mul(T4(wx,.36,wz),mul(RY(front?c.sw||0:0),RX(-(c.spin||0)))));draw(g.tire,wm,null,{spec:.1,shin:8});draw(g.rim,wm,null,{spec:1.2,shin:40});draw(g.cal,mul(car,mul(T4(wx,.36,wz),RY(front?c.sw||0:0))),null,{spec:.4,shin:20})}
   const W3=(x,y,z)=>[car[0]*x+car[4]*y+car[8]*z+car[12],car[1]*x+car[5]*y+car[9]*z+car[13],car[2]*x+car[6]*y+car[10]*z+car[14]];
   const tc=c.brake?[1,.12,.1]:[.7,.05,.06];
   for(const q of[-1,1]){GQ.push({p:W3(q*.66,.72,-2.32),s:c.brake?3.4:2.1,c:tc,n:1});GQ.push({p:W3(q*.68,.62,2.32),s:2.6,c:[.9,.9,.8],n:1})}
@@ -335,7 +420,7 @@ function create(canvas){
   const fovy=clamp(2*Math.atan(Math.tan(.5)/asp),.4,1.2),view=lookAt(eye,[0,.62,0],[0,1,0]),vp=mul(persp(fovy,asp,.3,300),view);
   gl.clearColor(.03,.03,.045,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.useProgram(P);
   gl.uniformMatrix4fv(U.vp,false,new Float32Array(vp));gl.uniform3fv(U.eye,eye);gl.uniform3fv(U.sunD,[.4,.75,.5]);gl.uniform3fv(U.sunC,[1,.95,1]);gl.uniform3fv(U.skyA,[.42,.44,.6]);gl.uniform3fv(U.gndA,[.12,.12,.16]);gl.uniform3fv(U.fogC,[.03,.03,.045]);gl.uniform3fv(U.rf,[.5,.5,.8]);gl.uniform1i(U.tx,0);
-  state.fog=.045;draw(gFloor,null,null,{spec:1,shin:20});drawCar({g:gcs[sh.i],px:0,py:0,pz:0,h:0},1);flush(view,eye);state.fog=.0056}
+  state.fog=.045;draw(gFloor,null,null,{spec:1,shin:20});drawCar({g:GC(sh.i),px:0,py:0,pz:0,h:0},1);flush(view,eye);state.fog=.0056}
  /* little track map for the HUD */
  function mapDraw(c,w,h,mePos,oppPos){
   if(!cam.mb){let a=1e9,b=-1e9,d=1e9,e=-1e9;for(let i=LEAD;i<=FIN;i+=3){a=Math.min(a,PX[i]);b=Math.max(b,PX[i]);d=Math.min(d,PZ[i]);e=Math.max(e,PZ[i])}cam.mb=[a,b,d,e]}
@@ -345,6 +430,7 @@ function create(canvas){
   if(oppPos!=null)dot(oppPos,"#3aa0ff");dot(mePos,"#ffd21a")}
  function render(){
   if(!W)size();const st=sim.st,now=performance.now();let dt=cam.lastT?(now-cam.lastT)/1000:.016;cam.lastT=now;dt=clamp(dt,.001,.1);
+  if(!cam.show){if(dt>.03)slow++;else slow=Math.max(0,slow-1);if(slow>40&&LIMPX>380000){slow=0;LIMPX*=.78;size()}}   /* adaptive resolution for slower phones */
   if(cam.show){renderShow();return}
   const pct=st.speed/(200*60),s=st.pos/200+LEAD,fr=sample(s),lat=st.x*HALF;
   const px=fr.x+fr.rx*lat,py=fr.y,pz=fr.z+fr.rz*lat;
@@ -391,12 +477,12 @@ function create(canvas){
   const bump=Math.sin(now*.045)*pct*.012+(st.crash>0?Math.sin(now*.08)*.04:0);
   cam.spin+=st.speed/200*dt/.36;
   const shd=[];
-  drawCar({g:gcs[cam.me],px,py,pz,h:cam.carH,pitch,lean,bump,spin:cam.spin,sw:cam.steerV*.4,brake:st.brake});shd.push([px,py,pz,cam.carH]);
+  drawCar({g:GC(cam.me),px,py,pz,h:cam.carH,pitch,lean,bump,spin:cam.spin,sw:cam.steerV*.4,brake:st.brake});shd.push([px,py,pz,cam.carH]);
   const o=cam.opp;if(o){const of=sample(o.pos/200+LEAD),ol=o.x*HALF,ox=of.x+of.rx*ol,oz=of.z+of.rz*ol,oh=of.h-o.steer*.11*clamp(o.speed/12000*1.6,0,1);
-   o.cs=(o.cs||0)+o.speed/200*dt/.36;drawCar({g:gcs[o.car||0],px:ox,py:of.y,pz:oz,h:oh,pitch:Math.atan(of.slope),lean:-o.steer*.045,spin:o.cs,sw:o.steer*.4,brake:o.brake});shd.push([ox,of.y,oz,oh])}
+   o.cs=(o.cs||0)+o.speed/200*dt/.36;drawCar({g:GC(o.car||0),px:ox,py:of.y,pz:oz,h:oh,pitch:Math.atan(of.slope),lean:-o.steer*.045,spin:o.cs,sw:o.steer*.4,brake:o.brake});shd.push([ox,of.y,oz,oh])}
   for(const L of WORLD.lamps){if(L.i<s-8||L.i>s+150)continue;GQ.push({p:[L.x,L.y,L.z],s:3.4,c:[1,.78,.45]});FL.push({p:L.pool,h:0,w:15,l:15,t:GLOW,c:[.4,.28,.13]})}
   gl.depthMask(false);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
-  for(const q of shd)draw(gcs[0].shadow,mul(T4(q[0],q[1],q[2]),RY(q[3])),SHAD,{unlit:1,fog:0});
+  for(const q of shd)draw(GC(0).shadow,mul(T4(q[0],q[1],q[2]),RY(q[3])),SHAD,{unlit:1,fog:0});
   gl.disable(gl.BLEND);gl.depthMask(true);flush(view,eye);
  }
  /* the draw order puts the shadow last; it is a flat quad just above the road so it also sits under the car */

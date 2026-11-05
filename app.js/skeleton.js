@@ -3,7 +3,7 @@
    data AND its logos are ready, the same pattern used by big exchange apps. Load this BEFORE script.js. */
 (function(){
 "use strict";
-window.VX_LOCAL_LOGOS={};
+window.VX_LOCAL_LOGOS={SHIB:"app.assets/shib.png"};
 const loaded=new Set(),icon=s=>"https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/svg/color/"+String(s||"").toLowerCase()+".svg";
 const urls=c=>{const sym=String(c&&c.symbol||"").toUpperCase(),local=window.VX_LOCAL_LOGOS[sym],u=[];if(local)u.push(local);if(c&&c.image)u.push(c.image);u.push(icon(sym));return u};
 const probe=u=>new Promise(res=>{if(loaded.has(u))return res(true);const i=new Image();i.onload=()=>{loaded.add(u);res(true)};i.onerror=()=>res(false);i.src=u});

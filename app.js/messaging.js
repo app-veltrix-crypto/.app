@@ -171,7 +171,24 @@ window.veltrixWelcomeSupport=function(){try{loadStore();const c=store.convs[SUPP
 /* real users (found by typing their name in the new-conversation search) have ids like "real-<account id>" */
 const realUsers={};
 const hueOf=s=>{let h=0;for(const ch of String(s))h=(h*31+ch.charCodeAt(0))>>>0;return h%360};
-const realOf=id=>{if(realUsers[id])return realUsers[id];const c=store.convs[id];if(!c||!c.name)return null;return realUsers[id]={id,name:c.name,real:true,hue:hueOf(id),username:"",photo:""}};
+const realOf=id=>{if(realUsers[id])return realUsers[id];const c=store.convs[id];if(!c||!c.name)return null;return realUsers[id]={id,name:c.name,real:true,hue:hueOf(id),username:c.username||"",photo:c.photo||""}};
+/* Save the person's photo/username WITH the conversation, so the picture is still there after the chat is closed or the app reloads.
+   (Before, the photo only lived in the in-memory search result and was lost, leaving just the initials.) Very large photos are not copied into the chat record; they are re-fetched instead. */
+function rememberReal(u){try{if(!u||!u.real)return;const c=store.convs[u.id];if(!c)return;let ch=false;
+ if(u.name&&c.name!==u.name){c.name=u.name;ch=true}
+ if(u.username&&c.username!==u.username){c.username=u.username;ch=true}
+ const ph=u.photo&&String(u.photo).length<20000?u.photo:"";if(ph&&c.photo!==ph){c.photo=ph;ch=true}
+ if(ch)saveStore()}catch(e){}}
+/* Re-fetch photos/usernames for saved real-user chats (older chats were saved without them; the other person may also have changed theirs). Once per chat per session. */
+const profTried={};
+async function refreshRealProfiles(){try{loadStore();
+ const ids=Object.keys(store.convs).filter(id=>String(id).indexOf("real-")===0&&!profTried[id]);if(!ids.length)return;ids.forEach(id=>profTried[id]=1);
+ const {data,error}=await veltrixDB.client.rpc("get_profiles",{p_ids:ids.map(id=>id.slice(5))});if(error)throw error;
+ let ch=false;for(const r of (data||[])){const id="real-"+r.id,c=store.convs[id];if(!c)continue;
+  const u=realUsers[id]||realOf(id);if(!u)continue;
+  if(r.name)u.name=r.name;u.username=r.username||u.username||"";u.photo=r.photo||u.photo||"";ch=true;rememberReal(u)}
+ if(ch){if(!L.hidden)renderConvs();if(activeId&&!C.hidden&&realUsers[activeId])el("vmChatWho").innerHTML=av(realUsers[activeId],"vm-sm")+`<span class="vm-name">${esc(realUsers[activeId].name)}</span>`}
+}catch(e){console.warn("Profile photos could not be refreshed",e)}}
 const userById=id=>id===SUPPORT_USER.id?SUPPORT_USER:String(id).indexOf("real-")===0?realOf(id):DEMO_USERS.find(u=>u.id===id);
 
 /* ---------- conversation list ---------- */
@@ -194,7 +211,7 @@ function bindLongPress(container, selector, action){let timer, fired=false;conta
 bindLongPress(el("vmConvs"),"[data-uid]",row=>{const uid=row.dataset.uid,u=userById(uid);if(u)showDialog("Delete conversation?",`Delete the complete conversation with ${u.name}? This cannot be undone.`,[{label:"Delete conversation",danger:true,run:()=>{delete store.convs[uid];saveStore();renderConvs();toast("Conversation deleted")}}])});
 el("vmSearch").addEventListener("input",renderConvs);
 
-function openList(){loadStore();{let ch=false;for(const id in store.convs){const c=store.convs[id],cu=userById(id);if(c&&cu&&!c.name){c.name=cu.name;ch=true}}if(ch)saveStore()}el("vmSearch").value="";renderConvs();L.hidden=false;document.body.classList.add("wd-feature-open")}
+function openList(){loadStore();{let ch=false;for(const id in store.convs){const c=store.convs[id],cu=userById(id);if(c&&cu&&!c.name){c.name=cu.name;ch=true}}if(ch)saveStore()}el("vmSearch").value="";renderConvs();L.hidden=false;document.body.classList.add("wd-feature-open");refreshRealProfiles()}
 function closeList(){stopPlayback();L.hidden=true;updateBadge();document.body.classList.remove("wd-feature-open")}
 el("vmBack").addEventListener("click",closeList);
 
@@ -248,7 +265,7 @@ el("vmUsers").addEventListener("click",e=>{const r=e.target.closest("[data-uid]"
 
 /* ---------- chat screen ---------- */
 function openChat(uid){
- const u=userById(uid);if(!u)return;activeId=uid;editingId=null;el("vmEditing").hidden=true;
+ const u=userById(uid);if(!u)return;activeId=uid;editingId=null;el("vmEditing").hidden=true;rememberReal(u);
  {const c=store.convs[uid];divAt=(c&&c.userReadAt)||0;divN=unreadOf(c);markReadUser(uid)}
  el("vmChatWho").innerHTML=av(u,"vm-sm")+`<span class="vm-name">${esc(u.name)}${u.support?verifiedBadge:""}</span>`;
  clearStage();text.value="";autosize();setMode();renderMsgs(true);C.hidden=false;
@@ -290,7 +307,7 @@ async function addMsg(m,blob){
  if(isReal&&m.type&&m.type!=="text"){toast("Only text messages can be sent to other users for now");return}
  m.id=Date.now().toString(36)+Math.random().toString(36).slice(2,7);m.from="me";m.t=Date.now();
  if(blob&&!(await putBlob(m.id,blob)))return;
- {const cv=store.convs[uid]=store.convs[uid]||{msgs:[]},cu=userById(uid);if(cu&&!cv.name)cv.name=cu.name;cv.msgs.push(m)}saveStore();
+ {const cv=store.convs[uid]=store.convs[uid]||{msgs:[]},cu=userById(uid);if(cu&&!cv.name)cv.name=cu.name;cv.msgs.push(m);rememberReal(cu)}saveStore();
  if(isReal&&m.type==="text")Promise.resolve(veltrixDB.client.rpc("chat_send_real",{p_to:String(uid).slice(5),p_id:m.id,p_text:m.text})).then(r=>{if(r.error||!r.data||!r.data.ok)toast("Couldn't deliver that message")}).catch(()=>toast("Couldn't deliver that message"));
  if(activeId===uid)renderMsgs(true);
 }

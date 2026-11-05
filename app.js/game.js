@@ -14,7 +14,6 @@ const fmtAmt=n=>String(+Number(n).toFixed(8));
 function findCoin(t){t=String(t||"").trim().toLowerCase();if(!t)return null;return COINS.find(c=>c[0].toLowerCase()===t||c[1].toLowerCase()===t)||(t.length>=3?COINS.find(c=>c[1].toLowerCase().startsWith(t)):null)||null}
 function logo(sym,big){const l=(window.VX_LOCAL_LOGOS||{})[sym]||"https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/svg/color/"+sym.toLowerCase()+".svg";
  return `<span class="vxg-coin${big?" big":""}"><img src="${esc(l)}" alt="${esc(sym)}" onerror="this.remove()"><b>${esc(sym[0])}</b></span>`}
-const WALL="data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 110"><defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#27304a"/><stop offset="1" stop-color="#9fb0c4"/></linearGradient></defs><rect width="160" height="110" fill="url(#s)"/><g fill="#2e3b55"><rect x="6" y="30" width="16" height="30"/><rect x="24" y="22" width="14" height="38"/><rect x="104" y="26" width="18" height="34"/><rect x="124" y="34" width="14" height="26"/></g><path d="M0 60h160v50H0z" fill="#46623a"/><path d="M62 60h36l46 50H16z" fill="#4a4d52"/><path d="M62 60 16 110h10l40-50zM98 60l46 50h-10L94 60z" fill="#d8332f"/><path d="M80 62v48" stroke="#ddd" stroke-width="1.6" stroke-dasharray="6 5"/><g transform="translate(52 78)"><ellipse cx="28" cy="29" rx="30" ry="4" fill="rgba(0,0,0,.35)"/><rect x="2" y="16" width="52" height="12" rx="4" fill="#15171c"/><path d="M8 17l6-10h28l6 10z" fill="#1d2027"/><path d="M15 15l4-7h18l4 7z" fill="#56657a"/><rect x="18" y="16" width="3" height="5" fill="#f5a31a"/><rect x="24" y="16" width="3" height="5" fill="#f5a31a"/><rect x="30" y="16" width="3" height="5" fill="#f5a31a"/><rect x="36" y="16" width="3" height="5" fill="#f5a31a"/><rect x="5" y="21" width="9" height="3" fill="#ff3b3b"/><rect x="42" y="21" width="9" height="3" fill="#ff3b3b"/><rect x="22" y="23" width="12" height="4" fill="#eee"/></g></svg>');
 const CAR='<svg viewBox="0 0 64 30" width="46" height="22"><path d="M2 20l6-10 14-4h20l12 8 8 2v4z" fill="#ff3b3b"/><circle cx="16" cy="22" r="6" fill="#111"/><circle cx="48" cy="22" r="6" fill="#111"/></svg>';
 
 let uid=null,chan=null,peer=null,cur=null,game=null,pollT=null,queue=[],shownIn=null,seen={};
@@ -27,60 +26,83 @@ const dlg=document.createElement("div");dlg.className="vm-dialog-backdrop vxg-dl
 document.body.appendChild(dlg);const box=$(".vm-dialog",dlg);
 const openDlg=h=>{box.innerHTML=h;dlg.hidden=false};const closeDlg=()=>{dlg.hidden=true;box.innerHTML=""};
 
-/* ---------- pull-out handle + game card inside the chat room ----------
-   A small round arrow button sits half-hidden in the right edge. Pull it out (drag left): the card grows with a glow while you pull,
-   and when you let go past the threshold the game wallpaper is shown. Tap the wallpaper to set up the bet; tap anywhere else to put it away. */
-function mountTab(){
- const chat=document.getElementById("vmChat");if(!chat||$(".vxg-pull",chat))return;
- chat.insertAdjacentHTML("beforeend",'<div class="vxg-pull" hidden><span class="vxg-band"></span><button type="button" class="vxg-knob" aria-label="Pull out to open games"><svg viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></svg></button></div><div class="vxg-card" aria-hidden="true"><span class="vxg-ring"></span><button type="button" class="vxg-game" tabindex="-1" aria-label="Race the clock"><img src="'+WALL+'" alt=""><span>Race the clock</span></button></div>');
- const pull=$(".vxg-pull",chat),knob=$(".vxg-knob",pull),card=$(".vxg-card",chat),MAXD=96,GO=.72;
- let drag=null,isOpen=false;
- const setP=p=>{chat.style.setProperty("--vxp",p.toFixed(3))};
- const open=()=>{isOpen=true;card.classList.remove("drag");card.classList.add("open","pop");card.setAttribute("aria-hidden","false");$(".vxg-game",card).tabIndex=0;pull.classList.remove("pulling","ready");setP(0);setTimeout(()=>card.classList.remove("pop"),520);
-  setTimeout(()=>document.addEventListener("pointerdown",away,true),0)};
- const close=()=>{isOpen=false;card.classList.remove("open","pop","drag");card.setAttribute("aria-hidden","true");$(".vxg-game",card).tabIndex=-1;document.removeEventListener("pointerdown",away,true);setP(0)};
- const away=e=>{if(!card.contains(e.target)&&!pull.contains(e.target))close()};
- chat.__vxgClose=close;
- knob.addEventListener("pointerdown",e=>{if(isOpen)return;e.preventDefault();e.stopPropagation();drag={x:e.clientX,id:e.pointerId,p:0,moved:false};try{knob.setPointerCapture(e.pointerId)}catch(_){}
-  pull.classList.add("pulling");card.classList.add("drag")});
- knob.addEventListener("pointermove",e=>{if(!drag||e.pointerId!==drag.id)return;const d=clamp(drag.x-e.clientX,0,MAXD*1.25),p=d/MAXD;if(d>4)drag.moved=true;drag.p=p;setP(p);
-  const rdy=p>=GO;if(rdy!==pull.classList.contains("ready")){pull.classList.toggle("ready",rdy);try{navigator.vibrate&&navigator.vibrate(rdy?12:0)}catch(_){}}});
- const end=e=>{if(!drag||(e&&e.pointerId!==drag.id))return;const d=drag;drag=null;try{knob.releasePointerCapture(d.id)}catch(_){}
-  pull.classList.remove("pulling");knob.classList.add("spring");setTimeout(()=>knob.classList.remove("spring"),420);
-  if(d.p>=GO)open();else{card.classList.remove("drag");setP(0);pull.classList.remove("ready");if(!d.moved){knob.classList.add("nudge");setTimeout(()=>knob.classList.remove("nudge"),700)}}};
- knob.addEventListener("pointerup",end);knob.addEventListener("pointercancel",end);
- knob.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "||e.key==="ArrowLeft"){e.preventDefault();open()}});
- $(".vxg-game",card).addEventListener("click",()=>{close();openSetup()});
-}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-function onChat(p){mountTab();peer=p&&!p.support?p:null;const chat=document.getElementById("vmChat"),pull=chat&&$(".vxg-pull",chat);if(!pull)return;
- pull.hidden=!peer;if(!peer&&chat.__vxgClose)chat.__vxgClose()}
+/* ---------- chat header menu ----------
+   A three-dot button sits on the right side of the chat header. Tapping it opens a small popup with one item, "Start a bet".
+   Tapping that shows the loading spinner, then the bet setup pop-up, and the rest of the process continues as before. */
+const DOTS='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>';
+const FLAG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4.5h13l-2.6 4 2.6 4H5"/></svg>';
+let busy=false;
+function launch(){if(busy)return;if(!peer||!uid)return toast("Sign in to start a bet.");busy=true;
+ const ld=document.createElement("div");ld.className="vxg-loader";ld.setAttribute("role","status");ld.setAttribute("aria-label","Loading");ld.innerHTML='<span><i class="vxg-spin"></i></span>';document.body.appendChild(ld);
+ setTimeout(()=>{ld.remove();busy=false;openSetup()},750)}
+function closeMenu(){const w=$(".vxg-menu-wrap");if(w)w.hidden=true}
+function openMenu(btn){
+ let w=$(".vxg-menu-wrap");
+ if(!w){w=document.createElement("div");w.className="vxg-menu-wrap";w.hidden=true;w.innerHTML='<div class="vxg-menu" role="menu"><button type="button" role="menuitem" data-a="bet">'+FLAG+'<span>Start a bet</span></button></div>';document.body.appendChild(w);
+  w.addEventListener("click",e=>{const b=e.target.closest("button[data-a]");closeMenu();if(b&&b.dataset.a==="bet")launch()});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMenu()})}
+ const r=btn.getBoundingClientRect(),m=$(".vxg-menu",w);
+ m.style.top=(r.bottom+4)+"px";m.style.right=Math.max(8,window.innerWidth-r.right)+"px";w.hidden=false}
+function mountTab(){
+ const chat=document.getElementById("vmChat"),head=chat&&$(".vm-head",chat);if(!head||$(".vxg-menubtn",head))return;
+ head.insertAdjacentHTML("beforeend",'<button type="button" class="vm-ic vxg-menubtn" aria-label="More options" aria-haspopup="menu" hidden>'+DOTS+'</button>');
+ $(".vxg-menubtn",head).addEventListener("click",e=>{e.stopPropagation();openMenu(e.currentTarget)})}
+function onChat(p){mountTab();peer=p&&!p.support?p:null;closeMenu();const chat=document.getElementById("vmChat"),btn=chat&&$(".vxg-menubtn",chat);if(btn)btn.hidden=!peer}
 
 /* ---------- bet setup ---------- */
+const IC=(d,w)=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="'+(w||1.8)+'" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+d+'</svg>';
+const ICON={
+ flag:IC('<path d="M5 21V4"/><path d="M5 4.5h13l-2.6 4 2.6 4H5"/><path d="M9.5 4.5v8M14 4.5v8" stroke-width="1.2"/>'),
+ bolt:IC('<path d="M13 3 5.5 13.2H11L10 21l7.5-10.2H12z"/>'),
+ target:IC('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".9" fill="currentColor"/>'),
+ stake:IC('<circle cx="12" cy="12" r="8.5"/><path d="M12 7v10M14.6 9.4c-.5-.8-1.4-1.2-2.6-1.2-1.5 0-2.6.7-2.6 1.9 0 2.7 5.2 1.3 5.2 4 0 1.2-1.1 1.9-2.6 1.9-1.2 0-2.2-.4-2.8-1.3"/>'),
+ play:IC('<circle cx="12" cy="12" r="8.5"/><path d="m10.2 8.6 5 3.4-5 3.4z"/>'),
+ shield:IC('<path d="M12 3 5 6v5.5c0 4.3 2.8 7.4 7 9.5 4.2-2.1 7-5.2 7-9.5V6z"/><path d="m9 12 2.2 2.2L15 10.4"/>'),
+ arrow:IC('<path d="M5 12h14M13.5 6.5 19 12l-5.5 5.5"/>',2),
+ back:IC('<path d="M15 5.5 8.5 12l6.5 6.5"/>',2.2),
+ close:IC('<path d="M6 6l12 12M18 6 6 18"/>',2.2),
+ check:IC('<path d="m5.5 12.5 4.3 4.3L18.5 8"/>',2.4)
+};
 function openSetup(){
  if(!peer||!uid)return toast("Sign in to start a bet.");
- let mode="escrow";
- openDlg('<h2>Race the clock</h2><p>Challenge '+esc(peer.persona||"this user")+' to a timed race. Fastest time wins.</p>'
- +'<div class="vxg-coinrow"><span id="vxgLogo"></span><input id="vxgCoin" type="text" value="Bitcoin" autocomplete="off" spellcheck="false" aria-label="Cryptocurrency"></div><small id="vxgHint" class="vxg-hint"></small>'
- +'<input id="vxgAmt" class="vxg-in" type="text" inputmode="decimal" placeholder="Amount" autocomplete="off" aria-label="Amount">'
- +'<div class="vxg-seg"><button type="button" data-m="escrow" class="on">Escrow bet</button><button type="button" data-m="free">Play for fun</button></div>'
- +'<small class="vxg-hint" id="vxgNote"></small><div class="vm-dialog-actions"><button type="button" id="vxgGo">Proceed</button></div><button type="button" class="vm-dialog-cancel" id="vxgNo">Cancel</button>');
- const coin=$("#vxgCoin",box),hint=$("#vxgHint",box),logoEl=$("#vxgLogo",box),amt=$("#vxgAmt",box),note=$("#vxgNote",box);
- const paint=()=>{const c=findCoin(coin.value);logoEl.innerHTML=logo(c?c[0]:"BTC",true);hint.textContent=mode==="free"?"":c?c[0]+" will be used for this bet":"Coin not supported by the wallet";hint.classList.toggle("bad",!c&&mode!=="free")};
- const setMode=m=>{mode=m;box.querySelectorAll(".vxg-seg button").forEach(b=>b.classList.toggle("on",b.dataset.m===m));box.classList.toggle("vxg-free",m==="free");note.textContent=m==="escrow"?"Stakes are held in escrow. The winner is paid straight to their wallet.":"No crypto is locked. The winner gets nothing.";paint()};
- coin.addEventListener("input",paint);box.querySelectorAll(".vxg-seg button").forEach(b=>b.addEventListener("click",()=>setMode(b.dataset.m)));setMode("escrow");
- $("#vxgNo",box).addEventListener("click",closeDlg);
- $("#vxgGo",box).addEventListener("click",async()=>{
+ let mode="escrow",step=1;
+ const chips=COINS.map(c=>`<button type="button" class="vxg-token${c[0]==="BTC"?' on':''}" data-coin="${esc(c[0])}">${logo(c[0])}<b>${esc(c[0])}</b></button>`).join("");
+ const opt=(ic,t,sub,on)=>`<button type="button" class="vxg-gameopt${on?' on':' soon'}"${on?'':' disabled'}><span class="vxg-gameicon">${ic}</span><b>${t}</b><small>${sub}</small></button>`;
+ openDlg(`<div class="vxg-create">
+ <div class="vxg-stephead"><button type="button" class="vxg-back" id="vxgBack"></button><div class="vxg-dots"><i></i><i></i><i></i></div><span class="vxg-stepno" id="vxgStepNo"></span></div>
+ <div class="vxg-stage">
+  <div class="vxg-step" data-s="1"><h2>Choose a game</h2><p class="vxg-intro">Challenge <b>${esc(peer.persona||"your opponent")}</b>. The winner is decided by the race result.</p><div class="vxg-gamepick">${opt(ICON.flag,"Racing","Available",true)}${opt(ICON.bolt,"Reaction","Coming soon")}${opt(ICON.target,"Precision","Coming soon")}</div></div>
+  <div class="vxg-step" data-s="2" hidden><h2>Choose your stake</h2><p class="vxg-intro">Play for crypto or just for fun.</p>
+   <div class="vxg-seg"><button type="button" data-m="escrow" class="on">${ICON.stake}<span>Crypto stake</span></button><button type="button" data-m="free">${ICON.play}<span>Free play</span></button></div>
+   <div class="vxg-tokenwrap"><div class="vxg-tokenlist">${chips}</div><div class="vxg-coinrow"><span id="vxgLogo"></span><input id="vxgCoin" type="text" value="BTC" autocomplete="off" spellcheck="false" aria-label="Cryptocurrency"></div></div><small id="vxgHint" class="vxg-hint"></small></div>
+  <div class="vxg-step" data-s="3" hidden><h2 id="vxgS3Title">Stake amount</h2><p class="vxg-intro" id="vxgS3Sub">Amount each player puts in.</p>
+   <div id="vxgAmtWrap"><div class="vxg-amountbox"><span class="vxg-amountmark" id="vxgAmountMark">B</span><input id="vxgAmt" class="vxg-in" type="text" inputmode="decimal" placeholder="0.0000" autocomplete="off" aria-label="Stake amount"><b id="vxgAmountSymbol">BTC</b></div></div>
+   <div class="vxg-safety" id="vxgNote"></div></div>
+ </div>
+ <div class="vm-dialog-actions"><button type="button" id="vxgGo"></button></div></div>`);
+ const coin=$("#vxgCoin",box),hint=$("#vxgHint",box),logoEl=$("#vxgLogo",box),amt=$("#vxgAmt",box),note=$("#vxgNote",box),go=$("#vxgGo",box),back=$("#vxgBack",box);
+ const steps=[...box.querySelectorAll(".vxg-step")],dots=[...box.querySelectorAll(".vxg-dots i")];
+ const label=()=>{go.innerHTML=(step<3?"Continue":"Send challenge")+" "+ICON.arrow};
+ const render=()=>{steps.forEach(e=>{e.hidden=+e.dataset.s!==step});dots.forEach((d,i)=>d.classList.toggle("on",i<step));$("#vxgStepNo",box).textContent=step+" of 3";
+  back.innerHTML=step===1?ICON.close:ICON.back;back.setAttribute("aria-label",step===1?"Close":"Back");
+  $("#vxgAmtWrap",box).hidden=mode==="free";$("#vxgS3Title",box).textContent=mode==="free"?"Ready to race":"Stake amount";$("#vxgS3Sub",box).textContent=mode==="free"?"No crypto is needed for this challenge.":"Amount each player puts in.";label()};
+ const paint=()=>{const c=findCoin(coin.value);logoEl.innerHTML=logo(c?c[0]:"BTC",true);$("#vxgAmountSymbol",box).textContent=c?c[0]:"";$("#vxgAmountMark",box).innerHTML=c?logo(c[0],true):'<span class="vxg-coin big"><b>?</b></span>';hint.textContent=mode==="free"?"No cryptocurrency will be locked.":c?c[1]+" selected.":"Choose a supported cryptocurrency.";hint.classList.toggle("bad",!c&&mode!=="free");box.querySelectorAll(".vxg-token").forEach(b=>b.classList.toggle("on",!!c&&b.dataset.coin===c[0]))};
+ const setMode=m=>{mode=m;box.querySelectorAll(".vxg-seg button").forEach(b=>b.classList.toggle("on",b.dataset.m===m));box.classList.toggle("vxg-free",m==="free");note.innerHTML=m==="escrow"?'<span>'+ICON.shield+'</span><div><b>Protected by escrow</b><small>Both stakes are held until the race ends. The winner gets the payout.</small></div>':'<span>'+ICON.play+'</span><div><b>Free play</b><small>No crypto is locked and no wallet payout is made.</small></div>';paint();render()};
+ coin.addEventListener("input",paint);box.querySelectorAll(".vxg-token").forEach(b=>b.addEventListener("click",()=>{coin.value=b.dataset.coin;paint()}));box.querySelectorAll(".vxg-seg button").forEach(b=>b.addEventListener("click",()=>setMode(b.dataset.m)));setMode("escrow");
+ back.addEventListener("click",()=>{if(step===1)closeDlg();else{step--;render()}});
+ go.addEventListener("click",async()=>{
+  if(step===1){step=2;render();return}
+  if(step===2){if(mode==="escrow"&&!findCoin(coin.value))return toast("Choose a supported cryptocurrency.");step=3;render();return}
   const c=findCoin(coin.value),a=amt.value.trim().replace(",",".");
-  if(mode==="escrow"){if(!c)return toast("Enter a supported coin.");if(!/^\d*\.?\d{1,8}$|^\d+$/.test(a)||!(+a>0))return toast("Enter a valid amount.")}
-  const go=$("#vxgGo",box);go.disabled=true;
+  if(mode==="escrow"){if(!c)return toast("Choose a supported cryptocurrency.");if(!/^\d*\.?\d{1,8}$|^\d+$/.test(a)||!(+a>0))return toast("Enter a valid stake amount.")}
+  go.disabled=true;go.textContent="Sending challenge…";
   const r=await rpc("game_bet_create",{p_contact:peer.contactId,p_persona:peer.persona||"",p_mode:mode,p_symbol:mode==="escrow"?c[0]:null,p_amount:mode==="escrow"?+a:0,p_request:crypto.randomUUID(),p_peer:peer.admin?peer.accountId:(peer.real?peer.peerId:null)});
-  if(!r.ok){go.disabled=false;return toast(ERR[r.reason]||"Couldn't start the bet. Try again.")}
-  cur={id:r.id,persona:peer.persona||"The other player",mode,sym:c&&c[0],amt:a};wallet();showWaiting();startPoll();
- });
+  if(!r.ok){go.disabled=false;label();return toast(ERR[r.reason]||"Couldn't start the bet. Try again.")}
+  cur={id:r.id,persona:peer.persona||"The other player",mode,sym:c&&c[0],amt:a};wallet();showWaiting();startPoll()});
 }
 function showWaiting(){
- openDlg('<div class="vxg-wait"><span class="vxg-spin"></span><h2>Waiting for '+esc(cur.persona)+'…</h2><p>'+(cur.mode==="escrow"?esc(fmtAmt(cur.amt)+" "+cur.sym)+" is held in escrow until they respond.":"Playing for fun, nothing is locked.")+'</p></div><button type="button" class="vm-dialog-cancel" id="vxgWd">Cancel bet</button>');
+ openDlg(`<div class="vxg-wait vxg-wait-new"><div class="vxg-wait-icon">${ICON.check}</div><div class="vxg-eyebrow">CHALLENGE SENT</div><h2>Waiting for ${esc(cur.persona)}…</h2><p>Your racing challenge has been sent. We’ll let you know when they respond.</p><div class="vxg-wait-summary"><span>STAKE</span><b>${cur.mode==="escrow"?esc(fmtAmt(cur.amt)+" "+cur.sym):"Free play"}</b><small>Racing · Head-to-head</small></div><div class="vxg-wait-state"><i class="vxg-spin"></i><span>Waiting for acceptance</span></div></div><button type="button" class="vm-dialog-cancel" id="vxgWd">Cancel challenge</button>`);
  $("#vxgWd",box).addEventListener("click",async()=>{if(!cur)return;const r=await rpc("game_bet_withdraw",{p_id:cur.id});if(r.ok){toast("Bet cancelled"+(cur.mode==="escrow"?" and refunded":""));cur=null;closeDlg();wallet()}else toast(ERR[r.reason]||"Couldn't cancel.")});
 }
 
@@ -90,7 +112,7 @@ async function showIncoming(r,fromQueue){
  if(!fromQueue){if(seen[r.id])return;seen[r.id]=1;if(shownIn){queue.push(r);return}}shownIn=r;
  const who=ADMIN_PAGE?(await nameOf(r.challenger_id,"A user"))+" (to "+(r.persona_name||"your contact")+")":(r.challenger_name||r.persona_name||"Someone");
  const stake=r.mode==="escrow"?"for "+esc(fmtAmt(r.amount))+" "+esc(r.symbol)+" each, held in escrow":"for fun, no crypto locked";
- const w=document.createElement("div");w.className="vm-dialog-backdrop vxg-in-pop";w.innerHTML='<section class="vm-dialog" role="alertdialog" aria-modal="true"><h2>Race challenge</h2><p><b>'+esc(who)+'</b> challenged you to a timed race '+stake+'.</p><div class="vm-dialog-actions"><button type="button" data-a="1">Accept</button><button type="button" data-a="0" class="danger">Cancel</button></div></section>';
+ const w=document.createElement("div");w.className="vm-dialog-backdrop vxg-in-pop";w.innerHTML='<section class="vm-dialog vxg-incoming" role="alertdialog" aria-modal="true"><div class="vxg-eyebrow">INCOMING CHALLENGE</div><h2>Race challenge</h2><p><b>'+esc(who)+'</b> challenged you to a head-to-head race.</p><div class="vxg-incoming-card"><span class="vxg-flag">🏁</span><div><b>Racing</b><small>'+stake+'</small></div></div><div class="vxg-safety"><span>◈</span><div><b>Escrow protection</b><small>Funds stay locked until the game is complete.</small></div></div><div class="vm-dialog-actions"><button type="button" data-a="1">Accept bet</button><button type="button" data-a="0" class="danger">Decline</button></div></section>';
  w.style.zIndex=14500;document.body.appendChild(w);r.__w=w;
  w.addEventListener("click",async e=>{const b=e.target.closest("button[data-a]");if(!b)return;b.disabled=true;
   const ok=b.dataset.a==="1",res=await rpc("game_bet_respond",{p_id:r.id,p_accept:ok});
@@ -143,18 +165,21 @@ function openGame(r){
  const readAng=e=>{const o=(screen.orientation&&screen.orientation.angle)||window.orientation||0,a=((o%360)+360)%360;
   return (a===90?-e.beta:a===270?e.beta:a===180?-e.gamma:e.gamma)||0};
  const onOri=e=>{if(e.gamma==null&&e.beta==null)return;T.raw=readAng(e);T.got=true};
+ const oriRel=e=>{T.relSeen=true;onOri(e)},oriAbs=e=>{if(!T.relSeen)onOri(e)};   /* some Android builds only emit the absolute event */
  async function askMotion(){
   try{if(typeof DeviceOrientationEvent!=="undefined"&&typeof DeviceOrientationEvent.requestPermission==="function"){const p=await DeviceOrientationEvent.requestPermission();if(p!=="granted")return false}}catch(e){return false}
-  if(!T.on){window.addEventListener("deviceorientation",onOri);T.on=true}return true}
+  if(!T.on){window.addEventListener("deviceorientation",oriRel);window.addEventListener("deviceorientationabsolute",oriAbs);T.on=true}return true}
  const keys={};
  const onKey=(e,d)=>{const k=e.key;if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," "].includes(k)){keys[k]=d;e.preventDefault()}};
  const kd=e=>onKey(e,true),ku=e=>onKey(e,false);window.addEventListener("keydown",kd);window.addEventListener("keyup",ku);
  const pedals={gas:false,brake:false};
  const bindPad=(b,k)=>{const on=e=>{e.preventDefault();pedals[k]=true;b.classList.add("on");try{b.setPointerCapture(e.pointerId)}catch(_){}},off=()=>{pedals[k]=false;b.classList.remove("on")};
-  b.addEventListener("pointerdown",on);b.addEventListener("pointerup",off);b.addEventListener("pointercancel",off);b.addEventListener("lostpointercapture",off);b.addEventListener("contextmenu",e=>e.preventDefault())};
+  b.addEventListener("pointerdown",on);b.addEventListener("pointerup",off);b.addEventListener("pointercancel",off);b.addEventListener("lostpointercapture",off);b.addEventListener("contextmenu",e=>e.preventDefault());
+  b.addEventListener("touchstart",e=>e.preventDefault(),{passive:false});b.addEventListener("touchmove",e=>e.preventDefault(),{passive:false});window.addEventListener("blur",off);document.addEventListener("visibilitychange",()=>{if(document.hidden)off()})};
  bindPad(padG,"gas");bindPad(padB,"brake");
  const steerNow=dt=>{let v=0;
-  if(T.got&&T.base!=null){T.f+=(T.raw-T.f)*(1-Math.exp(-dt/0.09));
+  if(T.got&&T.base==null){T.base=T.raw;T.f=T.raw}
+  if(T.got&&T.base!=null){{let dr=T.raw-T.f;if(dr>180)dr-=360;else if(dr<-180)dr+=360;T.f+=dr*(1-Math.exp(-dt/0.075))}
    const d=T.f-T.base,dz=1.8,rg=19,u=clamp((Math.abs(d)-dz)/(rg-dz),0,1);v=Math.sign(d)*(u*u*(3-2*u)*.55+u*.45)}
   if(keys.ArrowLeft)v=-1;if(keys.ArrowRight)v=1;return clamp(v,-1,1)};
 
@@ -177,7 +202,7 @@ function openGame(r){
    const {data}=await sb().from("game_bets").select("*").eq("id",g.id).single();if(data)g.update(data)});
   startSel();
  }
- function close(){cancelAnimationFrame(g.raf);stopSel();window.removeEventListener("resize",onRs);window.removeEventListener("keydown",kd);window.removeEventListener("keyup",ku);if(T.on)window.removeEventListener("deviceorientation",onOri);try{sb().removeChannel(g.ch)}catch(_){}if(R.dispose)R.dispose();el.remove();game=null;wallet();stopPollIfIdle()}
+ function close(){cancelAnimationFrame(g.raf);stopSel();window.removeEventListener("resize",onRs);window.removeEventListener("keydown",kd);window.removeEventListener("keyup",ku);if(T.on){window.removeEventListener("deviceorientation",oriRel);window.removeEventListener("deviceorientationabsolute",oriAbs)}try{sb().removeChannel(g.ch)}catch(_){}if(R.dispose)R.dispose();el.remove();game=null;wallet();stopPollIfIdle()}
  x.addEventListener("click",close);
 
  async function run(){
