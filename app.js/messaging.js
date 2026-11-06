@@ -141,12 +141,14 @@ wrap.innerHTML=`
  <header class="vm-head"><button type="button" class="vm-ic" id="vmChatBack" aria-label="Back to messages">${I.back}</button><div class="vm-body" id="vmChatWho"></div>
  </header>
  <div class="vm-msgs" id="vmMsgs"></div>
+ <div class="vm-dock" id="vmDock">
  <div class="vm-stage" id="vmStage" hidden></div>
  <div class="vm-editing" id="vmEditing" hidden><div><small id="vmEditingLabel">Editing message</small><p id="vmEditingText"></p></div><button type="button" id="vmEditCancel" aria-label="Cancel editing">×</button></div>
  <div class="vm-bar">
   <div class="vm-field" id="vmField"><div class="vm-ta"><div class="vm-mirror" id="vmMirror" aria-hidden="true"></div><textarea id="vmText" rows="1" placeholder="Message" aria-label="Type a message"></textarea></div><button type="button" class="vm-ic" id="vmAttach" aria-label="Attach photo, video or file">${I.clip}</button></div>
   <div class="vm-field vm-recf" id="vmRecF" hidden><button type="button" class="vm-ic" id="vmRecCancel" aria-label="Cancel recording">${I.trash}</button><i class="vm-dot"></i><span id="vmRecT">0:00</span><em>Recording…</em></div>
   <button type="button" class="vm-send" id="vmSend" aria-label="Record voice message"><span class="m">${I.mic}</span><span class="s">${I.send}</span></button>
+ </div>
  </div>
 </section>
 <div class="vm-viewer" id="vmViewer" hidden><button type="button" class="vm-ic" id="vmViewerX" aria-label="Close">${I.x}</button><img alt="" hidden><video controls playsinline hidden></video></div>

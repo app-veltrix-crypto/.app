@@ -340,16 +340,22 @@ const link={
   async create(){const {data,error}=await sb.rpc("create_link_code");if(error)throw error;return {email:cache&&cache.email,code:data}},
   /* on the device that SCANS: the server checks email + code; only if both are right is the device signed in */
   async login(email,code){
-    let res,j={};
-    try{res=await fetch(cfg.url+"/functions/v1/link-login",{method:"POST",headers:{"Content-Type":"application/json",apikey:cfg.anonKey,Authorization:"Bearer "+cfg.anonKey},body:JSON.stringify({email,code})});j=await res.json().catch(()=>({}))}
+    /* One database call (no Edge Function needed): link_login() checks email + one-time code and hands back a sign-in token */
+    let r,j={};
+    try{r=await sb.rpc("link_login",{p_email:String(email||"").trim().toLowerCase(),p_code:String(code||"").trim().toUpperCase()})}
     catch{throw new Error("Could not reach the server. Check your connection and try again.")}
-    if(!res.ok||!j.token_hash){
-      const st=res.status;
-      throw new Error(j.error||(st===404?"The link service isn't available on the server yet.":st===401||st===403?"The server rejected the request. Please try again.":st>=500?"Server error. Please try again in a moment.":"This QR code is invalid or has expired. Ask for a new one."))}
+    if(r.error){
+      const m=String(r.error.message||"");console.error("link_login",r.error);
+      if(r.error.code==="PGRST202"||r.error.code==="42883"||/could not find the function/i.test(m))throw new Error("QR sign-in isn't set up on the server yet (run schema_phase34_link_login_sql.sql).");
+      if(/failed to fetch|networkerror|load failed/i.test(m))throw new Error("Could not reach the server. Check your connection and try again.");
+      throw new Error("Server error. Please try again in a moment.")}
+    j=r.data||{};
+    if(!j.token_hash)throw new Error(j.error||"This QR code is invalid or has expired. Ask for a new one.");
     /* verified: now (and only now) leave the current account on this device and switch to the linked one */
     linkSuppress=true;
     try{
       cache=null;prefs={};chat.stop();stopDeviceWatch();if(adminSync){adminSync.stop();adminSync=null}
+      try{await sb.rpc("leave_this_device")}catch{}   /* remove this phone from the account it is leaving (ignored if not set up) */
       try{await sb.auth.signOut({scope:"local"})}catch{}
       linkedMode=true;
       try{Object.keys(localStorage).filter(k=>k.startsWith("sb-")).forEach(k=>localStorage.removeItem(k))}catch{}

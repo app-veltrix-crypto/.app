@@ -29,3 +29,22 @@ document.addEventListener("focusin",function(e){var t=e.target;if(!t||!t.closest
 document.addEventListener("focusout",function(){[100,350].forEach(function(d){setTimeout(schedule,d)})});
 apply();
 })();
+
+/* The typing area floats over the conversation (transparent container): tell the message list how tall it is
+   so the newest message is never hidden behind it, and keep the newest message in view when it grows. */
+(function(){
+ if(!window.ResizeObserver)return;
+ var dock=null,ro=null;
+ function bind(){
+  var d=document.getElementById("vmDock");if(!d||d===dock)return;
+  dock=d;if(ro)ro.disconnect();
+  ro=new ResizeObserver(function(){
+   var c=document.getElementById("vmChat"),m=document.getElementById("vmMsgs");if(!c||!dock)return;
+   var h=Math.ceil(dock.getBoundingClientRect().height);if(!h)return;
+   var stick=m&&m.scrollHeight-m.scrollTop-m.clientHeight<200;
+   c.style.setProperty("--vm-dock-h",h+"px");
+   if(stick&&m)requestAnimationFrame(function(){m.scrollTop=m.scrollHeight})});
+  ro.observe(dock)}
+ bind();
+ new MutationObserver(bind).observe(document.documentElement,{childList:true,subtree:true})
+})();
