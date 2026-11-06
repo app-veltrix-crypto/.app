@@ -147,8 +147,8 @@ wrap.innerHTML=`
   <button type="button" class="vm-send" id="vmSend" aria-label="Record voice message"><span class="m">${I.mic}</span><span class="s">${I.send}</span></button>
  </div>
 </section>
-<div class="vm-viewer" id="vmViewer" hidden><button type="button" class="vm-ic" id="vmViewerX" aria-label="Close">${I.back}</button><img alt="" hidden><video controls playsinline hidden></video></div>
-<div class="vm-viewer vm-preview" id="vmPreview" hidden><button type="button" class="vm-ic" id="vmPreviewX" aria-label="Back">${I.back}</button><button type="button" class="vm-once vm-once-big" id="vmPreviewOnce" aria-label="One-time view">${I.once}</button><img alt="" hidden><video controls playsinline hidden></video><div class="vm-prevhint" id="vmPreviewHint"></div></div>
+<div class="vm-viewer" id="vmViewer" hidden><button type="button" class="vm-ic" id="vmViewerX" aria-label="Close">${I.x}</button><img alt="" hidden><video controls playsinline hidden></video></div>
+<div class="vm-viewer vm-preview" id="vmPreview" hidden><button type="button" class="vm-ic" id="vmPreviewX" aria-label="Close">${I.x}</button><button type="button" class="vm-once vm-once-big" id="vmPreviewOnce" aria-label="One-time view">${I.once}</button><img alt="" hidden><video controls playsinline hidden></video><div class="vm-prevhint" id="vmPreviewHint"></div></div>
 <div class="vm-dialog-backdrop" id="vmDialog" hidden><section class="vm-dialog" role="dialog" aria-modal="true" aria-labelledby="vmDialogTitle"><h2 id="vmDialogTitle">Message options</h2><p id="vmDialogText">Choose an action.</p><div class="vm-dialog-actions" id="vmDialogActions"></div><button type="button" class="vm-dialog-cancel" id="vmDialogCancel">Cancel</button></section></div>
 <div class="vm-upload-menu" id="vmUploadMenu" hidden><button type="button" data-upload="image">Choose image</button><button type="button" data-upload="video">Choose video</button><button type="button" data-upload="file">Browse files</button><button type="button" data-upload="cancel">Cancel</button></div>
 <div class="vm-toast" id="vmToast" role="status" aria-live="polite"></div>
@@ -392,7 +392,9 @@ function saveAs(u,name){const l=document.createElement("a");l.href=u;l.download=
 let onceId=null;
 function openViewer(kind,url){const v=el("vmViewer"),im=v.querySelector("img"),vd=v.querySelector("video");im.hidden=kind!=="image";vd.hidden=kind!=="video";if(kind==="image")im.src=url;else{vd.onerror=()=>toast("This video format can't be played on this device. Tap download to save it.");vd.src=url;vd.play().catch(()=>{})}v.hidden=false}
 function closeViewer(){const v=el("vmViewer");if(v.hidden)return;const vd=v.querySelector("video");vd.pause();vd.removeAttribute("src");v.querySelector("img").removeAttribute("src");v.hidden=true;
- if(onceId){const m=findMsg(onceId);onceId=null;if(m){m.opened=true;delBlob(m.id);saveStore();renderMsgs(false);renderConvs()}}}
+ if(onceId){const m=findMsg(onceId);onceId=null;if(m){m.opened=true;sUrls.delete(m.id);sUrls.delete(m.id+"|d");delBlob(m.id);
+  if(m.mediaOwner){delete m.mediaOwner;delete m.mediaId;Promise.resolve(veltrixDB.client.rpc("chat_media_consume",{p_msg:m.id})).catch(()=>{})}
+  saveStore();renderMsgs(false);renderConvs()}}}
 msgsEl.addEventListener("click",async e=>{
  const dl=e.target.closest("[data-dl]");
  if(dl){const m=findMsg(dl.dataset.dl),u=m&&await mediaURL(dl.dataset.dl,m.type,m.type==="video"?(m.name||"video"):null);if(!m||!u)return toast("Media unavailable");
@@ -400,7 +402,7 @@ msgsEl.addEventListener("click",async e=>{
  const vw=e.target.closest("[data-view]");
  if(vw){const m=findMsg(vw.dataset.view),u=m&&await mediaURL(vw.dataset.view,m.type);if(!m||!u)return toast("Media unavailable");openViewer(m.type,u);return}
  const oc=e.target.closest("[data-once-open]");
- if(oc){const m=findMsg(oc.dataset.onceOpen);if(!m||m.opened)return;const u=await mediaURL(m.id,m.type);if(!u){m.opened=true;saveStore();renderMsgs(false);return toast("Media unavailable")}onceId=m.id;openViewer(m.type,u);return}
+ if(oc){const m=findMsg(oc.dataset.onceOpen);if(!m||m.opened)return;const u=await mediaURL(m.id,m.type);if(!u){m.opened=true;saveStore();renderMsgs(false);return toast("Media unavailable")}if(onceId)return;m.opened=true;saveStore();onceId=m.id;openViewer(m.type,u);return}
  const a=e.target.closest("[data-file]");
  if(a){e.preventDefault();const m=findMsg(a.dataset.file),u=m&&await mediaURL(a.dataset.file,"file",m.name||"file");if(!u||!m)return toast("File unavailable");saveAs(u,m.name)}
 });
