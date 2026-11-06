@@ -88,6 +88,7 @@ const pref={
    The UI code keeps editing these objects and calls save(); save() works out what changed and writes only that. */
 function ChatSync(scopeUid){
   this.scope=scopeUid||null;this.data={};this.snap={};this.timer=null;this.chan=null;this.evT=null;this.saving=Promise.resolve();
+  this.qd=false;this.flushing=0;this.pulling=false;this.stopped=false;this.poll=null;this.relT=null;this.lastFull=Date.now();
 }
 const metaOf=c=>{const m={};for(const k in c)if(k!=="msgs")m[k]=c[k];return m};
 async function fetchAll(table,scope,order){
@@ -100,13 +101,15 @@ ChatSync.prototype.ensure=function(uid,cid){
   const c=u.convs[cid]||(u.convs[cid]={msgs:[]});if(!Array.isArray(c.msgs))c.msgs=[];
   const s=(this.snap[uid]||(this.snap[uid]={}));s[cid]=s[cid]||{meta:"{}",msgs:{}};return c};
 ChatSync.prototype.load=async function(){
+  this.lastFull=Date.now();
   const [cv,ms]=await Promise.all([fetchAll("conversations",this.scope),fetchAll("messages",this.scope,"t")]);
   this.data={};this.snap={};
   for(const r of cv){const c=this.ensure(r.user_id,r.contact_id);Object.assign(c,r.data||{});c.msgs=[];this.snap[r.user_id][r.contact_id].meta=JSON.stringify(metaOf(c))}
   for(const r of ms){const c=this.ensure(r.user_id,r.contact_id);c.msgs.push(r.data);this.snap[r.user_id][r.contact_id].msgs[r.data.id]=JSON.stringify(r.data)}
   for(const uid in this.data)for(const cid in this.data[uid].convs){const s=this.snap[uid][cid];if(s.meta==null)s.meta=JSON.stringify(metaOf(this.data[uid].convs[cid]))}
 };
-ChatSync.prototype.save=function(){const me=this;clearTimeout(me.timer);me.timer=setTimeout(()=>{me.saving=me.saving.then(()=>me.flush()).catch(e=>console.error("Chat save failed",e))},150)};
+ChatSync.prototype.save=function(){const me=this;me.qd=true;clearTimeout(me.timer);me.timer=setTimeout(()=>{me.qd=false;me.flushing++;me.saving=me.saving.then(()=>me.flush()).catch(e=>console.error("Chat save failed",e)).then(()=>{me.flushing--})},150)};
+ChatSync.prototype.dirty=function(){return this.qd||this.flushing>0};
 ChatSync.prototype.flush=async function(){
   const convUp=[],msgUp=[],msgDel=[],convDel=[],media=[];
   for(const uid in this.data){
@@ -128,9 +131,9 @@ ChatSync.prototype.flush=async function(){
   if(media.length)sb.storage.from("chat-media").remove(media).catch(()=>{});
 };
 ChatSync.prototype.emit=function(){const me=this;clearTimeout(me.evT);me.evT=setTimeout(()=>fire(me.scope?"veltrix-chats":"veltrix-admin-chats"),60)};
-ChatSync.prototype.listen=function(){
+ChatSync.prototype.subscribeChan=function(){
   const me=this,f=me.scope?{filter:"user_id=eq."+me.scope}:{};
-  me.chan=sb.channel("chats-"+(me.scope||"admin")+"-"+Math.random().toString(36).slice(2,7))
+  const ch=sb.channel("chats-"+(me.scope||"admin")+"-"+Math.random().toString(36).slice(2,7))
    .on("postgres_changes",{event:"*",schema:"public",table:"messages",...f},p=>{
      if(p.eventType==="DELETE"){const o=p.old||{};
        outer:for(const uid in me.data)for(const cid in me.data[uid].convs){const c=me.data[uid].convs[cid],i=c.msgs.findIndex(m=>m&&m.id===o.id);
@@ -143,9 +146,48 @@ ChatSync.prototype.listen=function(){
      if(p.eventType==="DELETE"){const o=p.old||{};if(me.data[o.user_id]){delete me.data[o.user_id].convs[o.contact_id];if(me.snap[o.user_id])delete me.snap[o.user_id][o.contact_id]}}
      else{const r=p.new,c=me.ensure(r.user_id,r.contact_id),msgs=c.msgs;for(const k in c)delete c[k];Object.assign(c,r.data||{});c.msgs=msgs;me.snap[r.user_id][r.contact_id].meta=JSON.stringify(metaOf(c))}
      me.emit()})
-   .subscribe();
+   .subscribe(st=>{
+     /* the live connection dropped (phone slept, network changed...): reconnect and catch up instead of silently going deaf */
+     if(me.stopped||me.chan!==ch)return;
+     if(st==="CHANNEL_ERROR"||st==="TIMED_OUT"||st==="CLOSED"){clearTimeout(me.relT);me.relT=setTimeout(()=>{me.relisten();me.pull(true)},3000)}});
+  me.chan=ch;
 };
-ChatSync.prototype.stop=function(){if(this.chan){sb.removeChannel(this.chan);this.chan=null}clearTimeout(this.timer);this.data={};this.snap={}};
+ChatSync.prototype.relisten=function(){const me=this;if(me.stopped)return;const old=me.chan;me.chan=null;if(old){try{sb.removeChannel(old)}catch(e){}}me.subscribeChan()};
+ChatSync.prototype.listen=function(){const me=this;me.stopped=false;me.subscribeChan();me.startPoll()};
+/* Safety net for the live connection: every few seconds (and whenever the app returns to the screen or the network comes back)
+   check whether the server has messages this device doesn't have, and merge them in. Never overwrites anything still waiting to be saved. */
+const stable=o=>JSON.stringify(o,(k,v)=>v&&typeof v==="object"&&!Array.isArray(v)?Object.keys(v).sort().reduce((a,x)=>(a[x]=v[x],a),{}):v);
+ChatSync.prototype.startPoll=function(){const me=this;if(me.poll)return;
+  me.poll=setInterval(()=>{if(!document.hidden)me.pull(false)},4000);
+  me.onVis=()=>{if(!document.hidden){me.relisten();me.pull(true)}};
+  me.onOnline=()=>{me.relisten();me.pull(true)};
+  document.addEventListener("visibilitychange",me.onVis);window.addEventListener("online",me.onOnline)};
+ChatSync.prototype.pull=async function(force){
+  const me=this;if(me.stopped||me.pulling||me.dirty())return;me.pulling=true;
+  try{
+    let known=0;for(const u in me.snap)for(const c in me.snap[u])known+=Object.keys(me.snap[u][c].msgs||{}).length;
+    if(!force&&Date.now()-me.lastFull<30000){
+      let q=sb.from("messages").select("id",{count:"exact",head:true});if(me.scope)q=q.eq("user_id",me.scope);
+      const {count,error}=await q;if(error||count==null||count===known)return}
+    const [cv,ms]=await Promise.all([fetchAll("conversations",me.scope),fetchAll("messages",me.scope,"t")]);
+    if(me.stopped||me.dirty())return;
+    me.lastFull=Date.now();
+    let changed=false;const touched=new Set(),srv=new Set();
+    for(const r of cv){const c=me.ensure(r.user_id,r.contact_id),s=me.snap[r.user_id][r.contact_id],tmp=Object.assign({},r.data||{});
+      if(JSON.stringify(metaOf(c))===s.meta&&stable(metaOf(c))!==stable(tmp)){const m=c.msgs;for(const k in c)delete c[k];Object.assign(c,tmp);c.msgs=m;s.meta=JSON.stringify(metaOf(c));changed=true}}
+    for(const r of ms){const d=r.data;if(!d||!d.id)continue;srv.add(d.id);
+      const c=me.ensure(r.user_id,r.contact_id),s=me.snap[r.user_id][r.contact_id],i=c.msgs.findIndex(m=>m&&m.id===d.id);
+      if(i<0){c.msgs.push(d);s.msgs[d.id]=JSON.stringify(d);touched.add(c);changed=true}
+      else if(s.msgs[d.id]!==undefined&&JSON.stringify(c.msgs[i])===s.msgs[d.id]&&stable(c.msgs[i])!==stable(d)){c.msgs[i]=d;s.msgs[d.id]=JSON.stringify(d);changed=true}}
+    for(const u in me.data)for(const cid in me.data[u].convs){const c=me.data[u].convs[cid],s=me.snap[u]&&me.snap[u][cid];if(!s)continue;
+      for(const id in s.msgs)if(!srv.has(id)){const i=c.msgs.findIndex(m=>m&&m.id===id);
+        if(i<0||JSON.stringify(c.msgs[i])===s.msgs[id]){if(i>=0)c.msgs.splice(i,1);delete s.msgs[id];changed=true}}}
+    for(const c of touched)c.msgs.sort((a,b)=>(a.t||0)-(b.t||0));
+    if(changed)me.emit();
+  }catch(e){console.warn("Chat refresh failed",e)}finally{me.pulling=false}
+};
+ChatSync.prototype.stop=function(){this.stopped=true;clearInterval(this.poll);this.poll=null;clearTimeout(this.relT);if(this.onVis){document.removeEventListener("visibilitychange",this.onVis);window.removeEventListener("online",this.onOnline);this.onVis=null}
+  if(this.chan){const c=this.chan;this.chan=null;try{sb.removeChannel(c)}catch(e){}}clearTimeout(this.timer);this.data={};this.snap={}};
 
 let mine=null,adminSync=null;
 const chat={
@@ -294,7 +336,9 @@ const link={
     let res,j={};
     try{res=await fetch(cfg.url+"/functions/v1/link-login",{method:"POST",headers:{"Content-Type":"application/json",apikey:cfg.anonKey,Authorization:"Bearer "+cfg.anonKey},body:JSON.stringify({email,code})});j=await res.json().catch(()=>({}))}
     catch{throw new Error("Could not reach the server. Check your connection and try again.")}
-    if(!res.ok||!j.token_hash)throw new Error(j.error||"This QR code is invalid or has expired. Ask for a new one.");
+    if(!res.ok||!j.token_hash){
+      const st=res.status;
+      throw new Error(j.error||(st===404?"The link service isn't available on the server yet.":st===401||st===403?"The server rejected the request. Please try again.":st>=500?"Server error. Please try again in a moment.":"This QR code is invalid or has expired. Ask for a new one."))}
     /* verified: now (and only now) leave the current account on this device and switch to the linked one */
     linkSuppress=true;
     try{

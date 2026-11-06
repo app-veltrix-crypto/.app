@@ -171,7 +171,11 @@ window.veltrixWelcomeSupport=function(){try{loadStore();const c=store.convs[SUPP
 /* real users (found by typing their name in the new-conversation search) have ids like "real-<account id>" */
 const realUsers={};
 const hueOf=s=>{let h=0;for(const ch of String(s))h=(h*31+ch.charCodeAt(0))>>>0;return h%360};
-const realOf=id=>{if(realUsers[id])return realUsers[id];const c=store.convs[id];if(!c||!c.name)return null;return realUsers[id]={id,name:c.name,real:true,hue:hueOf(id),username:c.username||"",photo:c.photo||""}};
+const realOf=id=>{const c=store.convs[id];let u=realUsers[id];
+ if(!u){if(!c||!c.name)return null;return realUsers[id]={id,name:c.name,real:true,hue:hueOf(id),username:c.username||"",photo:c.photo||""}}
+ /* keep the cached person in step with the saved chat, so a picture that arrives later (sent along with their message) shows up */
+ if(c){if(c.photo&&c.photo!==u.photo)u.photo=c.photo;if(c.username&&c.username!==u.username)u.username=c.username;if(c.name&&c.name!==u.name)u.name=c.name}
+ return u};
 /* Save the person's photo/username WITH the conversation, so the picture is still there after the chat is closed or the app reloads.
    (Before, the photo only lived in the in-memory search result and was lost, leaving just the initials.) Very large photos are not copied into the chat record; they are re-fetched instead. */
 function rememberReal(u){try{if(!u||!u.real)return;const c=store.convs[u.id];if(!c)return;let ch=false;
@@ -269,9 +273,9 @@ function openChat(uid){
  {const c=store.convs[uid];divAt=(c&&c.userReadAt)||0;divN=unreadOf(c);markReadUser(uid)}
  el("vmChatWho").innerHTML=av(u,"vm-sm")+`<span class="vm-name">${esc(u.name)}${u.support?verifiedBadge:""}</span>`;
  clearStage();text.value="";autosize();setMode();renderMsgs(true);C.hidden=false;
- try{window.vxGame&&window.vxGame.onChat({contactId:uid,persona:u.name,support:!!u.support,real:!!u.real,admin:!u.real&&!u.support,peerId:u.real?String(uid).slice(5):null})}catch(e){}
+ try{window.vxChatMenu&&window.vxChatMenu.onChat({contactId:uid,persona:u.name,support:!!u.support,real:!!u.real,admin:!u.real&&!u.support,peerId:u.real?String(uid).slice(5):null})}catch(e){}
 }
-function closeChat(){try{window.vxGame&&window.vxGame.onChat(null)}catch(e){}clearStage();closePreview();closeViewer();if(recorder)cancelRec();stopPlayback();C.hidden=true;activeId=null;divN=0;renderConvs();updateBadge()}
+function closeChat(){try{window.vxChatMenu&&window.vxChatMenu.onChat(null)}catch(e){}clearStage();closePreview();closeViewer();if(recorder)cancelRec();stopPlayback();C.hidden=true;activeId=null;divN=0;renderConvs();updateBadge()}
 el("vmChatBack").addEventListener("click",closeChat);
 
 function bubble(m){
@@ -463,6 +467,8 @@ updateBadge();setInterval(updateBadge,2000);
 const sig=id=>{const c=store.convs[id],m=c&&c.msgs||[],l=m[m.length-1];return m.length+":"+(l?l.id+(l.edited?"e":""):"")+":"+((c&&c.adminReadAt)||0)};
 window.addEventListener("veltrix-chats",()=>{
  const before=activeId?sig(activeId):"";loadStore();
+ refreshRealProfiles();                                    /* a person who just wrote to you for the first time: fetch their picture */
+ if(activeId&&!C.hidden&&realUsers[activeId])el("vmChatWho").innerHTML=av(realUsers[activeId],"vm-sm")+`<span class="vm-name">${esc(realUsers[activeId].name)}</span>`;
  if(!L.hidden)renderConvs();
  if(activeId&&!C.hidden){markReadUser(activeId);if(sig(activeId)!==before)renderMsgs(false)}
  updateBadge()});

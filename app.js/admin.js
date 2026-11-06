@@ -176,9 +176,9 @@ function openChat(uid,user){
  loadStore();const u=userOf(uid)||user;if(!u)return;activeId=uid;activeUser=u;{const c=store.convs[uid];divAt=(c&&c.lastRead)||0;divN=c?unreadOf(c):0}editingId=null;el("vmEditing").hidden=true;
  el("vmChatWho").innerHTML=av(u,"vm-sm")+`<span class="ad-who"><span class="vm-name">${esc(u.name)}</span><small>Replying as ${esc(u.contactName||"contact")}</small></span>`;
  clearStage();text.value="";autosize();setMode();markRead(uid);renderMsgs(true);C.hidden=false;
- try{window.vxGame&&window.vxGame.onChat({admin:true,accountId:u.accountId,contactId:u.contactId,persona:u.contactName||"",support:u.contactId==="veltrix-support"})}catch(e){}
+ try{window.vxChatMenu&&window.vxChatMenu.onChat({admin:true,accountId:u.accountId,contactId:u.contactId,persona:u.contactName||"",support:u.contactId==="veltrix-support"})}catch(e){}
 }
-function closeChat(){try{window.vxGame&&window.vxGame.onChat(null)}catch(e){}clearStage();closePreview();closeViewer();if(recorder)cancelRec();stopPlayback();C.hidden=true;activeId=null;activeUser=null;divN=0;renderConvs()}
+function closeChat(){try{window.vxChatMenu&&window.vxChatMenu.onChat(null)}catch(e){}clearStage();closePreview();closeViewer();if(recorder)cancelRec();stopPlayback();C.hidden=true;activeId=null;activeUser=null;divN=0;renderConvs()}
 el("vmChatBack").addEventListener("click",closeChat);
 
 function bubble(m){

@@ -23,7 +23,7 @@
     var w = layoutWidth();
     return (w ? "width=" + w : "width=device-width") +
       ", initial-scale=" + SCALE + ", maximum-scale=" + SCALE + ", minimum-scale=" + SCALE +
-      ", user-scalable=no, viewport-fit=cover";
+      ", user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content";
   }
   var VIEWPORT = viewportContent();
 

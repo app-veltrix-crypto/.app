@@ -1,0 +1,9 @@
+/* Keyboard handling for every chat / messaging page (user app and admin page).
+   While the on-screen keyboard is open, the page is sized to the part of the screen you can actually see
+   (set by app.js/chatkeyboard.js), so the header with the person's picture, name and the three dots stays pinned
+   at the top and the typing bar sits directly above the keyboard. */
+.vm-page{overscroll-behavior:none}
+#vmChat .vm-head{flex:0 0 auto}
+#vmChat .vm-bar{flex:0 0 auto}
+html.vm-kb .vm-page{top:var(--vv-top,0px);bottom:auto;height:var(--vv-h,100%);min-height:0;max-height:var(--vv-h,100%)}
+html.vm-kb #vmChat .vm-bar{margin-bottom:10px}
