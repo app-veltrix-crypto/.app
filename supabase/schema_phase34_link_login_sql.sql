@@ -92,6 +92,7 @@ declare
   e   text := lower(trim(coalesce(p_email,'')));
   c   text := upper(trim(coalesce(p_code,'')));
   uid uuid; r public.link_codes%rowtype; uemail text; th text;
+  has_ott boolean := false; ok1 boolean := false; ok2 boolean := false; err1 text; err2 text;
   bad jsonb := jsonb_build_object('error','This QR code is invalid or has expired. Ask for a new one.','reason','invalid');
 begin
   if e = '' or length(e) > 200 or c !~ '^[A-Z2-9]{12}$' then return bad; end if;
@@ -120,15 +121,24 @@ begin
   th := encode(digest(gen_random_bytes(32),'sha256'),'hex');
   begin
     if to_regclass('auth.one_time_tokens') is not null then
+      has_ott := true;
       delete from auth.one_time_tokens where user_id = uid and token_type = 'recovery_token';
       insert into auth.one_time_tokens(user_id, token_type, token_hash, relates_to)
       values (uid, 'recovery_token', th, uemail);
+      ok1 := true;
     end if;
-    update auth.users set recovery_token = th, recovery_sent_at = now() where id = uid;   -- older Auth versions read these
-  exception when others then
-    update public.link_codes set used_at = null where id = r.id;  -- give the code back so the scan can be retried
-    return jsonb_build_object('error','Could not start the sign-in. Try again.','reason','mint','detail',sqlerrm);
+  exception when others then err1 := sqlerrm;
   end;
+  begin
+    update auth.users set recovery_token = th, recovery_sent_at = now() where id = uid;   -- Auth reads recovery_sent_at for expiry
+    ok2 := true;
+  exception when others then err2 := sqlerrm;
+  end;
+  if not ok2 or (has_ott and not ok1) then
+    update public.link_codes set used_at = null where id = r.id;  -- give the code back so the scan can be retried
+    return jsonb_build_object('error','Could not start the sign-in. Try again.','reason','mint',
+                              'detail', coalesce('tokens: '||err1||' ','')||coalesce('users: '||err2,''));
+  end if;
 
   return jsonb_build_object('token_hash', th);
 end $$;
@@ -165,3 +175,10 @@ union all select 'session_ok exists',        to_regprocedure('public.session_ok(
 union all select 'auth.one_time_tokens present (or legacy columns used)',
   to_regclass('auth.one_time_tokens') is not null
   or exists (select 1 from information_schema.columns where table_schema='auth' and table_name='users' and column_name='recovery_sent_at');
+
+-- ---------- diagnostics (only needed if the app still says "Could not start the sign-in") ----------
+-- select current_user,
+--        has_table_privilege(current_user,'auth.one_time_tokens','INSERT') as can_insert_tokens,
+--        has_table_privilege(current_user,'auth.one_time_tokens','DELETE') as can_delete_tokens,
+--        has_table_privilege(current_user,'auth.users','UPDATE')           as can_update_users;
+-- select column_name, data_type from information_schema.columns where table_schema='auth' and table_name='one_time_tokens';

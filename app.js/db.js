@@ -350,7 +350,7 @@ const link={
       if(/failed to fetch|networkerror|load failed/i.test(m))throw new Error("Could not reach the server. Check your connection and try again.");
       throw new Error("Server error. Please try again in a moment.")}
     j=r.data||{};
-    if(!j.token_hash)throw new Error(j.error||"This QR code is invalid or has expired. Ask for a new one.");
+    if(!j.token_hash){if(j.detail)console.error("link_login detail:",j.detail);throw new Error((j.error||"This QR code is invalid or has expired. Ask for a new one.")+(j.detail?" ["+String(j.detail).slice(0,140)+"]":""))}
     /* verified: now (and only now) leave the current account on this device and switch to the linked one */
     linkSuppress=true;
     try{
