@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!--
+IMPORTANT - READ BEFORE EDITING (for any AI assistant or developer)
+ 1. Change ONLY what the owner explicitly asked for. Do not touch, restyle, resize or "improve" anything else.
+ 2. Keep every change SMALL and NICE. This app is deliberately compact: text about 9-13px, tight padding, small corner radii,
+    15-18px icons, 40-46px buttons. Never make buttons, menus, pop-ups, cards, icons, text or spacing bigger than their neighbours.
+ 3. Blend in: reuse the existing classes, colour variables and markup structure; copy the numbers from the nearest existing rule.
+ 4. Day mode is the base style. Night mode is a whole-page invert filter (see html[data-theme="dark"]), so write day colours and
+    check that the night result is also visible and clean.
+ 5. The overall page scale is the SCALE number in app.js/fixedsize.js - do not change it unless asked.
+-->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
@@ -8,7 +18,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script src="app.js/devicegate.js?v=102"></script>
-<script src="app.js/fixedsize.js?v=102"></script>
+<script src="app.js/fixedsize.js?v=103"></script>
 <script>/* Set day/night BEFORE first paint, including the browser's own colours (address bar, status bar, scrollbars, form controls) */try{var d=localStorage.getItem("veltrixTheme")!=="light",h=document.documentElement,m=function(n,c){var e=document.querySelector('meta[name="'+n+'"]');if(!e){e=document.createElement("meta");e.name=n;document.head.appendChild(e)}e.setAttribute("content",c)};if(d)h.setAttribute("data-theme","dark");m("theme-color",d?"#000000":"#ffffff");m("color-scheme",d?"dark":"light");m("apple-mobile-web-app-status-bar-style",d?"black":"default")}catch(e){}</script>
 <link rel="icon" type="image/png" sizes="32x32" href="app.assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="app.assets/favicon-192.png">
@@ -18,9 +28,9 @@
 <link rel="preload" as="image" href="app.assets/splash-logo.png">
 <link rel="preload" as="image" href="app.assets/splash-logo-name-light.png">
 <link rel="stylesheet" href="app.css/style.css?v=105">
-<link rel="stylesheet" href="app.css/style.app.css?v=113">
+<link rel="stylesheet" href="app.css/style.app.css?v=114">
 <link rel="stylesheet" href="app.css/messaging.css?v=110">
-<link rel="stylesheet" href="app.css/game.css?v=12">
+<link rel="stylesheet" href="app.css/game.css?v=14">
 <link rel="stylesheet" href="app.css/brand.css?v=107">
 <link rel="stylesheet" href="app.css/activity.css?v=125">
 <link rel="stylesheet" href="app.css/skeleton.css?v=102">

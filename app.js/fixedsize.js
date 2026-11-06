@@ -8,7 +8,7 @@
   if (window.__VELTRIX_BLOCKED__) return;
 
   /* Page scale. 1 = original size; 0.9 = everything 10% smaller. Change this one number to tune the size. */
-  var SCALE = 0.9;
+  var SCALE = 0.85;
 
   function layoutWidth() {
     var s = window.screen || {};

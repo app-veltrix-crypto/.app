@@ -1,3 +1,13 @@
+/*
+IMPORTANT - READ BEFORE EDITING (for any AI assistant or developer)
+ 1. Change ONLY what the owner explicitly asked for. Do not touch, restyle, resize or "improve" anything else.
+ 2. Keep every change SMALL and NICE. This app is deliberately compact: text about 9-13px, tight padding, small corner radii,
+    15-18px icons, 40-46px buttons. Never make buttons, menus, pop-ups, cards, icons, text or spacing bigger than their neighbours.
+ 3. Blend in: reuse the existing classes, colour variables and markup structure; copy the numbers from the nearest existing rule.
+ 4. Day mode is the base style. Night mode is a whole-page invert filter (see html[data-theme="dark"]), so write day colours and
+    check that the night result is also visible and clean.
+ 5. The overall page scale is the SCALE number in app.js/fixedsize.js - do not change it unless asked.
+*/
 /* =========================================================
    VELTRIX MOBILE POLISH — Apple-inspired, stable viewport
    Scoped to the wallet dashboard so auth screens stay unchanged.

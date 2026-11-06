@@ -1,3 +1,13 @@
+/*
+IMPORTANT - READ BEFORE EDITING (for any AI assistant or developer)
+ 1. Change ONLY what the owner explicitly asked for. Do not touch, restyle, resize or "improve" anything else.
+ 2. Keep every change SMALL and NICE. This app is deliberately compact: text about 9-13px, tight padding, small corner radii,
+    15-18px icons, 40-46px buttons. Never make buttons, menus, pop-ups, cards, icons, text or spacing bigger than their neighbours.
+ 3. Blend in: reuse the existing classes, colour variables and markup structure; copy the numbers from the nearest existing rule.
+ 4. Day mode is the base style. Night mode is a whole-page invert filter (see html[data-theme="dark"]), so write day colours and
+    check that the night result is also visible and clean.
+ 5. The overall page scale is the SCALE number in app.js/fixedsize.js - do not change it unless asked.
+*/
 /* Veltrix Admin — only the few things that differ from the user app's messaging look.
    Everything else (layout, bubbles, composer, dark mode) comes from messaging.css + brand.css. */
 
@@ -24,6 +34,7 @@ html.admin-page .vm-field textarea,html.admin-page .vm-search input{cursor:text!
 
 /* Which contact the admin is answering as, shown next to the user's name in the inbox */
 .ad-as{font-weight:500;font-size:9px;color:var(--mut)}
-/* "Open dashboard" link in the admin header (was a plain "Admin" label) */
-.ad-chip-link{display:inline-flex;align-items:center;min-height:30px;padding:0 13px;font-size:11px;font-weight:600;letter-spacing:.1px;text-transform:none;text-decoration:none;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+/* "Open dashboard" link in the admin header: same small chip size as the old "Admin" label (hit area is extended invisibly) */
+.ad-chip-link{position:relative;padding:3px 9px;font-size:9.5px;font-weight:600;letter-spacing:.3px;text-transform:none;text-decoration:none;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.ad-chip-link::after{content:"";position:absolute;inset:-8px -4px}
 .ad-chip-link:active{opacity:.7}
