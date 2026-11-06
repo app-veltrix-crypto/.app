@@ -13,3 +13,14 @@
 
 /* ---------- softer type, all pages ---------- */
 h1,h2,h3,h4,h5,h6,strong,b,th{font-weight:600}
+
+/* Sign up page: same full-screen structure as Welcome and Sign in (logo top-left, fills the screen, footer link rests at the bottom).
+   Only the page frame is changed here; the step cards, fields and buttons keep their existing compact styling. Scoped to #signupPage only. */
+#signupPage{min-height:100dvh;padding:0;align-items:stretch;justify-content:center}
+#signupPage .signup-wrapper{max-width:440px;min-height:100dvh;margin:0 auto;padding:calc(26px + env(safe-area-inset-top)) 22px calc(26px + env(safe-area-inset-bottom));display:flex;flex-direction:column}
+#signupPage .signup-header{margin-bottom:24px}
+#signupPage .signup-header>.brand{justify-content:flex-start}
+#signupPage .signup-header>.brand .brand-logo{width:128px}
+#signupPage .signup-title{margin-top:26px}
+#signupPage .signup-form{flex:1;display:flex;flex-direction:column}
+#signupPage .signup-form>.switch-auth{margin-top:auto;padding-top:24px;font-size:11px}
