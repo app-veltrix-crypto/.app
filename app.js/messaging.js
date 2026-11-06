@@ -114,6 +114,8 @@ const STREAM=k=>k==="video"||k==="file";const sUrls=new Map();
 /* videos and files stream straight from storage (they start at once and are never loaded whole into memory); photos and voice notes are small and are fetched as before */
 async function mediaURL(id,kind,dlName){
  const local=memBlobs.get(id);
+ /* the sender's own video: play the uploaded copy (the same one the receiver plays) - the local file can fail to play (wrong/empty type, or a phone file that is no longer readable) */
+ if(local&&kind==="video"&&!dlName){const c=sUrls.get(id);if(c&&c.exp>Date.now())return c.u;const r=mediaRef(id);let u=null;try{u=await veltrixDB.media.url(r[0],r[1])}catch{}if(u){sUrls.set(id,{u,exp:Date.now()+50*60*1000});return u}}
  if(local){if(urls.has(id))return urls.get(id);const u=URL.createObjectURL(local);urls.set(id,u);return u}
  if(STREAM(kind)){const key=id+(dlName?"|d":"");const c=sUrls.get(key);if(c&&c.exp>Date.now())return c.u;const r=mediaRef(id);const u=await veltrixDB.media.url(r[0],r[1],dlName);if(u){sUrls.set(key,{u,exp:Date.now()+50*60*1000});return u}return null}
  if(urls.has(id))return urls.get(id);const b=await getBlob(id);if(!b)return null;const u=URL.createObjectURL(b);urls.set(id,u);return u}
@@ -311,7 +313,7 @@ async function addMsg(m,blob){
  const isReal=String(uid).indexOf("real-")===0;
   m.id=Date.now().toString(36)+Math.random().toString(36).slice(2,7);m.from="me";m.t=Date.now();
  if(blob&&!(await putBlob(m.id,blob)))return;
- {const cv=store.convs[uid]=store.convs[uid]||{msgs:[]},cu=userById(uid);if(cu&&!cv.name)cv.name=cu.name;cv.msgs.push(m);rememberReal(cu)}saveStore();
+ {const cv=store.convs[uid]=store.convs[uid]||{msgs:[]},cu=userById(uid);if(cu&&!cv.name)cv.name=cu.name;if(cv.disappear)m.exp=m.t+864e5;cv.msgs.push(m);rememberReal(cu)}saveStore();
  if(isReal&&m.type&&m.type!=="text")Promise.resolve(veltrixDB.client.rpc("chat_send_real_media",{p_to:String(uid).slice(5),p_id:m.id,p_msg:{type:m.type,text:m.text||"",name:m.name||"",mime:m.mime||"",size:m.size||0,dur:m.dur||0,once:!!m.once}})).then(r=>{if(r.error||!r.data||!r.data.ok)toast("Couldn't deliver that file")}).catch(()=>toast("Couldn't deliver that file"));
  if(isReal&&m.type==="text")Promise.resolve(veltrixDB.client.rpc("chat_send_real",{p_to:String(uid).slice(5),p_id:m.id,p_text:m.text})).then(r=>{if(r.error||!r.data||!r.data.ok)toast("Couldn't deliver that message")}).catch(()=>toast("Couldn't deliver that message"));
  if(activeId===uid)renderMsgs(true);
@@ -475,6 +477,14 @@ window.addEventListener("veltrix-chats",()=>{
  if(!L.hidden)renderConvs();
  if(activeId&&!C.hidden){markReadUser(activeId);if(sig(activeId)!==before)renderMsgs(false)}
  updateBadge()});
+
+/* Disappearing messages (three-dot menu): while ON, every new message in this chat vanishes 24 hours after it is sent, on both sides */
+window.vxDisappear={
+ get(){const c=activeId&&store.convs[activeId];return !!(c&&c.disappear)},
+ set(on){const uid=activeId;if(!uid)return;on=!!on;const cv=store.convs[uid]=store.convs[uid]||{msgs:[]},cu=userById(uid);if(cu&&!cv.name)cv.name=cu.name;cv.disappear=on;rememberReal(cu);saveStore();
+  if(String(uid).indexOf("real-")===0)Promise.resolve(veltrixDB.client.rpc("chat_set_disappear",{p_peer:String(uid).slice(5),p_on:on})).then(r=>{if(r.error||!r.data||!r.data.ok)toast("Couldn't update the other person's chat")}).catch(()=>toast("Couldn't update the other person's chat"));
+  toast(on?"Disappearing messages on · new messages vanish after 24 hours":"Disappearing messages off")}
+};
 
 /* Escape closes the top-most messaging layer */
 document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;

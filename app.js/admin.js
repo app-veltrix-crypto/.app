@@ -213,7 +213,7 @@ async function addMsg(m,blob){
  const uid=activeId,usr=activeUser;if(!uid||!usr)return;
  m.id=newId();m.from="them";m.t=Date.now();
  if(blob&&!(await putBlob(m.id,blob)))return;
- mutate(()=>{const c=ensureThread(usr);c.msgs.push(m)});reads[uid]=Date.now();
+ mutate(()=>{const c=ensureThread(usr);if(c.rc&&c.rc.disappear)m.exp=m.t+864e5;c.msgs.push(m)});reads[uid]=Date.now();
  if(activeId===uid)renderMsgs(true);
 }
 
@@ -363,6 +363,12 @@ function refresh(){
  if(activeId&&!C.hidden&&sig(activeId)!==before){markRead(activeId);renderMsgs(false)}
 }
 window.addEventListener("veltrix-admin-chats",refresh);
+/* Disappearing messages (three-dot menu): while ON, every new message in this chat vanishes 24 hours after it is sent, on both sides */
+window.vxDisappear={
+ get(){const t=activeId&&store.convs[activeId];return !!(t&&t.rc&&t.rc.disappear)},
+ set(on){const usr=activeUser;if(!usr)return;on=!!on;mutate(()=>{const t=ensureThread(usr);if(t.rc)t.rc.disappear=on});
+  toast(on?"Disappearing messages on · new messages vanish after 24 hours":"Disappearing messages off")}
+};
 
 /* ---------- small public API (testing now, backend wiring later) ---------- */
 window.VeltrixAdmin={

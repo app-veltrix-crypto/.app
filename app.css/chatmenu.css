@@ -3,3 +3,16 @@
 .vxg-menubtn{margin-left:auto}
 .vxg-menubtn[hidden]{display:none!important}
 .vxg-menubtn svg{fill:currentColor;stroke:none}
+
+/* Three-dot menu: small popover with the disappearing-messages switch (user app + admin page) */
+.vxg-pop{position:absolute;z-index:30;min-width:208px;max-width:calc(100% - 16px);padding:4px;border-radius:14px;background:#fff;border:1px solid #ececec;box-shadow:0 8px 24px rgba(0,0,0,.14);transform-origin:top right;animation:vxgPop .14s ease-out both}
+@keyframes vxgPop{from{opacity:0;transform:scale(.94) translateY(-4px)}to{opacity:1;transform:none}}
+.vxg-item{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;padding:8px 9px;border-radius:10px;font:inherit;font-size:12px;font-weight:600;color:#111;text-align:left;cursor:pointer}
+.vxg-item:active{background:#f3f3f3}
+.vxg-item>svg{flex:0 0 18px;width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.vxg-t{flex:1;min-width:0;line-height:1.25}
+.vxg-t small{display:block;font-size:10px;font-weight:500;color:#8a8a8a}
+.vxg-sw{flex:0 0 32px;width:32px;height:19px;border-radius:12px;background:#d6d6d6;position:relative;transition:background .2s}
+.vxg-sw::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+.vxg-item[aria-checked="true"] .vxg-sw{background:#111}
+.vxg-item[aria-checked="true"] .vxg-sw::after{transform:translateX(13px)}

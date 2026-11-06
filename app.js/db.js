@@ -159,6 +159,7 @@ ChatSync.prototype.listen=function(){const me=this;me.stopped=false;me.subscribe
 const stable=o=>JSON.stringify(o,(k,v)=>v&&typeof v==="object"&&!Array.isArray(v)?Object.keys(v).sort().reduce((a,x)=>(a[x]=v[x],a),{}):v);
 ChatSync.prototype.startPoll=function(){const me=this;if(me.poll)return;
   me.poll=setInterval(()=>{if(!document.hidden)me.pull(false)},4000);
+  me.pj=setInterval(()=>{try{me.purgeExpired()}catch(e){console.warn(e)}},30000);setTimeout(()=>{try{me.purgeExpired()}catch(e){}},1500);
   me.onVis=()=>{if(!document.hidden){me.relisten();me.pull(true)}};
   me.onOnline=()=>{me.relisten();me.pull(true)};
   document.addEventListener("visibilitychange",me.onVis);window.addEventListener("online",me.onOnline)};
@@ -186,7 +187,13 @@ ChatSync.prototype.pull=async function(force){
     if(changed)me.emit();
   }catch(e){console.warn("Chat refresh failed",e)}finally{me.pulling=false}
 };
-ChatSync.prototype.stop=function(){this.stopped=true;clearInterval(this.poll);this.poll=null;clearTimeout(this.relT);if(this.onVis){document.removeEventListener("visibilitychange",this.onVis);window.removeEventListener("online",this.onOnline);this.onVis=null}
+/* Disappearing messages: a message carrying "exp" (a time) is removed for good once that time has passed. Runs for the user app and the admin page. */
+ChatSync.prototype.purgeExpired=function(){const now=Date.now();let n=0;
+  for(const uid in this.data){const cs=(this.data[uid]&&this.data[uid].convs)||{};for(const cid in cs){const c=cs[cid];if(!c||!Array.isArray(c.msgs))continue;
+    const gone=c.msgs.filter(m=>m&&m.exp&&m.exp<=now);if(!gone.length)continue;
+    const keep=c.msgs.filter(m=>!(m&&m.exp&&m.exp<=now));c.msgs.splice(0,c.msgs.length,...keep);n+=gone.length}}
+  if(n){this.save();this.emit()}return n};
+ChatSync.prototype.stop=function(){this.stopped=true;clearInterval(this.poll);this.poll=null;clearInterval(this.pj);this.pj=null;clearTimeout(this.relT);if(this.onVis){document.removeEventListener("visibilitychange",this.onVis);window.removeEventListener("online",this.onOnline);this.onVis=null}
   if(this.chan){const c=this.chan;this.chan=null;try{sb.removeChannel(c)}catch(e){}}clearTimeout(this.timer);this.data={};this.snap={}};
 
 let mine=null,adminSync=null;
