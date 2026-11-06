@@ -1,0 +1,35 @@
+/* Deposit coin list: same structure and sizes as the "Explore crypto" search list (loaded last on purpose). */
+#depositPage #depositCoinPicker{width:100%!important;max-width:470px!important;margin:0 auto!important;padding:0 13px calc(84px + env(safe-area-inset-bottom))!important;box-sizing:border-box!important}
+/* The header has a 22px white fade under it. The gap below the header must be at least that tall, otherwise the fade washes out the column labels. */
+#depositPage .wd-deposit-trending-head{padding:max(10px,env(safe-area-inset-top)) 0 10px!important;margin:0 0 24px!important}
+#depositPage .wd-deposit-trending-head::after{height:22px!important}
+#depositPage .wd-deposit-list-caption{position:relative!important;z-index:1!important}
+#depositPage .wd-deposit-trending-head h2{font-size:16.5px!important;line-height:20px!important;letter-spacing:-.4px!important}
+
+/* column labels = same strip as "TOP CRYPTOCURRENCIES" in the search list */
+#depositPage .wd-deposit-list-caption{display:flex!important;justify-content:space-between!important;align-items:center!important;gap:10px!important;margin:0!important;padding:0 2px 11px!important;border-bottom:1px solid #eff0f4!important;color:#858690!important;font-size:9px!important;font-weight:650!important;letter-spacing:.8px!important}
+
+/* list + rows = same as search rows */
+#depositPage #depositCoinList{width:100%!important;max-width:none!important;margin:0!important;padding:0 0 12px!important;box-sizing:border-box!important}
+#depositPage #depositCoinList .wd-deposit-market-row{display:flex!important;align-items:center!important;gap:9px!important;width:100%!important;min-height:62px!important;padding:11px 2px!important;border:0!important;border-bottom:1px solid #f0f1f4!important;border-radius:0!important;background:transparent!important;box-sizing:border-box!important;text-align:left}
+#depositPage #depositCoinList .wd-deposit-market-row:last-child{border-bottom:1px solid #f0f1f4!important}
+#depositPage #depositCoinList .wd-deposit-market-row:active{background:#f7f8fa!important}
+#depositPage #depositCoinList .wd-market-coin{width:28px!important;height:28px!important;flex:0 0 28px!important;font-size:10px!important}
+#depositPage #depositCoinList .wd-market-name{min-width:0!important;flex:1!important;display:flex!important;flex-direction:column!important;gap:3px!important}
+#depositPage #depositCoinList .wd-market-name b{font-size:12px!important;font-weight:600!important;letter-spacing:0!important;line-height:1.25!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#depositPage #depositCoinList .wd-market-name small{font-size:10px!important;font-weight:500!important;line-height:1.3!important;color:#898a93!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#depositPage #depositCoinList .wd-market-values{display:flex!important;flex-direction:column!important;align-items:flex-end!important;gap:5px!important;min-width:76px!important}
+#depositPage #depositCoinList .wd-market-values b{font-size:12px!important;font-weight:600!important;line-height:1.2!important;white-space:nowrap}
+#depositPage #depositCoinList .wd-market-values small{font-size:10px!important;font-weight:600!important;line-height:1.2!important;white-space:nowrap}
+#depositPage #depositCoinList .wd-market-values small.up{color:var(--pos,#0aaf69)!important}
+#depositPage #depositCoinList .wd-market-values small.down{color:var(--neg,#e34b5b)!important}
+#depositPage #depositCoinList .wd-market-values small.neutral{color:var(--flat,#858690)!important}
+
+/* dApps tab: coin list is replaced by a "none available" screen */
+#depositPage #depositCoinPicker.dapps-mode .wd-deposit-list-caption,#depositPage #depositCoinPicker.dapps-mode #depositCoinList{display:none!important}
+#depositPage .wd-deposit-dapps-empty{display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;padding:72px 28px 40px}
+#depositPage #depositCoinPicker.dapps-mode .wd-deposit-dapps-empty{display:flex}
+#depositPage .wd-dapps-ic{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;margin-bottom:6px;background:var(--brand-soft,rgba(36,80,255,.1));color:var(--brand,#2450ff)}
+#depositPage .wd-dapps-ic svg{width:26px;height:26px}
+#depositPage .wd-deposit-dapps-empty h3{margin:0;font-size:14px;font-weight:600;letter-spacing:-.2px}
+#depositPage .wd-deposit-dapps-empty p{margin:0;max-width:260px;font-size:11px;line-height:1.5;color:#858690}

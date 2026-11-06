@@ -1,0 +1,21 @@
+/* Veltrix fixed-size rules: keep the layout at its designed size in every mobile browser. */
+
+/* 1. Stop browsers from auto-enlarging/boosting text (Android Chrome font boosting, iOS landscape resize, Samsung/Firefox). */
+html{
+  -webkit-text-size-adjust:100%;
+  -moz-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+
+/* 2. Disable double-tap-to-zoom and pinch-zoom gestures; normal scrolling and taps still work. */
+html{touch-action:manipulation}
+
+/* 3. Never let the page become wider than the screen (this is what makes a page "zoom out" or wobble sideways). */
+html{width:100%;max-width:100%;overflow-x:hidden}
+body{width:100%;max-width:100%;position:relative}
+
+/* 4. Make the browser render fonts the same way everywhere (no faux-bold or faux-italic synthesis). */
+html{font-synthesis:none}
+
+/* 5. Media can't push the layout wider than the screen. */
+img,video,canvas,svg{max-width:100%}

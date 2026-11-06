@@ -1,0 +1,15 @@
+/* Sign in page: same page structure as Welcome (logo top-left, plain page, title block, footer link resting at the bottom).
+   Fields, buttons and colours are the app's shared auth styles, exactly as on Sign up. Scoped to #loginPage only. */
+#loginPage{min-height:100dvh;padding:0;align-items:stretch;justify-content:center}
+#loginPage .auth-container{max-width:440px;min-height:100dvh;display:flex;flex-direction:column;padding:calc(26px + env(safe-area-inset-top)) 22px calc(26px + env(safe-area-inset-bottom))}
+#loginPage .auth-container>.brand{justify-content:flex-start;margin-bottom:0}
+#loginPage .auth-container>.brand .brand-logo{width:128px}
+#loginPage .auth-card{flex:1;display:flex;flex-direction:column;margin-top:30px;padding:0;border:0;border-radius:0;background:none;box-shadow:none}
+#loginPage .auth-heading{margin-bottom:30px}
+#loginPage .eyebrow{margin-bottom:12px;font-size:9px;letter-spacing:2.2px}
+#loginPage .auth-heading h2{font-size:clamp(26px,7.6vw,29.5px);line-height:1.08;letter-spacing:-1.4px;margin-bottom:12px}
+#loginPage .auth-heading p{font-size:12px;line-height:1.65;color:#777}
+#loginPage .switch-auth{margin-top:auto;padding-top:34px;font-size:11px}
+
+/* ---------- softer type, all pages ---------- */
+h1,h2,h3,h4,h5,h6,strong,b,th{font-weight:600}

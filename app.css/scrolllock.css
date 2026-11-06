@@ -1,0 +1,10 @@
+/* Veltrix · scroll lock + no scroll-through */
+html.vx-locked{overflow:hidden!important;overscroll-behavior:none}
+html.vx-locked body{position:fixed!important;left:0;right:0;width:100%;overflow:hidden!important}
+/* an open section keeps its own scrolling to itself: reaching its end never pulls the page behind along */
+.wd-feature-page,.vm-page,.profile-ui-page,.sd-sheet,.sd-list,.wd-currency-list,.vm-dialog,.profile-ui-edit-dialog{overscroll-behavior:contain}
+/* dimmed scrims never pass touches/scrolls through */
+.sx-back,.wd-notification-filter-backdrop{touch-action:none;overscroll-behavior:contain}
+
+/* no coloured strip at the very top edge while any pop-up / sheet / page is open (it showed as a black line) */
+html.vx-locked #veltrixChromeStrip{display:none!important}
