@@ -90,7 +90,7 @@ const host=document.getElementById("adminApp");
 if(!host)return;
 host.innerHTML=`
 <section class="vm-page" id="vmList" aria-label="Messages">
- <header class="vm-top"><h1>Messages</h1><span class="ad-chip">Admin</span></header>
+ <header class="vm-top"><h1>Messages</h1><a class="ad-chip ad-chip-link" href="index.html" aria-label="Open dashboard">Open dashboard</a></header>
  <label class="vm-search">${I.search}<input type="search" id="vmSearch" placeholder="Search conversations" autocomplete="off" aria-label="Search conversations"></label>
  <div class="vm-scroll" id="vmConvs"></div>
  <button type="button" class="vm-fab" id="vmNew" aria-label="Start a new message">${I.plus}</button>

@@ -24,3 +24,6 @@ html.admin-page .vm-field textarea,html.admin-page .vm-search input{cursor:text!
 
 /* Which contact the admin is answering as, shown next to the user's name in the inbox */
 .ad-as{font-weight:500;font-size:9px;color:var(--mut)}
+/* "Open dashboard" link in the admin header (was a plain "Admin" label) */
+.ad-chip-link{display:inline-flex;align-items:center;min-height:30px;padding:0 13px;font-size:11px;font-weight:600;letter-spacing:.1px;text-transform:none;text-decoration:none;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.ad-chip-link:active{opacity:.7}
