@@ -27,8 +27,8 @@ IMPORTANT - READ BEFORE EDITING (for any AI assistant or developer)
 <title>Veltrix</title>
 <link rel="preload" as="image" href="app.assets/splash-logo.png">
 <link rel="preload" as="image" href="app.assets/splash-logo-name-light.png">
-<link rel="stylesheet" href="app.css/style.css?v=105">
-<link rel="stylesheet" href="app.css/style.app.css?v=114">
+<link rel="stylesheet" href="app.css/style.css?v=106">
+<link rel="stylesheet" href="app.css/style.app.css?v=115">
 <link rel="stylesheet" href="app.css/messaging.css?v=120">
 <link rel="stylesheet" href="app.css/chatmenu.css?v=2">
 <link rel="stylesheet" href="app.css/chatkeyboard.css?v=2">
@@ -556,8 +556,8 @@ IMPORTANT - READ BEFORE EDITING (for any AI assistant or developer)
   <header class="profile-ui-header"><button type="button" class="profile-ui-back" data-sx-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Linked devices</h1><span class="profile-ui-header-spacer"></span></header>
   <div class="sx-body">
     <div class="sx-hero"><svg viewBox="0 0 170 100" aria-hidden="true" fill="none" stroke="var(--wd-accent,#20243a)" stroke-linecap="round" stroke-linejoin="round"><rect x="62" y="14" width="96" height="62" rx="6" fill="#fff" stroke-width="3"/><rect x="69" y="21" width="82" height="48" rx="2.5" fill="var(--wd-accent,#20243a)" fill-opacity=".08" stroke="none"/><path d="M58 76h104v1.5a5 5 0 0 1-5 5H63a5 5 0 0 1-5-5z" fill="var(--wd-accent,#20243a)" stroke="none"/><rect x="95" y="76" width="30" height="3" rx="1.5" fill="#fff" stroke="none"/><rect x="18" y="34" width="38" height="62" rx="8" fill="#fff" stroke-width="3"/><path d="M31 41h12" stroke-width="2.5"/><path d="M30 89h14" stroke-width="2.5"/><circle cx="37" cy="62" r="7" stroke-width="2.5"/><path d="M34 62l2.2 2.4 4-4.6" stroke-width="2.2"/></svg></div>
-    <p class="sx-lead">You can link other devices to this account.</p>
-    <button type="button" class="sx-main" id="linkDeviceBtn">Link a device</button>
+    <p class="sx-lead">Invite friends to join Veltrix with a QR code or a link.</p>
+    <button type="button" class="sx-main" id="linkDeviceBtn">Invite friends</button>
     <hr class="sx-hr">
     <span class="sx-eyebrow">DEVICE STATUS</span>
     <p class="sx-sub">Tap a device to rename it or log out.</p>
@@ -565,15 +565,15 @@ IMPORTANT - READ BEFORE EDITING (for any AI assistant or developer)
     <p class="sx-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>Your personal messages are <b>end-to-end encrypted</b> on all your devices.</span></p>
   </div>
 </section>
-<section id="linkQrPage" class="profile-ui-page sx-page" hidden aria-label="Link a device">
-  <header class="profile-ui-header"><button type="button" class="profile-ui-back" data-sx-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Link a device</h1><span class="profile-ui-header-spacer"></span></header>
+<section id="linkQrPage" class="profile-ui-page sx-page" hidden aria-label="Invite friends">
+  <header class="profile-ui-header"><button type="button" class="profile-ui-back" data-sx-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h1>Invite friends</h1><span class="profile-ui-header-spacer"></span></header>
   <div class="sx-body">
-    <div class="wd-deposit-detail-intro sx-intro"><span class="wd-deposit-eyebrow">LINK A DEVICE</span><h2>Scan to link</h2><p>Open Veltrix on your other device and scan this code to sign in to your account.</p></div>
+    <div class="wd-deposit-detail-intro sx-intro"><span class="wd-deposit-eyebrow">INVITE FRIENDS</span><h2>Scan to join</h2><p>Ask your friend to scan this code with any QR scanner. It opens Veltrix so they can register.</p></div>
     <div class="wd-deposit-address-card">
-      <div class="wd-deposit-qr-wrap"><div id="linkQrImage" role="img" aria-label="QR code to link a device"></div><span>SCAN TO LINK DEVICE</span></div>
-      <label class="wd-deposit-address-label">Link code</label>
-      <div class="wd-deposit-address-row"><code id="linkCode" translate="no"></code><button type="button" id="copyLinkCode" aria-label="Copy link code">Copy</button></div>
-      <p class="wd-deposit-warning">Never share this code with anyone. It works once and a new one is made every 2 minutes.</p>
+      <div class="wd-deposit-qr-wrap"><div id="linkQrImage" role="img" aria-label="QR code that opens the Veltrix website"></div><span>SCAN TO JOIN VELTRIX</span></div>
+      <label class="wd-deposit-address-label">Invite link</label>
+      <div class="wd-deposit-address-row"><code id="linkCode" translate="no"></code><button type="button" id="copyLinkCode" aria-label="Copy invite link">Copy</button></div>
+      <p class="wd-deposit-warning">Share this link or QR code with friends so they can register on Veltrix.</p>
     </div>
   </div>
 </section>

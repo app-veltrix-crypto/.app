@@ -216,7 +216,7 @@ async function fpAssert(id){
   const r=await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),allowCredentials:[{type:"public-key",id:fpBytes(id),transports:["internal"]}],userVerification:"required",timeout:60000}});
   if(!r)throw new Error("no assertion")}
 /* an account with fingerprint on, signed in on a device that has no credential yet (new phone, cleared data): set it up right after a normal sign-in */
-function fpEnsure(a){if(!a||!a.fingerprintEnabled||!window.PublicKeyCredential||fpBusy||fpGet(a.email))return;if(veltrixDB.isLinked&&veltrixDB.isLinked())return;fpBusy=true;
+function fpEnsure(a){if(!a||!a.fingerprintEnabled||!window.PublicKeyCredential||fpBusy||fpGet(a.email))return;fpBusy=true;
   setTimeout(()=>{try{wdToast("Setting up fingerprint login on this device")}catch{}fpCreate(a.email,a.fullName).then(id=>fpSave(a.email,id)).catch(()=>{}).finally(()=>{fpBusy=false})},700)}
 function fpReady(a){return !!(a&&a.fingerprintEnabled&&window.PublicKeyCredential&&fpGet(a.email))}
 function lockToLogin(a){try{closeProfileScreens()}catch{}try{if(window.veltrixSettingsClose)veltrixSettingsClose()}catch{}document.body.classList.remove("wd-feature-open");
@@ -705,22 +705,9 @@ async function decodeQrFromFile(file){
   return "";
 }
 /* One entry point for BOTH scan sources (camera and image):
-   1) account-link QR  -> confirm, then sign this device into that account
-   2) crypto address QR -> Send screen (amount first), address pre-filled on the next step */
-function parseLinkQr(raw){const m=/^veltrix:\/\/link\?(.+)$/i.exec(String(raw||"").trim());if(!m)return null;const p=new URLSearchParams(m[1]);const e=(p.get("e")||"").trim().toLowerCase(),c=(p.get("c")||"").trim().toUpperCase();return e&&c?{email:e,code:c}:null}
+   a crypto wallet address QR -> opens the Send screen with the address pre-filled (the scanner does nothing else) */
 async function handleQrResult(raw){
   const status=document.getElementById("qrScannerStatus");
-  const link=parseLinkQr(raw);
-  if(link){
-    status.textContent="Account link code detected.";
-    if(veltrixDB.isLinked&&veltrixDB.isLinked()){status.textContent="This device is already signed in through a link. Sign out first to link another account.";return}
-    const ok=window.veltrixDialog?await veltrixDialog({title:"Sign in with this QR code?",msg:"You will be signed out of your own account on this device and signed in to the account that shows this QR code. Only do this for an account you trust.",ok:"Continue",cancel:"Cancel"}):confirm("Sign out of your account and sign in to the account in this QR code?");
-    if(!ok){status.textContent="Link cancelled. Point the camera at a QR code.";if(qrCameraStream&&!qrScannerPage.hidden)setTimeout(rescan,1500);return}
-    status.textContent="Signing in…";
-    try{await veltrixDB.link.login(link.email,link.code);closeFeaturePages();showDashboard();if(window.veltrixNotify)veltrixNotify("login","Signed in by QR code on "+veltrixDB.deviceInfo().name+".");wdToast("Signed in on this device")}
-    catch(e){status.textContent=(e&&e.message)||"This QR code is invalid or has expired. Ask for a new one.";if(qrCameraStream&&!qrScannerPage.hidden)setTimeout(rescan,2000)}
-    return;
-  }
   const coin=window.veltrixDetectCrypto&&veltrixDetectCrypto(raw);
   if(coin){
     status.textContent=`${coin.symbol} address detected.`;
@@ -729,7 +716,7 @@ async function handleQrResult(raw){
     if(coin.evm)wdToast("EVM address detected. ETH is selected, change the token if needed.");
     return;
   }
-  status.textContent="This QR code is not a supported wallet address or account link.";
+  status.textContent="This QR code is not a supported wallet address.";
   if(qrCameraStream&&!qrScannerPage.hidden)setTimeout(rescan,1800);
 }
 let rescan=()=>{};
@@ -812,7 +799,7 @@ document.getElementById("settingsBack").addEventListener("click",closeProfileScr
 document.getElementById("settingsAvatarButton").addEventListener("click",openProfileDetails);
 document.getElementById("editProfileShortcut").addEventListener("click",openProfileDetails);
 document.getElementById("profileDetailsBack").addEventListener("click",()=>{detailsPage.hidden=true;settingsPage.hidden=false;updateProfileScreens()});
-async function doLogout(){closeProfileScreens();const a=getAccount();if(a&&!(veltrixDB.isLinked&&veltrixDB.isLinked())&&((window.veltrixPasscode&&veltrixPasscode.wanted())||(a.fingerprintEnabled&&window.PublicKeyCredential))){lockToLogin(a);return}await veltrixDB.signOut();showPage("loginPage");if(a)document.getElementById("loginEmail").value=a.email||""}
+async function doLogout(){closeProfileScreens();const a=getAccount();if(a&&((window.veltrixPasscode&&veltrixPasscode.wanted())||(a.fingerprintEnabled&&window.PublicKeyCredential))){lockToLogin(a);return}await veltrixDB.signOut();showPage("loginPage");if(a)document.getElementById("loginEmail").value=a.email||""}
 document.getElementById("settingsLogout").addEventListener("click",doLogout);
 document.addEventListener("click",()=>{accountMenu.classList.add("hidden");avatarBtn.setAttribute("aria-expanded","false")});
 const editDialog=document.getElementById("profileEditDialog"),editInput=document.getElementById("profileEditInput"),editLabel=document.getElementById("profileEditLabel");let activeProfileField="name";

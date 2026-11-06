@@ -20,7 +20,7 @@
  const stack=[];
  const pages=["twoStepPage","pinPage","devicesPage","linkQrPage","deviceEditPage","notifPage"];
  function openPage(id){const el=$(id);el.hidden=false;el.scrollTop=0;stack.push(id)}
- function back(){const id=stack.pop();if(id)$(id).hidden=true;if(id==="linkQrPage")linkQrDone();if(id==="phrasePage")phraseWipe();if(id==="phrasePwPage")phrasePwClear();if(id==="resetPwPage")resetClear()}
+ function back(){const id=stack.pop();if(id)$(id).hidden=true;if(id==="phrasePage")phraseWipe();if(id==="phrasePwPage")phrasePwClear();if(id==="resetPwPage")resetClear()}
  function closeAll(){while(stack.length)$(stack.pop()).hidden=true;phraseWipe();phrasePwClear();resetClear()}
  window.veltrixSettingsClose=closeAll;
  document.querySelectorAll("[data-sx-back]").forEach(b=>b.addEventListener("click",()=>{const top=stack[stack.length-1];if(top==="pinPage"){pinCancel();return}back()}));
@@ -165,7 +165,7 @@
  async function refreshDevices(){devErr="";try{await veltrixDB.devices.register();devList=await veltrixDB.devices.list()}catch(e){devErr=(e&&e.message)||"unknown error";console.error("Could not load devices",e)}}
  const when=t=>{try{return new Date(t).toLocaleString(undefined,{month:"long",day:"numeric",hour:"numeric",minute:"2-digit"})}catch{return""}};
  const esc2=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
- function paintDevices(){const d=devList;if(devErr){$("deviceList").innerHTML=`<p style="padding:16px;line-height:1.5">Couldn't load your devices (${esc2(devErr)}). Make sure schema_phase3_devices.sql has been run in Supabase.</p>`;return}$("deviceList").innerHTML=d.map(x=>`<button type="button" class="sx-dev" data-id="${esc2(x.id)}"><span class="sx-dev-ic">${ICON[x.icon]||ICON.desktop}</span><span class="sx-grow"><strong>${esc2(x.name)}${x.current?" · This device":""}${x.linked?" · Linked":""}</strong><small>${x.linked&&x.expires?"Linked session ends "+esc2(when(x.expires)):"Last active "+esc2(when(x.last))}</small></span></button>`).join("")}
+ function paintDevices(){const d=devList;if(devErr){$("deviceList").innerHTML=`<p style="padding:16px;line-height:1.5">Couldn't load your devices (${esc2(devErr)}). Make sure schema_phase3_devices.sql has been run in Supabase.</p>`;return}$("deviceList").innerHTML=d.map(x=>`<button type="button" class="sx-dev" data-id="${esc2(x.id)}"><span class="sx-dev-ic">${ICON[x.icon]||ICON.desktop}</span><span class="sx-grow"><strong>${esc2(x.name)}${x.current?" · This device":""}</strong><small>Last active ${esc2(when(x.last))}</small></span></button>`).join("")}
  let devPoll=null;
  async function openDevices(){paintDevices();openPage("devicesPage");await refreshDevices();paintDevices();
   clearInterval(devPoll);devPoll=setInterval(async()=>{if($("devicesPage").hidden){clearInterval(devPoll);return}await refreshDevices();paintDevices()},20000)}
@@ -179,33 +179,15 @@
   if(x.current){closeAll();$("settingsLogout").click();return}
   try{await veltrixDB.devices.revoke(x.id);devList=devList.filter(z=>z.id!==x.id);back();paintDevices();veltrixNotify("security","Device logged out")}
   catch{toast("Couldn't log out that device. Please try again.")}});
- /* link a device: QR in the same card style as the receive-crypto QR.
-    The QR carries this account's email + a one-time code (valid 2 minutes, replaced automatically). */
- let linkTimer=null,linkTick=null,linkGen=0;
- function linkQrDone(){clearTimeout(linkTimer);clearInterval(linkTick);linkGen++}
- async function showLinkQr(){
-  const gen=++linkGen,t=$("linkQrImage");clearTimeout(linkTimer);clearInterval(linkTick);
-  $("linkCode").textContent="…";
-  try{
-   const {email,code}=await veltrixDB.link.create();
-   if(gen!==linkGen)return;
-   $("linkCode").textContent=code.replace(/(.{4})(?=.)/g,"$1-");$("linkCode").dataset.raw=code;
-   t.replaceChildren();VeltrixQR.render(t,"veltrix://link?e="+encodeURIComponent(email)+"&c="+code,{size:240});
-   const end=Date.now()+2*60*1000;
-   const tick=()=>{const left=Math.max(0,Math.round((end-Date.now())/1000));const el=$("linkExpiry");if(el)el.textContent="New code in "+Math.floor(left/60)+":"+String(left%60).padStart(2,"0")};
-   tick();linkTick=setInterval(tick,1000);
-   linkTimer=setTimeout(()=>{if(!$("linkQrPage").hidden)showLinkQr()},end-Date.now());
-  }catch(e){
-   if(gen!==linkGen)return;t.textContent="Couldn't create a link code. Make sure schema_phase5_link_login.sql has been run in Supabase.";console.error("link code",e);
-  }
- }
+ /* invite friends: the QR (and the copyable link) simply hold the website address, so a friend can scan it with
+    any QR scanner, land on the site and register. Change the address here if the domain ever changes. */
+ const INVITE_URL="https://veltrixweb3.online";
  $("linkDeviceBtn").addEventListener("click",()=>{
-  if(veltrixDB.isLinked&&veltrixDB.isLinked()){toast("A device signed in by QR can't link other devices");return}
-  const t=$("linkQrImage");t.replaceChildren();
-  if(!$("linkExpiry")){const p=document.createElement("p");p.id="linkExpiry";p.style.cssText="margin:8px 0 0;font-size:11px;color:#7b7d85;text-align:center";$("linkCode").parentElement.insertAdjacentElement("afterend",p)}
-  openPage("linkQrPage");showLinkQr();
+  const t=$("linkQrImage");t.replaceChildren();VeltrixQR.render(t,INVITE_URL,{size:240});
+  $("linkCode").textContent=INVITE_URL;$("linkCode").dataset.raw=INVITE_URL;
+  openPage("linkQrPage");
  });
- $("copyLinkCode").addEventListener("click",async()=>{try{await navigator.clipboard.writeText($("linkCode").dataset.raw||$("linkCode").textContent);toast("Link code copied")}catch{toast("Copy not supported")}});
+ $("copyLinkCode").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(INVITE_URL);toast("Invite link copied")}catch{toast("Copy not supported")}});
  /* ---- notifications ---- */
  function paintNotif(){const p=prefs();$("notifTopicList").innerHTML=TOPICS.map(t=>`<div class="sx-card"><span class="sx-grow"><strong>${t[1]}</strong><small>${t[2]}</small></span><label class="sx-switch"><input type="checkbox" data-t="${t[0]}" aria-label="${t[1]}"${p[t[0]]?" checked":""}><i></i></label></div>`).join("");const v=$("aiVoiceToggle");if(v)v.checked=voiceOn()}
  $("settingsNotifications").addEventListener("click",()=>{paintNotif();openPage("notifPage")});

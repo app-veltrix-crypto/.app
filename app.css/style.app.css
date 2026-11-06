@@ -940,7 +940,7 @@ html[data-theme="dark"] .sd-view.sd-lux{filter:invert(1) hue-rotate(180deg)}
 
 
 /* ===== Success screen: match the app's light theme ===== */
-.sd-view.sd-lux{background:linear-gradient(180deg,#f3f4f8 0%,var(--wd-surface,#fff) 38%);color:var(--wd-text,#17171c);filter:none!important}
+.sd-view.sd-lux{background:var(--wd-surface,#fff);color:var(--wd-text,#17171c);filter:none!important}
 .sd-lux::before{background:radial-gradient(60% 26% at 50% 20%,rgba(32,36,58,.07),transparent 70%)}
 .lux-eyebrow{color:var(--wd-muted,#858995)}
 .lux-badge::before{background:radial-gradient(circle,rgba(32,36,58,.16),transparent 66%)}
