@@ -338,13 +338,17 @@ window.veltrixDB={
   restore:boot,
   async restoreAccount(){const a=await load();fire("veltrix-ready");return a},
   async signInOnly(email,password){const {error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;const a=await load();fire("veltrix-ready");return a},
-  async signUp({email,password,fullName,location,dateOfBirth,fingerprintEnabled,profileImage}){
+  async signUp({email,password,fullName,location,dateOfBirth,fingerprintEnabled,profileImage,importBlob}){
+    const photoToken=profileImage?uuid():null;   /* proves to the server that the photo below comes from this very sign-up */
     const {data,error}=await sb.auth.signUp({email,password,options:{data:{
-      full_name:fullName,location,date_of_birth:dateOfBirth,fingerprint_enabled:!!fingerprintEnabled}}});
+      full_name:fullName,location,date_of_birth:dateOfBirth,fingerprint_enabled:!!fingerprintEnabled,photo_token:photoToken||undefined,import_blob:importBlob||undefined}}});
     if(error)throw error;
     /* with email confirmation on, Supabase hides "already registered" by returning a user with no identities */
     if(data&&data.user&&Array.isArray(data.user.identities)&&data.user.identities.length===0){const e=new Error("User already registered");e.code="user_already_exists";throw e}
     stashPhoto(email,profileImage);
+    /* hand the sign-up photo to the server right away (works before the e-mail is confirmed and on any device), so the profile
+       already has it the first time the dashboard opens. See supabase/schema_phase36_signup_photo.sql */
+    if(profileImage&&photoToken&&data&&data.user){try{const {error:pe}=await sb.rpc("set_signup_photo",{p_user:data.user.id,p_token:photoToken,p_image:profileImage});if(pe)console.warn("Sign-up photo hand-off failed (run schema_phase36_signup_photo.sql):",pe)}catch(e){console.warn("Sign-up photo hand-off failed",e)}}
     if(!data.session){pendingImage=profileImage||null;return {needsConfirm:true}}
     try{await boot()}catch(e){const x=new Error("Your account was created but could not be loaded: "+String(e&&e.message||e));x.code="loaded_failed";throw x}
     if(!cache)throw Object.assign(new Error("Your account was created but its profile was not found. Try signing in."),{code:"profile_missing"});

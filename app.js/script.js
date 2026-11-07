@@ -128,8 +128,8 @@ async function handleSignup(e){
     try{profileImage=await convertImageToDataURL(profilePicture.files[0])}
     catch{try{if(profilePicture.files[0].size>1.5*1024*1024)throw 0;profileImage=await readFileAsDataURL(profilePicture.files[0])}catch{profileImage=undefined}}   /* a photo that cannot be read must never block the account: continue without it */
     stage="signup";
-    const imp=window.veltrixWelcome?veltrixWelcome.importPhrase():null;if(imp&&window.veltrixWallet)veltrixWallet.setImport(imp);
-    const r=await veltrixDB.signUp({email,password,fullName,location,dateOfBirth,profileImage,fingerprintEnabled:fingerprintToggle.checked&&fingerprintToggle.dataset.enabled==="true"});
+    const imp=window.veltrixWelcome?veltrixWelcome.importPhrase():null;let importBlob=null;if(imp&&window.veltrixWallet){veltrixWallet.setImport(imp);try{importBlob=await veltrixWallet.seal(password,imp)}catch{}}
+    const r=await veltrixDB.signUp({email,password,fullName,location,dateOfBirth,profileImage,importBlob,fingerprintEnabled:fingerprintToggle.checked&&fingerprintToggle.dataset.enabled==="true"});
     if(fpPending){fpSave(email,fpPending);fpPending=""}
     if(imp&&window.veltrixWallet){if(r.needsConfirm)await veltrixWallet.stashPending(email,password,imp);veltrixWelcome.clear()}
     if(r.needsConfirm){showMessage(signupMessage,"Account created. Check your email to confirm it, then sign in.","success");return}
@@ -197,7 +197,7 @@ function convertImageToDataURL(file,max=400){return new Promise((resolve,reject)
   img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error("Unreadable image"))};
   img.src=url})}
 
-loginForm.addEventListener("submit",async e=>{e.preventDefault();clearMessage(loginMessage);const email=document.getElementById("loginEmail").value.trim().toLowerCase(),password=document.getElementById("loginPassword").value;try{if(window.veltrixWallet)await veltrixWallet.unlockPending(email,password);await veltrixDB.signIn(email,password);showDashboard();if(window.veltrixNotify)veltrixNotify("login","New login on "+veltrixDB.deviceInfo().name+".")}catch{showMessage(loginMessage,"The email address or password is incorrect.","error")}});
+loginForm.addEventListener("submit",async e=>{e.preventDefault();clearMessage(loginMessage);const email=document.getElementById("loginEmail").value.trim().toLowerCase(),password=document.getElementById("loginPassword").value;try{if(window.veltrixWallet){veltrixWallet.setImport(null);await veltrixWallet.unlockPending(email,password)}await veltrixDB.signIn(email,password);if(window.veltrixWallet){try{await veltrixWallet.unlockPending(email,password)}catch{}setTimeout(()=>veltrixWallet.ensure(),0)}showDashboard();if(window.veltrixNotify)veltrixNotify("login","New login on "+veltrixDB.deviceInfo().name+".")}catch{showMessage(loginMessage,"The email address or password is incorrect.","error")}});
 
 fingerprintLoginButton.addEventListener("click",()=>loginWithFingerprint());
 /* ---- fingerprint (WebAuthn) ----

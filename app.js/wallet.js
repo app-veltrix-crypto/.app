@@ -33,11 +33,30 @@ async function stashPending(email,password,phrase){
     const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv},await pwKey(password,salt),new TextEncoder().encode(phrase));
     localStorage.setItem(PEND,JSON.stringify({e:String(email).toLowerCase(),s:b64(salt),i:b64(iv),c:b64(ct),t:Date.now()}));return true}catch{return false}
 }
-async function unlockPending(email,password){
-  try{const j=JSON.parse(localStorage.getItem(PEND)||"null");if(!j||j.e!==String(email).toLowerCase())return false;
-    if(Date.now()-j.t>30*864e5){localStorage.removeItem(PEND);return false}
-    const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(j.i)},await pwKey(password,unb64(j.s)),unb64(j.c));
-    pendingImport=new TextDecoder().decode(pt);return true}catch{return false}
+/* The phrase is ALSO sealed (same AES-GCM / password key) into the account's sign-up data, so the import survives a reload,
+   a closed page, or confirming the e-mail in a different browser/app. It can only be opened with the account password. */
+async function seal(password,phrase){
+  const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv},await pwKey(password,salt),new TextEncoder().encode(phrase));
+  return JSON.stringify({s:b64(salt),i:b64(iv),c:b64(ct)});
+}
+async function openSealed(j,password){
+  const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(j.i)},await pwKey(password,unb64(j.s)),unb64(j.c));
+  return new TextDecoder().decode(pt);
+}
+async function sessionBlob(){try{const {data}=await db().client.auth.getSession();const m=data&&data.session&&data.session.user&&data.session.user.user_metadata;return(m&&m.import_blob)||null}catch{return null}}
+async function clearBlob(){try{if(await sessionBlob())await db().client.auth.updateUser({data:{import_blob:null}})}catch{}}
+function localLocked(email){try{const j=JSON.parse(localStorage.getItem(PEND)||"null");return !!(j&&j.e===String(email||"").toLowerCase()&&Date.now()-j.t<=30*864e5)}catch{return false}}
+let unlocking=null,hinted=false;
+function unlockPending(email,password){
+  unlocking=(async()=>{
+    try{const j=JSON.parse(localStorage.getItem(PEND)||"null");
+      if(j&&j.e===String(email).toLowerCase()&&Date.now()-j.t<=30*864e5){pendingImport=await openSealed(j,password);return true}
+      if(j&&Date.now()-j.t>30*864e5)localStorage.removeItem(PEND)}catch{}
+    try{const raw=await sessionBlob();if(raw){pendingImport=await openSealed(JSON.parse(raw),password);return true}}catch{}
+    return false;
+  })();
+  const u=unlocking;return u.finally(()=>{if(unlocking===u)unlocking=null});
 }
 const clearPending=()=>{try{localStorage.removeItem(PEND)}catch{}};
 async function derive(phrase){
@@ -54,19 +73,31 @@ function ensure(){
   busy=Promise.resolve().then(async()=>{   /* (not a bare async call: an early return would clear `busy` before it was set and block every later attempt) */
     try{
       const d=db();if(!d||!d.wallet||!d.get||!d.get())return false;
+      if(unlocking)await unlocking;
       const info=await d.wallet.info();
-      if(info&&info.exists){pendingImport=null;clearPending();done=true;startWatch();return true}
+      if(info&&info.exists){pendingImport=null;clearPending();clearBlob();done=true;startWatch();return true}
+      if(!pendingImport){
+        /* an import was chosen at sign-up but its phrase is still locked (it opens with the account password): wait for the
+           password sign-in. NEVER create a different wallet in the meantime. */
+        const acc=d.get();
+        if(localLocked(acc&&acc.email)||await sessionBlob()){
+          if(!hinted){hinted=true;toast("Sign in with your password once to finish importing your wallet.")}
+          return false;
+        }
+      }
       if(pendingImport){
         /* the person chose "Import": use THEIR phrase, never generate a new one */
         const ph=pendingImport;let rows=null;
-        try{rows=await derive(ph)}catch(e){console.warn("[wallet] import failed:",e&&e.message)}
+        try{rows=await derive(ph)}catch(e){
+          if(/not loaded/i.test(String(e&&e.message)))return false;   /* wallet library still loading: try again, keep the import */
+          console.warn("[wallet] import failed:",e&&e.message)}
         if(rows){
           const r=await d.wallet.importPhrase(ph,rows);
-          if(r&&r.ok){pendingImport=null;clearPending();done=!!r.exists;if(done)startWatch();return done}
-          if(r&&r.reason==="already_registered"){pendingImport=null;clearPending();try{toast("That wallet is already linked to another account, so a new wallet was created for you.")}catch{}}
-          else if(r&&r.reason==="invalid_phrase"){pendingImport=null;clearPending();try{toast("That recovery phrase couldn't be used, so a new wallet was created for you.")}catch{}}
+          if(r&&r.ok){pendingImport=null;clearPending();clearBlob();done=!!r.exists;if(done)startWatch();return done}
+          if(r&&r.reason==="already_registered"){pendingImport=null;clearPending();clearBlob();try{toast("That wallet is already linked to another account, so a new wallet was created for you.")}catch{}}
+          else if(r&&r.reason==="invalid_phrase"){pendingImport=null;clearPending();clearBlob();try{toast("That recovery phrase couldn't be used, so a new wallet was created for you.")}catch{}}
           else return false;   /* try again later: never replace an imported wallet with a new one by accident */
-        }else{pendingImport=null;clearPending()}
+        }else{pendingImport=null;clearPending();clearBlob();try{toast("That recovery phrase couldn't be read, so a new wallet was created for you.")}catch{}}
       }
       let g=await generate();
       const res=await d.wallet.ensure(g.phrase,g.rows);g=null;
@@ -96,7 +127,7 @@ async function watchOnce(){
   finally{watchBusy=false}
 }
 function startWatch(){clearInterval(watchT);watchT=setInterval(watchOnce,20000);setTimeout(watchOnce,2500)}
-window.veltrixWallet={ensure,watchNow:watchOnce,setImport,stashPending,unlockPending,derive};
+window.veltrixWallet={ensure,watchNow:watchOnce,setImport,stashPending,unlockPending,derive,seal};
 window.addEventListener("veltrix-ready",()=>{done=false;setTimeout(ensure,1200)});
 window.addEventListener("veltrix-revoked",()=>{done=false;lastSig="";clearInterval(watchT)});
 /* Balance safety net: when the app comes back to the front (and once a minute while open) re-read the balances and redraw
