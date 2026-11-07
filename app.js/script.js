@@ -127,6 +127,7 @@ async function handleSignup(e){
     let profileImage;stage="photo";
     try{profileImage=await convertImageToDataURL(profilePicture.files[0])}
     catch{try{if(profilePicture.files[0].size>1.5*1024*1024)throw 0;profileImage=await readFileAsDataURL(profilePicture.files[0])}catch{profileImage=undefined}}   /* a photo that cannot be read must never block the account: continue without it */
+    if(!profileImage){showMessage(signupMessage,"We couldn't read that photo. Please choose a different picture (JPG or PNG) and try again.","error");showSignupStep(3);signupSubmitting=false;createAccountButton.disabled=false;return}
     stage="signup";
     const imp=window.veltrixWelcome?veltrixWelcome.importPhrase():null;let importBlob=null;if(imp&&window.veltrixWallet){veltrixWallet.setImport(imp);try{importBlob=await veltrixWallet.seal(password,imp)}catch{}}
     const r=await veltrixDB.signUp({email,password,fullName,location,dateOfBirth,profileImage,importBlob,fingerprintEnabled:fingerprintToggle.checked&&fingerprintToggle.dataset.enabled==="true"});
@@ -134,6 +135,7 @@ async function handleSignup(e){
     if(imp&&window.veltrixWallet){if(r.needsConfirm)await veltrixWallet.stashPending(email,password,imp);veltrixWelcome.clear()}
     if(r.needsConfirm){showMessage(signupMessage,"Account created. Check your email to confirm it, then sign in.","success");return}
     showMessage(signupMessage,"Your account has been created successfully.","success");
+    try{const ps=await veltrixDB.photoSaved();if(!ps.ok&&window.wdToast)wdToast("Your profile photo was not saved ("+ps.why+"). Please upload it from Profile.")}catch{}
     if(window.veltrixWelcomeSupport)window.veltrixWelcomeSupport();
     setTimeout(showDashboard,700);
   }catch(err){
@@ -815,7 +817,7 @@ document.getElementById("profileSettingsPage").addEventListener("keydown",e=>{if
 document.getElementById("profileDetailsPage").addEventListener("keydown",e=>{if(e.key==="Escape"){detailsPage.hidden=true;settingsPage.hidden=false}});
 function formatDate(s){if(!s)return"Not provided";const d=new Date(`${s}T00:00:00`);return Number.isNaN(d.getTime())?s:d.toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"})}
 function formatDateTime(s){const d=new Date(s);return Number.isNaN(d.getTime())?"Not available":d.toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"})}
-function getInitials(n){return n.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join("")}
+function getInitials(n){return String(n||"").normalize("NFKC").split(/\s+/).filter(Boolean).slice(0,2).map(w=>Array.from(w)[0].toUpperCase()).join("")}   /* NFKC turns styled letters (𝕸𝖆𝖉…) into plain ones; Array.from never cuts a character in half */
 document.getElementById("logoutButton").addEventListener("click",doLogout);
 function showMessage(el,msg,type){el.textContent=msg;el.className=`message ${type}`}
 function clearMessage(el){el.textContent="";el.className="message"}

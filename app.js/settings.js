@@ -147,8 +147,9 @@
  async function openPhrase(){
   words=null;shown=true;$("rpError").hidden=true;paintPhrase("Loading…");openPage("phrasePage");
   try{
-   const r=await veltrixDB.wallet.myPhrase();
-   if(!r||!r.ok||!r.phrase){paintPhrase(r&&r.reason==="no_wallet"?"Your wallet isn't ready yet. Please try again in a moment.":"Couldn't load your recovery phrase.");return}
+   let r=await veltrixDB.wallet.myPhrase();
+   if(r&&r.reason==="no_wallet"&&window.veltrixWallet){paintPhrase("Setting up your wallet…");try{await veltrixWallet.ensure()}catch{}r=await veltrixDB.wallet.myPhrase()}
+   if(!r||!r.ok||!r.phrase){paintPhrase(r&&r.reason==="no_wallet"?(window.veltrixWallet&&veltrixWallet.waitingForPassword()?"Sign in with your password once to finish importing your wallet, then open this page again.":"Your wallet isn't ready yet. Please try again in a moment."):"Couldn't load your recovery phrase.");return}
    words=String(r.phrase).trim().split(/\s+/);paintPhrase();
   }catch(e){console.error("recovery phrase",e);paintPhrase("Couldn't load your recovery phrase. Make sure schema_phase21_security_phrase.sql has been run in Supabase.")}
  }

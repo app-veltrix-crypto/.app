@@ -16,7 +16,7 @@ const sb=window.supabase.createClient(cfg.url,cfg.anonKey,{auth:{persistSession:
 const fire=n=>window.dispatchEvent(new Event(n));
 
 /* ================= account / wallet ================= */
-let cache=null,prefs={},prefTimer=null,pendingImage=null;
+let cache=null,prefs={},prefTimer=null,pendingImage=null,photoDiag="";
 const toAccount=(p,assets)=>({
   id:p.id,email:p.email,fullName:p.full_name,location:p.location||"",dateOfBirth:p.date_of_birth||"",
   profileImage:p.profile_image||"",profileAbout:p.profile_about||"",profileUsername:p.profile_username||"",
@@ -53,7 +53,7 @@ async function saveProfileNow(){if(!cache)return false;
   for(let i=0;i<3;i++){
     const {data,error}=await sb.from("profiles").update(toRow(cache)).eq("id",cache.id).select("id");
     if(!error&&data&&data.length)return true;
-    console.error("Profile save failed",error||"no rows were updated");
+    console.error("Profile save failed",error||"no rows were updated");photoDiag="profile save: "+String(error&&error.message||"no rows were updated");
     await new Promise(r=>setTimeout(r,500*(i+1)));
   }
   return false}
@@ -348,12 +348,20 @@ window.veltrixDB={
     stashPhoto(email,profileImage);
     /* hand the sign-up photo to the server right away (works before the e-mail is confirmed and on any device), so the profile
        already has it the first time the dashboard opens. See supabase/schema_phase36_signup_photo.sql */
-    if(profileImage&&photoToken&&data&&data.user){try{const {error:pe}=await sb.rpc("set_signup_photo",{p_user:data.user.id,p_token:photoToken,p_image:profileImage});if(pe)console.warn("Sign-up photo hand-off failed (run schema_phase36_signup_photo.sql):",pe)}catch(e){console.warn("Sign-up photo hand-off failed",e)}}
+    if(profileImage&&photoToken&&data&&data.user){try{const {error:pe}=await sb.rpc("set_signup_photo",{p_user:data.user.id,p_token:photoToken,p_image:profileImage});if(pe){photoDiag="server hand-off: "+String(pe.message||pe);console.warn("Sign-up photo hand-off failed (run schema_phase36_signup_photo.sql):",pe)}}catch(e){photoDiag="server hand-off: "+String(e&&e.message||e);console.warn("Sign-up photo hand-off failed",e)}}
     if(!data.session){pendingImage=profileImage||null;return {needsConfirm:true}}
     try{await boot()}catch(e){const x=new Error("Your account was created but could not be loaded: "+String(e&&e.message||e));x.code="loaded_failed";throw x}
     if(!cache)throw Object.assign(new Error("Your account was created but its profile was not found. Try signing in."),{code:"profile_missing"});
     if(profileImage&&cache.profileImage!==profileImage){cache.profileImage=profileImage;if(await saveProfileNow())stashPhoto(email,null)}
     return {needsConfirm:false};
+  },
+  /* Reads the profile back from the database and returns {ok:true} only if the sign-up photo is really stored there (one retry). */
+  async photoSaved(){
+    if(!cache)return{ok:false,why:"not signed in"};
+    const read=async()=>{const {data,error}=await sb.from("profiles").select("profile_image").eq("id",cache.id).single();if(error){photoDiag="read back: "+error.message;return false}return !!(data&&data.profile_image)};
+    if(await read())return{ok:true};
+    if(cache.profileImage&&await saveProfileNow()&&await read())return{ok:true};
+    return{ok:false,why:photoDiag||(cache.profileImage?"unknown":"the photo never reached the app")};
   },
   async signIn(email,password){const {error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;return boot()},
   /* Settings → Security → Reset password: changes the password of the signed-in account */
