@@ -2,6 +2,7 @@
 //
 // The rules this file enforces, in order:
 //   1. A payout is only ever picked up by payout_claim() (queued -> processing), one at a time (payout_lock).
+//   0. NO TREASURY: every transaction is signed with the key of the user who sent it (row.phrase), from that user's own address.
 //   2. Everything that can fail is done BEFORE broadcasting (checks, fee, balance, signing). Failing here means nothing was sent,
 //      so the user's money is returned (definite) or the payout is retried later (retry).
 //   3. The transaction hash is saved in the database BEFORE the transaction is broadcast. If that save fails, nothing is broadcast.
@@ -9,7 +10,9 @@
 //      hash is looked up on the blockchain later. Only a receipt (mined ok / mined failed) or an admin can settle it.
 //   5. A payout is marked completed only when the transaction is mined successfully.
 
-export type Row = { id: string; user_id: string; symbol: string; amount: string; to_address: string; memo?: string | null; payout_attempts: number };
+export type Row = { id: string; user_id: string; symbol: string; amount: string; to_address: string; memo?: string | null; payout_attempts: number;
+  /** the SENDING USER's recovery phrase, injected by index.ts for the duration of one prepare() call. Never stored, never logged. */
+  phrase?: string };
 export type Item = { id: string; symbol: string };
 
 /** kind: "definite" = nothing was or will be sent · "retry" = not sent yet, try again later · "unclear" = may or may not have been sent */
@@ -19,7 +22,9 @@ export class ChainError extends Error {
 }
 /** meta: a short note stored together with the hash. Chains whose transactions EXPIRE (Solana, XRP) keep the expiry here, so a payout
  *  that was never mined can later be proven dead (and refunded) instead of waiting for a person. */
-export type Prepared = { hash: string; raw: string; symbol: string; meta?: string };
+export type Prepared = { hash: string; raw: string; symbol: string; meta?: string;
+  /** the address the transaction spends from (must equal the user's own address on file) and the network fee (an upper-bound estimate where the chain only knows the fee after mining) */
+  from?: string; fee?: string; feeSymbol?: string };
 export type MinedState = "success" | "failed" | "none";
 
 export interface Chain {
@@ -34,11 +39,32 @@ export interface Chain {
   /** how long to wait for the first confirmation before moving on (slow chains return 0 and are re-checked by the next run) */
   waitMs?(symbol: string): number;
   sleep(ms: number): Promise<void>;
+  /** AFTER receipt() said "success": confirmations, block and the ACTUAL fee the chain charged. Chains that omit it can only use the legacy single-step completion. */
+  detail?(hash: string, symbol: string, meta?: string | null): Promise<Detail | null>;
+  /** why a payout counts as failed: \"failed\" (mined as failed) | \"expired\" (can never be mined any more) | \"replaced\" (its nonce was used by another transaction) */
+  failKind?(hash: string): string;
 }
+export type Detail = { confirmations: number; block?: number; blockHash?: string; fee?: string; feeSymbol?: string };
 export interface Db { rpc(name: string, args: Record<string, unknown>): Promise<any>; }
 export type Log = (msg: string) => void;
 
 const short = (s: string) => String(s || "").slice(0, 280);
+
+/** receipt said "success". Record confirmations + the ACTUAL fee, and complete ONLY when the confirmation policy (kept in the database) is met. */
+async function settle(db: Db, chain: Chain, id: string, hash: string, symbol: string, meta: string | null, log: Log): Promise<"completed" | "confirming"> {
+  if (!chain.detail) { await db.rpc("payout_complete", { p_id: id, p_hash: hash }); return "completed"; }          // legacy chains (tests only)
+  let d: Detail | null = null;
+  try { d = await chain.detail(hash, symbol, meta); } catch (_) { d = null; }
+  if (!d) return "confirming";                                                                                     // cannot prove depth yet: stay Confirming
+  let p: { ready?: boolean } | null = null;
+  try { p = await db.rpc("payout_set_progress", { p_id: id, p_confs: d.confirmations, p_block: d.block ?? null, p_block_hash: d.blockHash ?? null, p_fee: d.fee ?? null, p_fee_symbol: d.feeSymbol ?? null }); } catch (_) { p = null; }
+  if (!p || !p.ready) return "confirming";
+  const ok = await db.rpc("payout_complete", { p_id: id, p_hash: hash });
+  if (ok === false) { log(`${id} completion refused by the database (policy not met?)`); return "confirming"; }
+  return "completed";
+}
+const failArgs = (chain: Chain, hash: string) => ({ p_kind: chain.failKind ? chain.failKind(hash) : "failed" });
+const failReason = (chain: Chain, hash: string) => ({ failed: "The transaction failed on the network", expired: "The transaction expired before it was mined and can never be mined", replaced: "The transaction was dropped or replaced by another transaction" } as Record<string, string>)[chain.failKind ? chain.failKind(hash) : "failed"] ?? "The transaction failed on the network";
 
 export async function processOne(db: Db, chain: Chain, id: string, log: Log, waitMs = 45000): Promise<string> {
   const row: Row | null = await db.rpc("payout_claim", { p_id: id });
@@ -57,6 +83,8 @@ export async function processOne(db: Db, chain: Chain, id: string, log: Log, wai
   let stored = false;
   try { stored = (await db.rpc("payout_set_hash", { p_id: id, p_hash: prepared.hash, p_meta: prepared.meta ?? null })) === true; } catch (_) { stored = false; }
   if (!stored) { log(`${id} could not record the hash, nothing broadcast; it will be retried`); return "not_recorded"; }  // payout_release_stale() requeues it
+  // sender address + network fee for the history (not critical: a failure here never stops the payout)
+  try { if (prepared.from) await db.rpc("payout_set_details", { p_id: id, p_from: prepared.from, p_fee: prepared.fee ?? null, p_fee_symbol: prepared.feeSymbol ?? null }); } catch (_) { /* history detail only */ }
   try {
     await chain.broadcast(prepared);
   } catch (e) {
@@ -65,13 +93,14 @@ export async function processOne(db: Db, chain: Chain, id: string, log: Log, wai
     await db.rpc("payout_flag", { p_id: id, p_note: "Broadcast result unclear (" + msg + "). Hash " + prepared.hash + " is being checked." });
     log(`${id} broadcast unclear, money stays held: ${msg}`); return "unclear";
   }
+  try { await db.rpc("payout_set_broadcast", { p_id: id }); } catch (_) { /* label only: "Submitted" appears once the network accepted it */ }
   // RULE 5: wait for it to be mined
   const t0 = Date.now();
   for (;;) {
     let st: MinedState = "none";
     try { st = await chain.receipt(prepared.hash, row.symbol, prepared.meta ?? null); } catch (_) { /* keep waiting */ }
-    if (st === "success") { await db.rpc("payout_complete", { p_id: id, p_hash: prepared.hash }); log(`${id} completed ${prepared.hash}`); return "completed"; }
-    if (st === "failed")  { await db.rpc("payout_fail", { p_id: id, p_reason: "The transaction failed on the network", p_mined_failed: true }); log(`${id} mined as FAILED, returned to user`); return "refunded"; }
+    if (st === "success") { const r = await settle(db, chain, id, prepared.hash, row.symbol, prepared.meta ?? null, log); if (r === "completed") { log(`${id} completed ${prepared.hash}`); return "completed"; } }
+    if (st === "failed")  { await db.rpc("payout_fail", { p_id: id, p_reason: failReason(chain, prepared.hash), p_mined_failed: true, ...failArgs(chain, prepared.hash) }); log(`${id} FAILED on the network, returned to user`); return "refunded"; }
     if (Date.now() - t0 > waitMs) { log(`${id} sent, waiting for confirmation (${prepared.hash})`); return "sent_unconfirmed"; }
     await chain.sleep(3000);
   }
@@ -86,8 +115,8 @@ export async function reconcile(db: Db, chain: Chain, log: Log): Promise<Record<
   for (const r of rows) {
     let st: MinedState = "none";
     try { st = await chain.receipt(r.tx_hash, r.symbol, r.payout_meta); } catch (_) { addOpen(r.symbol); continue; }
-    if (st === "success") { await db.rpc("payout_complete", { p_id: r.id, p_hash: r.tx_hash }); log(`${r.id} confirmed ${r.tx_hash}`); }
-    else if (st === "failed") { await db.rpc("payout_fail", { p_id: r.id, p_reason: "The transaction failed on the network", p_mined_failed: true }); log(`${r.id} failed or expired on the network, returned to user`); }
+    if (st === "success") { const o = await settle(db, chain, r.id, r.tx_hash, r.symbol, r.payout_meta, log); if (o === "completed") log(`${r.id} confirmed ${r.tx_hash}`); else addOpen(r.symbol); }
+    else if (st === "failed") { await db.rpc("payout_fail", { p_id: r.id, p_reason: failReason(chain, r.tx_hash), p_mined_failed: true, ...failArgs(chain, r.tx_hash) }); log(`${r.id} failed, expired or replaced on the network, returned to user`); }
     else {
       addOpen(r.symbol);
       const since = Date.parse(r.processing_at || r.created_at);

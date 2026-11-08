@@ -113,7 +113,7 @@ function ensure(){
 /* ================= 2. real deposit watcher =================
    Every ~20 s the app asks the deposit-watch edge function to read the REAL on-chain balance of this user's own
    addresses. The server adds exactly what arrived (assets, history, notification); we only refresh the screens. */
-let watchT=0,watchBusy=false;
+let watchT=0,watchBusy=false,watchWarned=false;
 async function watchOnce(){
   if(watchBusy||document.hidden)return;
   const d=db();if(!d||!d.get||!d.get()||!done)return;
@@ -121,6 +121,8 @@ async function watchOnce(){
   try{
     const {data,error}=await d.client.functions.invoke("deposit-watch",{body:{}});
     if(error)throw error;
+    /* every provider failed: say so instead of silently showing numbers that may be out of date */
+    if(data&&data.checked>0&&data.failed>=data.checked){if(!watchWarned){watchWarned=true;toast("Can't reach the blockchain right now. Balances may be out of date.")}}else watchWarned=false;
     if(data&&data.credited>0){
       const acc=await d.refreshWallet();
       if(acc&&window.populateDashboard)populateDashboard(acc);

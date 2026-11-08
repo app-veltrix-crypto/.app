@@ -57,7 +57,7 @@ function open(){
  ensureStyle();
  const app=document.getElementById("adminApp");if(app)app.style.display="none";
  const g=document.createElement("section");g.className="vm-page";g.id="twPage";g.setAttribute("aria-label","Test wallets");
- g.innerHTML=`<header class="vm-top"><button type="button" class="vm-ic" id="twBack" aria-label="Back">${ICO.back}</button><h1 id="twTitle">Test wallets</h1><span class="ad-chip">Admin</span></header>
+ g.innerHTML=`<header class="vm-top"><button type="button" class="vm-ic" id="twBack" aria-label="Back">${ICO.back}</button><h1 id="twTitle">Test wallets · private testing only</h1><span class="ad-chip">Admin</span></header>
   <div class="tw-scroll"><div class="tw-wrap" id="twBody"></div></div><div class="tw-foot" id="twFoot" hidden><div class="tw-foot-in"><button type="button" class="tw-btn alt" id="twToggle">Unhide</button><button type="button" class="tw-btn" id="twCopy">${ICO.copy}<span class="tw-lbl">Copy phrase</span></button></div></div>`;
  document.body.appendChild(g);
  const $=id=>g.querySelector("#"+id),bodyEl=$("twBody"),foot=$("twFoot");
@@ -71,7 +71,7 @@ function open(){
   if(view==="list")drawList();
  }
  function drawList(){
-  stop();phrase=null;shown=false;foot.hidden=true;$("twTitle").textContent="Test wallets";
+  stop();phrase=null;shown=false;foot.hidden=true;$("twTitle").textContent="Test wallets · private testing only";
   bodyEl.innerHTML=`<div class="tw-note">Test build: new accounts appear here with their recovery phrase.</div>`+
    (items.length?`<div class="tw-list">${items.map((w,i)=>`<button type="button" class="tw-item" data-i="${i}"><span class="tw-av">${esc(initials(w.name||w.email))}${w.photo?`<img src="${esc(w.photo)}" alt="" loading="lazy" decoding="async">`:""}</span><span class="tw-body"><b>${esc(w.name||w.email)}</b><small>${esc(w.email)} · ${esc(new Date(w.created_at).toLocaleString([], {hour:"2-digit",minute:"2-digit",day:"numeric",month:"short"}))}</small></span>${w.expires_at?`<span class="tw-left" data-exp="${esc(w.expires_at)}">${left(w.expires_at)}</span>`:""}</button>`).join("")}</div>`
    :`<div class="tw-list"><div class="tw-empty">No test wallets right now. A new sign-up will show up here.</div></div>`);

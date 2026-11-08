@@ -159,14 +159,28 @@ let txRows=[],txAll=[],openTx=null,openRows=[];
 const EMPTY_TX_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M6 8V1h1v6.117L8.743 6.07a.5.5 0 0 1 .514 0L11 7.117V1h1v7a.5.5 0 0 1-.757.429L9 7.083 6.757 8.43A.5.5 0 0 1 6 8"/><path d="M3 0h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-1h1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v1H1V2a2 2 0 0 1 2-2"/><path d="M1 5v-.5a.5.5 0 0 1 1 0V5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0V8h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0v.5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1z"/></svg>';
 function txView(t){
   const n=Number(t.amount),u=t.usd_value==null?null:Number(t.usd_value);
-  if(t.kind==="send")return{icon:"↗",title:"Sent "+t.symbol,sub:t.internal&&t.counterparty_name?"To "+t.counterparty_name:t.to_address?"To "+short(t.to_address):"Withdrawal",amt:"-"+trimNum(n)+" "+t.symbol,sub2:u!=null?"≈ "+usd(u):"",dir:"out",type:"Send"};
+  if(t.kind==="send")return{icon:"↗",title:"Sent "+t.symbol,sub:t.counterparty_name?"To "+t.counterparty_name:t.to_address?"To "+short(t.to_address):"Withdrawal",amt:"-"+trimNum(n)+" "+t.symbol,sub2:u!=null?"≈ "+usd(u):"",dir:"out",type:"Send"};
   if(t.kind==="deposit")return{icon:"↙",title:"Received "+t.symbol,sub:t.internal&&t.counterparty_name?"From "+t.counterparty_name:"Deposit",amt:"+"+trimNum(n)+" "+t.symbol,sub2:u!=null?"≈ "+usd(u):"",dir:"in",type:"Deposit"};
   return{icon:"⇄",title:"Converted "+t.symbol,sub:"Conversion",amt:"-"+trimNum(n)+" "+t.symbol,sub2:u!=null?"≈ "+usd(u):"",dir:"out",type:"Conversion"};
 }
 /* queued / processing (an automatic withdrawal being sent) count as pending everywhere, but are labelled "Processing" */
-const stN=t=>{const x=String(t.status||"completed").toLowerCase();return x==="queued"||x==="processing"?"pending":x};
+const stN=t=>{const x=String(t.status||"completed").toLowerCase();return x==="queued"||x==="processing"||x==="confirming"?"pending":(x==="dropped"||x==="reorged")?"cancelled":x};
 const stProc=t=>{const x=String(t.status||"").toLowerCase();return x==="queued"||x==="processing"};
-const stPill=t=>{const st=stN(t);return st==="completed"?"":` <span class="wd-tx-st ${st==="pending"?"pending":"cancelled"}">${st==="pending"?(stProc(t)?"Processing":"Pending"):st==="cancelled"?"Cancelled":esc(st)}</span>`};
+/* exact on-chain status words: Pending (queued) · Broadcasting (signing/sending) · Confirming (hash known, waiting for the network) · Confirmed · Failed.
+   Rows from before real on-chain mode (internal=true) were database-only transfers and are labelled as such, never as "Confirmed". */
+const cf=t=>t.required_confirmations?` (${Math.min(Number(t.confirmations||0),Number(t.required_confirmations))}/${t.required_confirmations})`:"";
+const stLabel=t=>{const x=String(t.status||"completed").toLowerCase();
+  if(t.kind==="deposit"){if(x==="pending")return"Pending";if(x==="confirming")return"Confirming"+cf(t);if(x==="dropped")return"Dropped";if(x==="reorged")return"Reorganised (not final)"}
+  if(x==="queued")return"Pending";
+  if(x==="processing"){if(!t.tx_hash)return"Broadcasting";if(!t.broadcast_at)return"Broadcasting";return Number(t.confirmations||0)>0?"Confirming"+cf(t):"Submitted"}
+  if(x==="completed")return t.internal?"Completed (internal ledger)":"Confirmed";
+  if(x==="cancelled")return({dropped:"Dropped",replaced:"Replaced",expired:"Expired"})[t.failure_kind]||"Failed";
+  return x.replace(/^./,c=>c.toUpperCase())};
+const EXPLORER={ETH:"https://etherscan.io/tx/",USDT:"https://etherscan.io/tx/",USDC:"https://etherscan.io/tx/",SHIB:"https://etherscan.io/tx/",LINK:"https://etherscan.io/tx/",
+  BNB:"https://bscscan.com/tx/",AVAX:"https://snowtrace.io/tx/",BTC:"https://mempool.space/tx/",LTC:"https://litecoinspace.org/tx/",
+  SOL:"https://solscan.io/tx/",XRP:"https://xrpscan.com/tx/",TRX:"https://tronscan.org/#/transaction/"};
+const explorerUrl=t=>t.tx_hash&&EXPLORER[String(t.symbol||"").toUpperCase()]?EXPLORER[String(t.symbol).toUpperCase()]+encodeURIComponent(t.tx_hash):"";
+const stPill=t=>{const st=stN(t);return st==="completed"?"":` <span class="wd-tx-st ${st==="pending"?"pending":"cancelled"}">${st==="pending"?stLabel(t):st==="cancelled"?"Failed":esc(st)}</span>`};
 const short=a=>a.length>22?a.slice(0,10)+"…"+a.slice(-8):a;
 const txSv=(d,w)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w||1.9}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const TX_ICON={
@@ -245,16 +259,22 @@ function openDetail(t){
   openTx=t;const v=txView(t),ic=txIcon(t);
   $("tdIcon").innerHTML=ic.svg;$("tdIcon").className="wd-act-ic big "+ic.cls;
   const h=$("tdAmount");h.textContent=v.amt;h.className=v.dir;$("tdSub").textContent=v.title;
-  const stl=stN(t),st=stProc(t)?"Processing":stl.replace(/^./,c=>c.toUpperCase()),sc=$("tdStatus");sc.textContent=stl==="completed"?"Successful":st;sc.className="wd-act-chip"+(stl==="completed"?" ok":stl==="pending"?" pending":stl==="cancelled"?" cancelled":"");
-  const rows=[["Type",v.type],["Status",stl==="completed"?"Successful":st],["Date",when(t.created_at)]];
+  const stl=stN(t),st=stLabel(t),sc=$("tdStatus");sc.textContent=st;sc.className="wd-act-chip"+(stl==="completed"?" ok":stl==="pending"?" pending":stl==="cancelled"?" cancelled":"");
+  const rows=[["Type",v.type],["Status",st],["Date",when(t.created_at)]];if(t.kind==="deposit"&&t.status==="confirming")rows.push(["Balance","Added to your balance after "+(t.required_confirmations||"?")+" confirmations"]);
   if(stl==="cancelled"&&t.cancel_reason)rows.push(["Reason",t.cancel_reason]);
-  if(t.kind==="send"){rows.push(["Amount",trimNum(t.amount)+" "+t.symbol]);if(t.usd_value!=null)rows.push(["Value",usd(t.usd_value)]);if(t.internal&&t.counterparty_name)rows.push(["Recipient",t.counterparty_name]);if(t.to_address)rows.push(["To",t.to_address,"copy"]);if(t.network)rows.push(["Network",t.network])}
-  else if(t.kind==="deposit"){rows.push(["Received",trimNum(t.amount)+" "+t.symbol]);if(t.usd_value!=null)rows.push(["Value at receipt",usd(t.usd_value)]);if(t.internal&&t.counterparty_name)rows.push(["From",t.counterparty_name]);if(t.to_address)rows.push(["Deposit address",t.to_address,"copy"]);if(t.network)rows.push(["Network",t.network])}
+  if(t.kind==="send"){rows.push(["Amount",trimNum(t.amount)+" "+t.symbol]);if(t.usd_value!=null)rows.push(["Value",usd(t.usd_value)]);if(t.counterparty_name)rows.push(["Recipient",t.counterparty_name]);if(t.from_address)rows.push(["From",t.from_address,"copy"]);if(t.to_address)rows.push(["To",t.to_address,"copy"]);if(t.network)rows.push(["Network",t.network]);const fs=t.fee_symbol||t.symbol;if(t.fee_estimate!=null)rows.push(["Estimated fee (maximum, before sending)",trimNum(Number(t.fee_estimate))+" "+fs]);
+    if(t.fee_actual!=null){rows.push(["Actual network fee paid",trimNum(Number(t.fee_actual))+" "+fs]);rows.push(["Total deducted from your wallet",fs===t.symbol?trimNum(Number(t.amount)+Number(t.fee_actual))+" "+t.symbol:trimNum(t.amount)+" "+t.symbol+" + "+trimNum(Number(t.fee_actual))+" "+fs])}
+    else if(stl==="pending"&&t.fee_estimate!=null)rows.push(["Total deducted (at most)",fs===t.symbol?trimNum(Number(t.amount)+Number(t.fee_estimate))+" "+t.symbol:trimNum(t.amount)+" "+t.symbol+" + up to "+trimNum(Number(t.fee_estimate))+" "+fs]);
+    if(t.confirmations>0)rows.push(["Confirmations",String(t.confirmations)+(t.required_confirmations?" / "+t.required_confirmations+" required":"")]);if(t.block_number)rows.push(["Block",String(t.block_number)])}
+  else if(t.kind==="deposit"){rows.push(["Received",trimNum(t.amount)+" "+t.symbol]);if(t.usd_value!=null)rows.push(["Value at receipt",usd(t.usd_value)]);if(t.internal&&t.counterparty_name)rows.push(["From",t.counterparty_name]);if(t.from_address&&!t.internal)rows.push(["Sender address",t.from_address,"copy"]);if(t.to_address)rows.push(["Deposit address",t.to_address,"copy"]);if(t.network)rows.push(["Network",t.network]);
+    if(t.tx_hash){rows.push(["Confirmations",String(t.confirmations||0)+(t.required_confirmations?" / "+t.required_confirmations+" required":"")]);if(t.block_number)rows.push(["Block",String(t.block_number)]);if(t.block_time)rows.push(["Blockchain time",when(t.block_time)])}
+    if(t.payout_note&&(t.status==="reorged"||t.status==="dropped"))rows.push(["Note",t.payout_note])}
   else{rows.push(["Amount",trimNum(t.amount)+" "+t.symbol]);if(t.usd_value!=null)rows.push(["Value",usd(t.usd_value)])}
   if(t.tx_hash)rows.push(["Transaction hash",t.tx_hash,"copy"]);
+  if(explorerUrl(t))rows.push(["Blockchain explorer",explorerUrl(t),"link"]);
   if(t.reference)rows.push(["Reference",t.reference,"copy"]);
   openRows=rows;
-  $("tdRows").innerHTML=rows.map(r=>`<div class="nd-row"><span>${esc(r[0])}</span><b>${esc(r[1])}</b>${r[2]?`<button type="button" class="nd-copy" data-copy-val="${esc(r[1])}" aria-label="Copy ${esc(r[0])}">Copy</button>`:""}</div>`).join("");
+  $("tdRows").innerHTML=rows.map(r=>`<div class="nd-row"><span>${esc(r[0])}</span><b>${esc(r[1])}</b>${r[2]==="link"?`<a class="nd-copy" href="${esc(r[1])}" target="_blank" rel="noopener noreferrer" aria-label="Open in blockchain explorer">Open</a>`:r[2]?`<button type="button" class="nd-copy" data-copy-val="${esc(r[1])}" aria-label="Copy ${esc(r[0])}">Copy</button>`:""}</div>`).join("");
   openFeature("txDetailPage");
 }
 
@@ -288,9 +308,9 @@ async function receiptBlob(t){
   const logo=await loadLogo();
   const W=360,S=4,pad=20,FONT='-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif',v=txView(t);
   const L=window.veltrixLang?veltrixLang():{code:"en",rtl:false},rtl=!!L.rtl;
-  const st=stN(t),stEn=st==="completed"?"Successful":stProc(t)?"Processing":st.replace(/^./,c=>c.toUpperCase());
+  const st=stN(t),stEn=stLabel(t);
   const amtCol=st==="completed"?"#0f9d58":st==="pending"?"#d98a00":"#d93a49";
-  const rawRows=openRows.filter(r=>r[0]!=="Status"&&r[0]!=="Date");
+  const rawRows=openRows.filter(r=>r[0]!=="Status"&&r[0]!=="Date"&&r[2]!=="link");
   const noteEn=RCPT_NOTE;
   const valIdx=[];rawRows.forEach((r,i)=>{if(RCPT_TR_VALUES.has(r[1])||r[0]==="Reason")valIdx.push(i)});
   const src=["Transaction Receipt","Veltrix receipt",stEn,noteEn,...rawRows.map(r=>r[0]),...valIdx.map(i=>rawRows[i][1])];

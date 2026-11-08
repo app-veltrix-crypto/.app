@@ -1,11 +1,11 @@
 // Veltrix · payout-send · Bitcoin, Litecoin, Solana, XRP and TRON (the coins that are NOT on an Ethereum-style network).
-// The treasury keys come from the SAME recovery phrase as the Ethereum treasury, with the same derivation paths the app uses for deposit addresses.
+// The keys come from the SENDING USER's own recovery phrase (row.phrase), with the same derivation paths the app uses for deposit addresses. There is no treasury.
 // Nothing in this file talks to a library that signs for us: the transaction formats are written out here so they can be read and tested
 // (see test/chains.test.ts). All the money-safety rules live in core.ts; this file only has to answer three questions per coin:
 //   prepare()   -> build + sign the transaction; throws ChainError("definite") if it can NEVER be sent, ("retry") if it cannot be sent right now
 //   broadcast() -> hand it to the network; throws ChainError("definite") ONLY if the network explicitly refused it, anything else is "unclear"
 //   receipt()   -> "success" (mined ok) | "failed" (mined as failed, or PROVABLY expired and can never be mined) | "none" (not yet)
-import { ChainError, type MinedState, type Prepared, type Row } from "./core.ts";
+import { ChainError, type Detail, type MinedState, type Prepared, type Row } from "./core.ts";
 
 export interface Prims {
   sha256(b: Uint8Array): Uint8Array;
@@ -244,6 +244,8 @@ export async function treasuryAddresses(P: Prims, phrase: string): Promise<Recor
 // ---------------------------------------------------------------------------------------------------- the five chains
 export const OTHER_COINS = ["BTC", "LTC", "SOL", "XRP", "TRX"];
 const DEC: Record<string, number> = { BTC: 8, LTC: 8, SOL: 9, XRP: 6, TRX: 6 };
+const failKinds = new Map<string, string>();      // hash -> why receipt() said "failed" (read by core through failKind())
+const failed = (hash: string, kind: "failed" | "expired"): MinedState => { failKinds.set(hash, kind); return "failed"; };
 const metaNum = (meta: string | null | undefined, key: string): number | null => { const m = new RegExp(key + "=(\\d+)").exec(meta || ""); return m ? Number(m[1]) : null; };
 
 export function makeOtherChains(env: (k: string) => string, P: Prims) {
@@ -254,9 +256,9 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
     TRX: env("API_TRX") || "https://api.trongrid.io",
   };
   const tronHeaders: Record<string, string> = env("TRONGRID_API_KEY") ? { "TRON-PRO-API-KEY": env("TRONGRID_API_KEY") } : {};
-  const phrase = () => { const p = env("TREASURY_MNEMONIC"); if (!p) throw new ChainError("retry", "Treasury is not configured"); return p; };
-  let keys: Treasury | null = null;
-  const K = () => keys ??= treasuryKeys(P, phrase());
+  // the keys of the user who is sending (derived per call, never cached between users)
+  const K = (row: Row): Treasury => { if (!row.phrase) throw new ChainError("retry", "The sender's wallet key is not available"); return treasuryKeys(P, row.phrase); };
+  const fmt = (v: bigint, dec: number) => { const s = v.toString().padStart(dec + 1, "0"); const i = s.slice(0, s.length - dec), f = s.slice(s.length - dec).replace(/0+$/, ""); return i + (f ? "." + f : ""); };
   const amountOf = (row: Row): bigint => {
     let v: bigint; try { v = parseUnits(row.amount, DEC[row.symbol]); } catch { throw new ChainError("definite", "The amount has too many decimal places for this coin"); }
     if (v <= 0n) throw new ChainError("definite", "The amount is not valid"); return v;
@@ -267,7 +269,7 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
     const value = amountOf(row), base = API[sym];
     let script: Uint8Array; try { script = scriptForAddress(sym, row.to_address, P); } catch { throw new ChainError("definite", "The wallet address is not valid for " + sym); }
     if (value < 546n) throw new ChainError("definite", "The amount is below the network's minimum");     // "dust": the network would refuse such an output
-    const priv = K()[sym], h160 = P.ripemd160(P.sha256(P.secpPub(priv, true))), from = segwitEncodeV0(sym === "BTC" ? "bc" : "ltc", h160);
+    const priv = K(row)[sym], h160 = P.ripemd160(P.sha256(P.secpPub(priv, true))), from = segwitEncodeV0(sym === "BTC" ? "bc" : "ltc", h160);
     // fee rate (sat/vB), never above the ceiling you set
     let rate = num("FEE_RATE_FIXED_" + sym, 0);
     if (!rate) {
@@ -277,8 +279,8 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
     rate = Math.max(rate, 1);
     const ceiling = num("MAX_FEE_RATE_" + sym, sym === "BTC" ? 100 : 100);
     if (rate > ceiling) throw new ChainError("retry", `Network fees are above your ceiling (${ceiling} sat/vB); will retry`);
-    // coins: confirmed outputs of the treasury only
-    let all: any[]; try { all = await jget(`${base}/address/${from}/utxo`); } catch (e) { throw new ChainError("retry", "Could not read the treasury coins: " + errText(e)); }
+    // coins: confirmed outputs of the sender's own address only
+    let all: any[]; try { all = await jget(`${base}/address/${from}/utxo`); } catch (e) { throw new ChainError("retry", "Could not read your wallet's coins: " + errText(e)); }
     const utxos = all.filter((u) => u?.status?.confirmed && /^[0-9a-f]{64}$/.test(u.txid)).map((u) => ({ txid: u.txid as string, vout: Number(u.vout), value: BigInt(u.value) })).sort((a, b) => (a.value < b.value ? 1 : -1));
     const outSize = (s: Uint8Array) => 8 + 1 + s.length, change = p2wpkhScript(h160);
     const vsize = (nIn: number, withChange: boolean) => 11 + 69 * nIn + outSize(script) + (withChange ? outSize(change) : 0);
@@ -288,11 +290,11 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
       pick.push(u); sum += u.value; fee = BigInt(Math.ceil(vsize(pick.length, true) * rate));
       if (sum >= value + fee) break;
     }
-    if (sum < value + fee) throw new ChainError("retry", `Treasury is short of ${sym} for the amount and fees; top it up`);
+    if (sum < value + fee) throw new ChainError("definite", `Your wallet does not hold enough ${sym} to cover the amount plus the network fee (about ${fmt(fee, 8)} ${sym}). Nothing was sent.`);
     const changeV = sum - value - fee, outs: TxOut[] = [{ script, value }];
     if (changeV >= 546n) outs.push({ script: change, value: changeV });      // smaller change is not worth an output: it goes to the miners
     let tx; try { tx = buildP2wpkh(P, priv, pick, outs); } catch (e) { throw new ChainError("retry", "Could not sign: " + errText(e)); }
-    return { hash: tx.txid, raw: hex(tx.raw), symbol: sym };
+    return { hash: tx.txid, raw: hex(tx.raw), symbol: sym, from, fee: fmt(sum - value - (changeV >= 546n ? changeV : 0n), 8), feeSymbol: sym };
   }
   async function broadcastUtxo(p: Prepared, sym: "BTC" | "LTC") {
     const base = API[sym];
@@ -321,10 +323,10 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
   async function prepareSol(row: Row): Promise<Prepared> {
     const lamports = amountOf(row);
     let to: Uint8Array; try { to = b58dec(row.to_address); if (to.length !== 32) throw 0; } catch { throw new ChainError("definite", "The wallet address is not valid for SOL"); }
-    const priv = K().SOL; let from: Uint8Array; try { from = await P.edPub(priv); } catch (e) { throw new ChainError("retry", "Could not derive the Solana key: " + errText(e)); }
+    const priv = K(row).SOL; let from: Uint8Array; try { from = await P.edPub(priv); } catch (e) { throw new ChainError("retry", "Could not derive the Solana key: " + errText(e)); }
     try {
       const bal = BigInt((await rpc(API.SOL, "getBalance", [b58enc(from), { commitment: "confirmed" }])).value);
-      if (bal < lamports + 5000n + solRent) throw new ChainError("retry", "Treasury is short of SOL for the amount and fees; top it up");
+      if (bal < lamports + 5000n + solRent) throw new ChainError("definite", "Your wallet does not hold enough SOL for the amount, the network fee and the account rent minimum. Nothing was sent.");
       const dest = await rpc(API.SOL, "getAccountInfo", [row.to_address, { encoding: "base64", commitment: "confirmed" }]);
       if (!dest.value && lamports < solRent) throw new ChainError("definite", "The receiving Solana account is new; the first transfer must be at least 0.00089088 SOL");
     } catch (e) { if (e instanceof ChainError) throw e; throw new ChainError("retry", "Could not read the Solana network: " + errText(e)); }
@@ -332,7 +334,7 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
     try { bh = (await rpc(API.SOL, "getLatestBlockhash", [{ commitment: "confirmed" }])).value; } catch (e) { throw new ChainError("retry", "Could not read the Solana blockhash: " + errText(e)); }
     const msg = solMessage(from, to, lamports, b58dec(bh.blockhash));
     let sig: Uint8Array; try { sig = await P.edSign(priv, msg); } catch (e) { throw new ChainError("retry", "Could not sign: " + errText(e)); }
-    return { hash: b58enc(sig), raw: btoa(String.fromCharCode(...cat(Uint8Array.of(1), sig, msg))), symbol: "SOL", meta: "lvbh=" + bh.lastValidBlockHeight };
+    return { hash: b58enc(sig), raw: btoa(String.fromCharCode(...cat(Uint8Array.of(1), sig, msg))), symbol: "SOL", meta: "lvbh=" + bh.lastValidBlockHeight, from: b58enc(from), fee: "0.000005", feeSymbol: "SOL" };
   }
   async function broadcastSol(p: Prepared) {
     let sig: string;
@@ -348,8 +350,8 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
     const lvbh = metaNum(meta, "lvbh");
     const height = lvbh != null ? Number(await rpc(API.SOL, "getBlockHeight", [{ commitment: "finalized" }])) : 0;     // read BEFORE the status
     const v = (await rpc(API.SOL, "getSignatureStatuses", [[hash], { searchTransactionHistory: true }])).value?.[0];
-    if (v) { if (v.err) return "failed"; return v.confirmationStatus === "finalized" ? "success" : "none"; }
-    if (lvbh != null && height > lvbh) return "failed";                    // not found and its blockhash has expired for good: it can never be mined
+    if (v) { if (v.err) return failed(hash, "failed"); return v.confirmationStatus === "finalized" ? "success" : "none"; }
+    if (lvbh != null && height > lvbh) return failed(hash, "expired");                    // not found and its blockhash has expired for good: it can never be mined
     return "none";
   }
 
@@ -360,12 +362,12 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
     try { dest = xrpAccountId(row.to_address, P); } catch { throw new ChainError("definite", "The wallet address is not valid for XRP"); }
     let tag: number | null = null;
     if (row.memo != null && String(row.memo) !== "") { if (!/^\d{1,10}$/.test(String(row.memo)) || Number(row.memo) > 4294967295) throw new ChainError("definite", "The destination tag is not valid"); tag = Number(row.memo); }
-    const priv = K().XRP, pub = P.secpPub(priv, true), account = P.ripemd160(P.sha256(pub));
+    const priv = K(row).XRP, pub = P.secpPub(priv, true), account = P.ripemd160(P.sha256(pub));
     const from = b58enc(cat(Uint8Array.of(0), account, dsha(P, cat(Uint8Array.of(0), account)).slice(0, 4)), B58_XRP);
     let sequence: number, balance: bigint, owners: number, resBase: bigint, resInc: bigint, feeDrops: bigint, ledger: number;
     try {
       const a = await xrp("account_info", { account: from, ledger_index: "current" });
-      if (a.error === "actNotFound") throw new ChainError("retry", "The XRP treasury account is not activated; fund it first");
+      if (a.error === "actNotFound") throw new ChainError("definite", "Your XRP account is not activated yet (it needs the minimum XRP reserve first). Nothing was sent.");
       if (!a.account_data) throw new Error(JSON.stringify(a).slice(0, 160));
       sequence = Number(a.account_data.Sequence); balance = BigInt(a.account_data.Balance); owners = Number(a.account_data.OwnerCount || 0);
       const si = await xrp("server_info", {}); const vl_ = si.info?.validated_ledger;
@@ -377,11 +379,11 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
       if (d.error === "actNotFound" && amount < resBase) throw new ChainError("definite", `The receiving XRP account is new; the first payment must be at least ${Number(resBase) / 1e6} XRP`);
     } catch (e) { if (e instanceof ChainError) throw e; throw new ChainError("retry", "Could not read the XRP network: " + errText(e)); }
     const ceiling = BigInt(num("MAX_FEE_DROPS_XRP", 5000)); if (feeDrops > ceiling) throw new ChainError("retry", `Network fees are above your ceiling (${ceiling} drops); will retry`);
-    if (balance < amount + feeDrops + resBase + resInc * BigInt(owners)) throw new ChainError("retry", "Treasury is short of XRP for the amount, fees and the account reserve; top it up");
+    if (balance < amount + feeDrops + resBase + resInc * BigInt(owners)) throw new ChainError("definite", "Your wallet does not hold enough XRP for the amount, the network fee and the account reserve. Nothing was sent.");
     const lls = ledger + 40;
     const f = { sequence, tag, lls, amount, fee: feeDrops, pub, account, dest };
     let s; try { s = xrpSignAndHash(P, priv, f); } catch (e) { throw new ChainError("retry", "Could not sign: " + errText(e)); }
-    return { hash: s.hash, raw: hex(s.blob).toUpperCase(), symbol: "XRP", meta: "lls=" + lls };
+    return { hash: s.hash, raw: hex(s.blob).toUpperCase(), symbol: "XRP", meta: "lls=" + lls, from, fee: fmt(feeDrops, 6), feeSymbol: "XRP" };
   }
   async function broadcastXrp(p: Prepared) {
     let r: any;
@@ -396,10 +398,10 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
     let validated = 0;
     if (lls != null) { const si = await xrp("server_info", {}); validated = Number(si.info?.validated_ledger?.seq || 0); }   // read BEFORE the lookup
     const t = await xrp("tx", { transaction: hash, binary: false });
-    if (t.error === "txnNotFound") return lls != null && validated > lls ? "failed" : "none";   // expired and absent: it can never be applied
+    if (t.error === "txnNotFound") return lls != null && validated > lls ? failed(hash, "expired") : "none";   // expired and absent: it can never be applied
     if (t.error || !t.hash) throw new Error(String(t.error || "bad answer"));
     if (!t.validated) return "none";
-    return t.meta?.TransactionResult === "tesSUCCESS" ? "success" : "failed";                     // a tec result moves no funds
+    return t.meta?.TransactionResult === "tesSUCCESS" ? "success" : failed(hash, "failed");                     // a tec result moves no funds
   }
 
   // ---- TRX
@@ -407,11 +409,11 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
   async function prepareTrx(row: Row): Promise<Prepared> {
     const sun = amountOf(row); let to: Uint8Array;
     try { to = tronAddressBytes(row.to_address, P); } catch { throw new ChainError("definite", "The wallet address is not valid for TRX"); }
-    const priv = K().TRX, owner = cat(Uint8Array.of(0x41), P.keccak256(P.secpPub(priv, false).slice(1)).slice(12)), from = tronAddr(owner, P);
+    const priv = K(row).TRX, owner = cat(Uint8Array.of(0x41), P.keccak256(P.secpPub(priv, false).slice(1)).slice(12)), from = tronAddr(owner, P);
     let tx: any;
     try {
       const acc = await trx("/wallet/getaccount", { address: from, visible: true });
-      if (BigInt(acc.balance || 0) < sun + 3_000_000n) throw new ChainError("retry", "Treasury is short of TRX for the amount and fees; top it up");
+      if (BigInt(acc.balance || 0) < sun + 3_000_000n) throw new ChainError("definite", "Your wallet does not hold enough TRX for the amount plus a few TRX for the network fee. Nothing was sent.");
       tx = await trx("/wallet/createtransaction", { owner_address: from, to_address: row.to_address, amount: Number(sun), visible: true });
     } catch (e) { if (e instanceof ChainError) throw e; throw new ChainError("retry", "Could not reach the TRON network: " + errText(e)); }
     if (!tx || tx.Error || !tx.txID || !tx.raw_data_hex) throw new ChainError("retry", "The TRON node did not build the transaction: " + String(tx?.Error || "").slice(0, 120));
@@ -420,7 +422,7 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
     const idOk = hex(P.sha256(unhex(tx.raw_data_hex))) === String(tx.txID).toLowerCase();
     if (!idOk || d.type !== 1 || !eq(d.owner, owner) || !eq(d.to, to) || d.amount !== sun) throw new ChainError("retry", "The TRON node returned a different transaction than requested; not signed");
     const { r, s, recid } = P.secpSign(priv, unhex(tx.txID)), sig = hex(cat(be(r, 32), be(s, 32), Uint8Array.of(recid)));
-    return { hash: String(tx.txID).toLowerCase(), raw: JSON.stringify({ ...tx, signature: [sig] }), symbol: "TRX", meta: "exp=" + d.expiration };
+    return { hash: String(tx.txID).toLowerCase(), raw: JSON.stringify({ ...tx, signature: [sig] }), symbol: "TRX", meta: "exp=" + d.expiration, from };
   }
   async function broadcastTrx(p: Prepared) {
     let r: any;
@@ -436,15 +438,46 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
     const sol = await trx("/walletsolidity/gettransactioninfobyid", { value: hash });
     if (sol && sol.blockNumber) {
       const t = await trx("/walletsolidity/gettransactionbyid", { value: hash });
-      return t?.ret?.[0]?.contractRet === "SUCCESS" ? "success" : "failed";
+      return t?.ret?.[0]?.contractRet === "SUCCESS" ? "success" : failed(hash, "failed");
     }
     const full = await trx("/wallet/gettransactioninfobyid", { value: hash });
     if (full && full.blockNumber) return "none";                           // in a block, waiting to be solidified
     const exp = metaNum(meta, "exp");
-    return exp != null && Date.now() > exp + 600_000 ? "failed" : "none";  // not in any block, and expired long ago: it can never be mined
+    return exp != null && Date.now() > exp + 600_000 ? failed(hash, "expired") : "none";  // not in any block, and expired long ago: it can never be mined
+  }
+
+  // ---- ACTUAL fee + confirmations, read AFTER the transaction is mined (what the chain really charged, not our estimate)
+  async function detailUtxo(hash: string, sym: "BTC" | "LTC"): Promise<Detail | null> {
+    const base = API[sym], tx = await jget(`${base}/tx/${hash}`);
+    if (!tx?.status?.confirmed) return null;
+    const tip = Number(await jget(base + "/blocks/tip/height")), h = Number(tx.status.block_height);
+    return { confirmations: Math.max(1, tip - h + 1), block: h, blockHash: tx.status.block_hash, fee: fmt(BigInt(tx.fee), 8), feeSymbol: sym };
+  }
+  async function detailSol(hash: string): Promise<Detail | null> {
+    const t = await rpc(API.SOL, "getTransaction", [hash, { encoding: "json", maxSupportedTransactionVersion: 0, commitment: "finalized" }]);
+    if (!t?.meta) return null; return { confirmations: 1, block: Number(t.slot), fee: fmt(BigInt(t.meta.fee), 9), feeSymbol: "SOL" };     // finalized = final
+  }
+  async function detailXrp(hash: string): Promise<Detail | null> {
+    const t = await xrp("tx", { transaction: hash, binary: false });
+    if (t.error || !t.validated) return null; return { confirmations: 1, block: Number(t.ledger_index), fee: fmt(BigInt(t.Fee ?? t.tx_json?.Fee), 6), feeSymbol: "XRP" };
+  }
+  async function detailTrx(hash: string): Promise<Detail | null> {
+    const i = await trx("/walletsolidity/gettransactioninfobyid", { value: hash });
+    if (!i || !i.blockNumber) return null; return { confirmations: 1, block: Number(i.blockNumber), fee: fmt(BigInt(i.fee || 0), 6), feeSymbol: "TRX" };   // bandwidth + energy burned, in TRX
   }
 
   return {
+    failKind: (hash: string) => failKinds.get(hash) ?? "failed",
+    async detail(hash: string, symbol: string): Promise<Detail | null> {
+      switch (String(symbol).toUpperCase()) {
+        case "BTC": return await detailUtxo(hash, "BTC");
+        case "LTC": return await detailUtxo(hash, "LTC");
+        case "SOL": return await detailSol(hash);
+        case "XRP": return await detailXrp(hash);
+        case "TRX": return await detailTrx(hash);
+      }
+      return null;
+    },
     handles: (sym: string) => OTHER_COINS.includes(String(sym).toUpperCase()),
     lane: (sym: string) => String(sym).toUpperCase(),
     waitMs: (sym: string) => ({ BTC: 0, LTC: 0, TRX: 0, SOL: 25000, XRP: 25000 } as Record<string, number>)[String(sym).toUpperCase()] ?? 0,

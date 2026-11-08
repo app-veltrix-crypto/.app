@@ -100,8 +100,8 @@ await ok("Bitcoin: end-to-end prepare() with a fake network; the signed transact
     return new Response("nope", { status: 404 });
   }) as typeof fetch;
   try {
-    const chains = C.makeOtherChains((k) => ({ TREASURY_MNEMONIC: ABANDON }[k] || ""), P);
-    const p = await chains.prepare({ id: "x", user_id: "u", symbol: "BTC", amount: "0.00050000", to_address: "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", payout_attempts: 1 });
+    const chains = C.makeOtherChains((_k) => "", P);   // no treasury secret exists any more: the key comes from the sending user's row
+    const p = await chains.prepare({ id: "x", user_id: "u", symbol: "BTC", amount: "0.00050000", to_address: "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", payout_attempts: 1, phrase: ABANDON });
     const raw = U(p.raw); let i = 0; const rd = (k: number) => { const o = raw.slice(i, i + k); i += k; return o; };
     assert.equal(H(rd(4)), "02000000"); assert.equal(H(rd(2)), "0001");
     const nIn = rd(1)[0]; assert.equal(nIn, 1);                                           // the 90,000 output alone covers 50,000 + fee
@@ -119,13 +119,39 @@ await ok("Bitcoin: end-to-end prepare() with a fake network; the signed transact
     }
     assert.equal(H(rd(4)), "00000000"); assert.equal(i, raw.length);
     assert.match(p.hash, /^[0-9a-f]{64}$/);
+    assert.equal(p.from, addrs.BTC);                                  // it spends from the SENDER's own address
+    assert.equal(p.feeSymbol, "BTC"); assert.equal(Number(p.fee) * 1e8, Number(fee));   // and reports the fee it really pays
     // the unconfirmed 999,999-sat output was NOT used, and too-large / dust / bad requests are refused
-    await assert.rejects(chains.prepare({ id: "x", user_id: "u", symbol: "BTC", amount: "5", to_address: "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", payout_attempts: 1 }), (e: ChainError) => e.kind === "retry" && /short/.test(e.message));
-    await assert.rejects(chains.prepare({ id: "x", user_id: "u", symbol: "BTC", amount: "0.000001", to_address: "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", payout_attempts: 1 }), (e: ChainError) => e.kind === "definite");
-    await assert.rejects(chains.prepare({ id: "x", user_id: "u", symbol: "BTC", amount: "0.001", to_address: "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t5", payout_attempts: 1 }), (e: ChainError) => e.kind === "definite");
+    await assert.rejects(chains.prepare({ id: "x", user_id: "u", symbol: "BTC", amount: "5", to_address: "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", payout_attempts: 1, phrase: ABANDON }), (e: ChainError) => e.kind === "definite" && /does not hold enough/.test(e.message));
+    await assert.rejects(chains.prepare({ id: "x", user_id: "u", symbol: "BTC", amount: "0.000001", to_address: "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", payout_attempts: 1, phrase: ABANDON }), (e: ChainError) => e.kind === "definite");
+    await assert.rejects(chains.prepare({ id: "x", user_id: "u", symbol: "BTC", amount: "0.001", to_address: "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t5", payout_attempts: 1, phrase: ABANDON }), (e: ChainError) => e.kind === "definite");
   } finally { globalThis.fetch = realFetch; }
 });
 function C_N() { return 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n; }
+
+
+await ok("NO TREASURY: each user signs with their own key, from their own address; no key = nothing is signed", async () => {
+  const A = ABANDON, B = "legal winner thank year wave sausage worth useful legal winner thank yellow";
+  const addrA = await C.treasuryAddresses(P, A), addrB = await C.treasuryAddresses(P, B);
+  assert.notEqual(addrA.BTC, addrB.BTC);
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string) => {
+    const u = String(url), js = (o: unknown) => new Response(JSON.stringify(o), { status: 200 });
+    if (u.endsWith("/v1/fees/recommended")) return js({ halfHourFee: 10 });
+    if (u.endsWith("/utxo")) return js([{ txid: "dd".repeat(32), vout: 0, value: 200000, status: { confirmed: true } }]);
+    return new Response("nope", { status: 404 });
+  }) as typeof fetch;
+  try {
+    const chains = C.makeOtherChains((_k) => "", P);
+    const row = { id: "x", user_id: "u", symbol: "BTC", amount: "0.0005", to_address: "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", payout_attempts: 1 };
+    assert.equal((await chains.prepare({ ...row, phrase: A })).from, addrA.BTC);
+    assert.equal((await chains.prepare({ ...row, phrase: B })).from, addrB.BTC);
+    await assert.rejects(chains.prepare(row), (e: ChainError) => e.kind === "retry" && /key is not available/.test(e.message));   // no phrase, no signature
+    // an unconfirmed-only or empty wallet is refused BEFORE anything is signed or sent, and the user is told why
+    globalThis.fetch = (async (url: string) => String(url).endsWith("/v1/fees/recommended") ? new Response(JSON.stringify({ halfHourFee: 10 }), { status: 200 }) : new Response("[]", { status: 200 })) as typeof fetch;
+    await assert.rejects(chains.prepare({ ...row, phrase: A }), (e: ChainError) => e.kind === "definite" && /does not hold enough BTC/.test(e.message));
+  } finally { globalThis.fetch = realFetch; }
+});
 
 await ok("core: a slow chain (BTC) that is still waiting does not hold up other chains", async () => {
   const calls: string[] = [];

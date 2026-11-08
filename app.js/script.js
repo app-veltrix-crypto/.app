@@ -1139,7 +1139,7 @@ document.addEventListener("click",function(event){
  function makeTx(c){const b=new Uint8Array(6);crypto.getRandomValues(b);return "WD-"+[...b].map(x=>x.toString(16).padStart(2,"0")).join("").toUpperCase()}
  /* success screen: "processing" = outside withdrawal being sent automatically, "done" = real transfer to another Veltrix user, already completed */
  function setDoneMode(mode){   // "done" | "processing"
-  $("luxEyebrow").textContent=mode==="done"?"TRANSFER COMPLETE":"WITHDRAWAL PROCESSING";
+  $("luxEyebrow").textContent=mode==="done"?"TRANSFER COMPLETE":"SENDING ON THE BLOCKCHAIN";
   $("luxPill").classList.toggle("lux-pending",mode!=="done");$("luxPillTxt").textContent=mode==="done"?"Completed":"Processing";
   $("luxRecipRow").hidden=mode!=="done";
  }
@@ -1170,12 +1170,15 @@ document.addEventListener("click",function(event){
     pendingReq=null;
     const when=new Date(r.created_at).toLocaleString(undefined,{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"});
     const amtTxt=`${trim(r.amount)} ${c.symbol}`,usdTxt=r.usd_value!=null&&r.usd_value!==""?`≈ ${usd(+r.usd_value)}`:"";
-    lastTx=r.reference;lastTo=a;setDoneMode("done");
+    /* a Veltrix-to-Veltrix send is a real blockchain transaction now: it is only "sent" once the network has confirmed it */
+    lastTx=r.reference;lastTo=a;setDoneMode("processing");$("luxRecipRow").hidden=false;
     $("luxAmt").textContent=amtTxt;$("luxUsd").textContent=usdTxt;
     $("luxRecip").textContent=r.to_name||"Veltrix user";$("luxTo").textContent=shortAddr(a);
     $("luxNet").textContent=r.network||c.net;$("luxDate").textContent=when;$("luxTx").textContent=r.reference;
-    lastReceipt=`Veltrix transfer receipt\nStatus: Completed\nAmount: ${amtTxt}${usdTxt?" ("+usdTxt+")":""}\nTo: ${r.to_name||"Veltrix user"} (${a})\nNetwork: ${r.network||c.net}\nDate: ${when}\nReference: ${r.reference}`;
-    playDone();refreshAfterTransfer();return;
+    lastReceipt=`Veltrix transfer receipt\nStatus: Sending on the blockchain (confirming)\nAmount: ${amtTxt}${usdTxt?" ("+usdTxt+")":""}\nTo: ${r.to_name||"Veltrix user"} (${a})\nNetwork: ${r.network||c.net}\nDate: ${when}\nReference: ${r.reference}`;
+    playDone();refreshAfterTransfer();
+    if(r.status==="queued")veltrixDB.wallet.sendQueued(r.id).then(()=>setTimeout(refreshAfterTransfer,4000));
+    return;
   }
   pendingReq=null;
   switch(r.reason){
@@ -1184,6 +1187,7 @@ document.addEventListener("click",function(event){
    case"no_pin":show("sdSetupView");break;
    case"insufficient":wdToast("Insufficient balance. Nothing was sent.");refreshAfterTransfer();build();render();show("sdAmountView");break;
    case"invalid_amount":wdToast("That amount isn't valid. Nothing was sent.");show("sdAmountView");break;
+   case"unavailable":wdToast("Sending is switched off at the moment. Nothing was sent.");show("sdAddrView");checkAddr();break;
    case"self":case"recipient_not_found":show("sdAddrView");checkAddr();wdToast(r.reason==="self"?"You can't send to your own wallet.":"That wallet could not be found. Nothing was sent.");break;
    default:wdToast("Transfer failed. Nothing was sent.");show("sdAddrView");checkAddr()
   }
