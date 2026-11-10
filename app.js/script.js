@@ -641,7 +641,8 @@ depositCoinList.addEventListener("click",e=>{
  const addrEl=document.getElementById("depositAddress"),netEl=document.getElementById("depositNetwork"),qrTarget=document.getElementById("depositQrImage"),copyBtn=document.getElementById("copyDepositAddress");
  const showAddr=rec=>{qrTarget.replaceChildren();
   if(!rec){addrEl.textContent="Deposit address not available yet";netEl.textContent=`${symbol} deposits are not enabled yet. Please choose another asset.`;copyBtn.disabled=true;qrTarget.textContent="—";return}
-  copyBtn.disabled=false;addrEl.textContent=rec.address;netEl.textContent=`Network: ${rec.network}. Only send ${symbol} on this network. Sending anything else, or using another network, can result in permanent loss.`;
+  copyBtn.disabled=false;addrEl.textContent=rec.address;const oldNet={"TRON (TRC-20)":"TRON","BNB Smart Chain (BEP-20)":"BNB Smart Chain"},noTok={BNB:"BEP-20 tokens",TRX:"TRC-20 tokens",SOL:"SPL tokens",AVAX:"Avalanche tokens"};
+  netEl.textContent=`Network: ${oldNet[rec.network]||rec.network}. Only send ${symbol} on this network.${noTok[symbol]?` ${noTok[symbol]} are not supported and would not show in your wallet.`:""} Sending anything else, or using another network, can result in permanent loss.`;
   try{VeltrixQR.render(qrTarget,rec.address,{size:240})}catch(e){qrTarget.textContent="QR unavailable. Copy the address below."}};
  showAddr(depositAddrs[symbol]);
  if(!depositAddrs[symbol])loadDepositAddrs().then(()=>{if(String(activeDepositCoin&&activeDepositCoin.symbol).toUpperCase()===symbol)showAddr(depositAddrs[symbol])});
@@ -947,7 +948,7 @@ document.addEventListener("click",function(event){
   {symbol:"BNB",name:"BNB",price:600,amount:3,net:"BNB Smart Chain",re:/^0x[a-fA-F0-9]{40}$/,ex:"0x…"},
   {symbol:"SOL",name:"Solana",price:150,amount:20,net:"Solana",re:new RegExp("^"+B58+"{32,44}$"),ex:"Base58, 32–44 characters"},
   {symbol:"XRP",name:"XRP",price:0.55,amount:800,net:"XRP Ledger",re:new RegExp("^r"+B58+"{24,34}$"),ex:"r…"},
-  {symbol:"TRX",name:"TRON",price:0.12,amount:3000,net:"TRON (TRC-20)",re:new RegExp("^T"+B58+"{33}$"),ex:"T…"},
+  {symbol:"TRX",name:"TRON",price:0.12,amount:3000,net:"TRON",re:new RegExp("^T"+B58+"{33}$"),ex:"T…"},
   {symbol:"AVAX",name:"Avalanche",price:30,amount:50,net:"Avalanche C-Chain",re:/^0x[a-fA-F0-9]{40}$/,ex:"0x…"},
   {symbol:"SHIB",name:"Shiba Inu",price:0.00002,amount:10000000,net:"Ethereum (ERC-20)",re:/^0x[a-fA-F0-9]{40}$/,ex:"0x…"},
   {symbol:"LINK",name:"Chainlink",price:15,amount:100,net:"Ethereum (ERC-20)",re:/^0x[a-fA-F0-9]{40}$/,ex:"0x…"},
@@ -1091,7 +1092,7 @@ document.addEventListener("click",function(event){
  const pinVal=()=>pins.map(i=>i.value).join("");
  let tries=0,lockUntil=0,lockTimer=0,lastTx="",lastTo="",lastReceipt="";
  function resetPin(){pins.forEach(i=>{i.value="";i.classList.remove("filled")});$("sdPin").classList.remove("bad");$("sdPinErr").hidden=true;if($("sdProceed"))$("sdProceed").disabled=true}
- function pinCheck(){if(Date.now()<lockUntil)return;$("sdProceed").disabled=pinVal().length!==4;$("sdPinErr").hidden=true;$("sdPin").classList.remove("bad")}
+ function pinCheck(){if(Date.now()<lockUntil)return;$("sdProceed").disabled=pinVal().length!==4||!quoteReady();$("sdPinErr").hidden=true;$("sdPin").classList.remove("bad")}
  pins.forEach((b,i)=>{
   b.addEventListener("input",()=>{b.value=b.value.replace(/\D/g,"").slice(-1);b.classList.toggle("filled",!!b.value);if(b.value&&i<3)pins[i+1].focus();pinCheck()});
   b.addEventListener("keydown",e=>{if(e.key==="Backspace"&&!b.value&&i>0){pins[i-1].value="";pins[i-1].classList.remove("filled");pins[i-1].focus();pinCheck()}if(e.key==="Enter"&&pinVal().length===4)$("sdProceed").click()});
@@ -1105,13 +1106,36 @@ document.addEventListener("click",function(event){
   tick();lockTimer=setInterval(tick,1000);
  }
  function hasTwoStep(){return !!(window.veltrixTwoStep&&veltrixTwoStep.isOn())}
+ /* ---- fee quotation, shown BEFORE the PIN can be typed. Read-only: no key, no signing, no withdrawal. payout-send recalculates the fee itself after the PIN. ---- */
+ let quoteState=null,quoteSeq=0;
+ const quoteReady=()=>!!(quoteState&&quoteState.ok&&quoteState.quote.canSend);
+ const qe=t=>String(t==null?"":t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
+ const qa=l=>(l||[]).map(x=>`${qe(trim(Number(x.amount)===0?0:x.amount))} ${qe(x.symbol)}`).join(" + ");
+ function paintQuote(){
+  const box=$("sdQuote"),q=quoteState;
+  pins.forEach(i=>{i.disabled=!quoteReady()});
+  if(!q){box.innerHTML="Calculating the network fee…";return}
+  if(!q.ok){box.innerHTML=`<div class="q-bad">${qe(q.message||"The fee could not be calculated.")} Nothing was sent.</div><button type="button" id="sdQuoteRetry">Try again</button>`;$("sdQuoteRetry").onclick=loadQuote;return}
+  const z=q.quote,kind={maximum:"Maximum network fee",estimate:"Estimated network fee",exact:"Network fee"}[z.fee.kind]||"Network fee";
+  box.innerHTML=`<dl><dt>Coin</dt><dd>${qe(z.symbol)}</dd><dt>Network</dt><dd>${qe(z.network)}</dd><dt>Recipient</dt><dd>${z.recipientName?qe(z.recipientName)+"<br>":""}${qe(z.to)}${z.memo?"<br>Tag "+qe(z.memo):""}</dd>`+
+   `<dt>Amount</dt><dd>${qe(trim(z.amount))} ${qe(z.symbol)}</dd><dt>${kind}</dt><dd>${qe(trim(z.fee.amount))} ${qe(z.fee.symbol)}</dd><dt>Fee currency</dt><dd>${qe(z.fee.symbol)}</dd>`+
+   `<dt>Total deducted</dt><dd>${qa(z.total)}</dd><dt>Available after</dt><dd>${qa(z.availableAfter)}</dd></dl>`+
+   (z.reasons.length?`<div class="q-bad">${z.reasons.map(qe).join("<br>")}<br>Nothing was sent.</div><button type="button" id="sdQuoteRetry">Refresh</button>`:"")+
+   `<p class="q-note">${qe(z.fee.note)} The final fee is checked again when you confirm.</p>`+(z.warnings.length?`<p class="q-note">${z.warnings.map(qe).join(" ")}</p>`:"");
+  const r=$("sdQuoteRetry");if(r)r.onclick=loadQuote;
+ }
+ async function loadQuote(){
+  const c=cur(),seq=++quoteSeq;quoteState=null;paintQuote();pinCheck();
+  let q;try{q=await veltrixDB.wallet.quote(c.symbol,trim(num(val)),$("sdAddr").value.trim(),tagVal())}catch(e){q={ok:false,message:"The fee quotation is not available right now."}}
+  if(seq!==quoteSeq)return;quoteState=q;paintQuote();pinCheck();if(quoteReady())setTimeout(()=>pins[0].focus(),50);
+ }
  function openAuth(){
   const c=cur(),n=num(val),a=$("sdAddr").value.trim();
   $("sdAuthAmt").textContent=`${val} ${c.symbol}`;$("sdAuthTo").textContent=`≈ ${usd(n*c.price)} · to ${recip&&recip.found&&!recip.self?(recip.name||"Veltrix user")+" ("+shortAddr(a)+")":shortAddr(a)}`;
-  resetPin();show("sdAuthView");if(Date.now()<lockUntil)startLock();setTimeout(()=>pins[0].focus(),150);
+  resetPin();show("sdAuthView");loadQuote();if(Date.now()<lockUntil)startLock();
  }
  const shortAddr=a=>a.length>22?a.slice(0,10)+"…"+a.slice(-8):a;
- $("sdAuthBack").addEventListener("click",()=>{resetPin();show("sdAddrView")});
+ $("sdAuthBack").addEventListener("click",()=>{quoteSeq++;quoteState=null;resetPin();show("sdAddrView")});
  $("sdSetupBack").addEventListener("click",()=>show("sdAddrView"));
  $("sdSetupLater").addEventListener("click",()=>show("sdAddrView"));
  $("sdSetupGo").addEventListener("click",()=>{close();setTimeout(()=>{if(window.veltrixTwoStep)veltrixTwoStep.setup()},250)});
@@ -1121,7 +1145,7 @@ document.addEventListener("click",function(event){
   openAuth();
  });
  $("sdProceed").addEventListener("click",async()=>{
-  if(Date.now()<lockUntil)return;const pin=pinVal();if(pin.length!==4)return;
+  if(Date.now()<lockUntil)return;const pin=pinVal();if(pin.length!==4||!quoteReady())return;
   const btn=$("sdProceed");btn.disabled=true;btn.textContent="Verifying…";
   let ok=false;try{ok=await veltrixTwoStep.verify(pin)}catch{}
   btn.textContent="Proceed";

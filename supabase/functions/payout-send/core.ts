@@ -43,6 +43,8 @@ export interface Chain {
   detail?(hash: string, symbol: string, meta?: string | null): Promise<Detail | null>;
   /** why a payout counts as failed: \"failed\" (mined as failed) | \"expired\" (can never be mined any more) | \"replaced\" (its nonce was used by another transaction) */
   failKind?(hash: string): string;
+  /** AFTER receipt() said "failed" because the transaction was MINED and failed: the network fee it still cost, and where it was mined. null = not readable right now. */
+  failedDetail?(hash: string, symbol: string, meta?: string | null): Promise<Detail | null>;
 }
 export type Detail = { confirmations: number; block?: number; blockHash?: string; fee?: string; feeSymbol?: string };
 export interface Db { rpc(name: string, args: Record<string, unknown>): Promise<any>; }
@@ -65,6 +67,23 @@ async function settle(db: Db, chain: Chain, id: string, hash: string, symbol: st
 }
 const failArgs = (chain: Chain, hash: string) => ({ p_kind: chain.failKind ? chain.failKind(hash) : "failed" });
 const failReason = (chain: Chain, hash: string) => ({ failed: "The transaction failed on the network", expired: "The transaction expired before it was mined and can never be mined", replaced: "The transaction was dropped or replaced by another transaction" } as Record<string, string>)[chain.failKind ? chain.failKind(hash) : "failed"] ?? "The transaction failed on the network";
+
+
+/** A transaction that was MINED but failed still cost a real network fee. Read it, and settle the failure WITH the fee. Expired / replaced transactions were never
+ *  mined, so they carry no fee and keep the plain payout_fail(). If the fee cannot be read right now the failure is still settled (the held amount returns) and the fee
+ *  is filled in by reconcile() on a later run: it is never silently dropped. */
+async function failWithFee(db: Db, chain: Chain, id: string, hash: string, symbol: string, meta: string | null, log: Log): Promise<void> {
+  const kind = chain.failKind ? chain.failKind(hash) : "failed";
+  if (kind !== "failed" || !chain.failedDetail) { await db.rpc("payout_fail", { p_id: id, p_reason: failReason(chain, hash), p_mined_failed: true, ...failArgs(chain, hash) }); return; }
+  let d: Detail | null = null;
+  try { d = await chain.failedDetail(hash, symbol, meta); } catch (_) { d = null; }
+  try { await db.rpc("payout_fail_mined", { p_id: id, p_reason: failReason(chain, hash), p_kind: kind, p_fee: d?.fee ?? null, p_fee_symbol: d?.feeSymbol ?? null, p_block: d?.block ?? null, p_block_hash: d?.blockHash ?? null }); }
+  catch (e) {                                                                                       // phase 39 not installed: the user's money must still come back
+    log(`payout_fail_mined unavailable (${String((e as Error)?.message || e).slice(0, 80)}); settling without the fee`);
+    await db.rpc("payout_fail", { p_id: id, p_reason: failReason(chain, hash), p_mined_failed: true, ...failArgs(chain, hash) }); return;
+  }
+  log(d?.fee ? `${id} failed on the network; fee ${d.fee} ${d.feeSymbol} recorded` : `${id} failed on the network; fee not readable yet, will be filled in later`);
+}
 
 export async function processOne(db: Db, chain: Chain, id: string, log: Log, waitMs = 45000): Promise<string> {
   const row: Row | null = await db.rpc("payout_claim", { p_id: id });
@@ -100,9 +119,22 @@ export async function processOne(db: Db, chain: Chain, id: string, log: Log, wai
     let st: MinedState = "none";
     try { st = await chain.receipt(prepared.hash, row.symbol, prepared.meta ?? null); } catch (_) { /* keep waiting */ }
     if (st === "success") { const r = await settle(db, chain, id, prepared.hash, row.symbol, prepared.meta ?? null, log); if (r === "completed") { log(`${id} completed ${prepared.hash}`); return "completed"; } }
-    if (st === "failed")  { await db.rpc("payout_fail", { p_id: id, p_reason: failReason(chain, prepared.hash), p_mined_failed: true, ...failArgs(chain, prepared.hash) }); log(`${id} FAILED on the network, returned to user`); return "refunded"; }
+    if (st === "failed")  { await failWithFee(db, chain, id, prepared.hash, row.symbol, prepared.meta ?? null, log); log(`${id} FAILED on the network, returned to user`); return "refunded"; }
     if (Date.now() - t0 > waitMs) { log(`${id} sent, waiting for confirmation (${prepared.hash})`); return "sent_unconfirmed"; }
     await chain.sleep(3000);
+  }
+}
+
+/** failed sends whose fee could not be read when they were settled: read it now */
+async function backfillFailedFees(db: Db, chain: Chain, log: Log): Promise<void> {
+  if (!chain.failedDetail) return;
+  let list: { id: string; symbol: string; tx_hash: string; payout_meta: string | null }[] = [];
+  try { list = (await db.rpc("payout_failed_fee_missing", {})) || []; } catch (_) { return; }       // phase 39 not installed yet: nothing to do
+  for (const r of list) {
+    try {
+      const d = await chain.failedDetail(r.tx_hash, r.symbol, r.payout_meta);
+      if (d?.fee && await db.rpc("payout_set_failed_fee", { p_id: r.id, p_fee: d.fee, p_fee_symbol: d.feeSymbol ?? null, p_block: d.block ?? null, p_block_hash: d.blockHash ?? null })) log(`${r.id} failed-transaction fee ${d.fee} ${d.feeSymbol} recorded`);
+    } catch (_) { /* tried again next run */ }
   }
 }
 
@@ -111,12 +143,13 @@ export async function reconcile(db: Db, chain: Chain, log: Log): Promise<Record<
   await db.rpc("payout_release_stale", {});
   const rows: { id: string; symbol: string; tx_hash: string; payout_meta: string | null; processing_at: string | null; created_at: string }[] = await db.rpc("payout_list_processing", {});
   const open: Record<string, number> = {};
+  await backfillFailedFees(db, chain, log);
   const addOpen = (symbol: string) => { const l = chain.lane(symbol); open[l] = (open[l] || 0) + 1; };
   for (const r of rows) {
     let st: MinedState = "none";
     try { st = await chain.receipt(r.tx_hash, r.symbol, r.payout_meta); } catch (_) { addOpen(r.symbol); continue; }
     if (st === "success") { const o = await settle(db, chain, r.id, r.tx_hash, r.symbol, r.payout_meta, log); if (o === "completed") log(`${r.id} confirmed ${r.tx_hash}`); else addOpen(r.symbol); }
-    else if (st === "failed") { await db.rpc("payout_fail", { p_id: r.id, p_reason: failReason(chain, r.tx_hash), p_mined_failed: true, ...failArgs(chain, r.tx_hash) }); log(`${r.id} failed, expired or replaced on the network, returned to user`); }
+    else if (st === "failed") { await failWithFee(db, chain, r.id, r.tx_hash, r.symbol, r.payout_meta, log); log(`${r.id} failed, expired or replaced on the network, returned to user`); }
     else {
       addOpen(r.symbol);
       const since = Date.parse(r.processing_at || r.created_at);

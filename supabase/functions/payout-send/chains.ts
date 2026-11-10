@@ -6,6 +6,7 @@
 //   broadcast() -> hand it to the network; throws ChainError("definite") ONLY if the network explicitly refused it, anything else is "unclear"
 //   receipt()   -> "success" (mined ok) | "failed" (mined as failed, or PROVABLY expired and can never be mined) | "none" (not yet)
 import { ChainError, type Detail, type MinedState, type Prepared, type Row } from "./core.ts";
+import { checkSol, checkTron, checkUtxoApi, checkXrp, GENESIS, type Health, type NNet } from "../_shared/netcheck.ts";
 
 export interface Prims {
   sha256(b: Uint8Array): Uint8Array;
@@ -123,6 +124,20 @@ export function scriptForAddress(sym: "BTC" | "LTC", addr: string, P: Prims): Ui
   if (v === p2pkh) return cat(Uint8Array.of(0x76, 0xa9, 0x14), h, Uint8Array.of(0x88, 0xac));
   if (p2sh.includes(v)) return cat(Uint8Array.of(0xa9, 0x14), h, Uint8Array.of(0x87));
   throw new Error("wrong network");
+}
+
+/** Coin selection + fee for a P2WPKH spend. ONE implementation, used by prepare() (to sign) AND by the fee quotation (payout-quote), so the number shown
+ *  before the PIN is computed exactly the way the signer computes it. `utxos` must be sorted largest first. */
+export function planUtxoSpend(utxos: Utxo[], value: bigint, destScriptLen: number, rate: number, maxInputs = 60): { pick: Utxo[]; sum: bigint; fee: bigint; changeV: bigint; enough: boolean; minerFee: bigint } {
+  const outSize = (len: number) => 8 + 1 + len, vsize = (nIn: number, withChange: boolean) => 11 + 69 * nIn + outSize(destScriptLen) + (withChange ? outSize(22) : 0);
+  const pick: Utxo[] = []; let sum = 0n, fee = 0n;
+  for (const u of utxos) {
+    if (pick.length >= maxInputs) break;
+    pick.push(u); sum += u.value; fee = BigInt(Math.ceil(vsize(pick.length, true) * rate));
+    if (sum >= value + fee) break;
+  }
+  const changeV = sum - value - fee;
+  return { pick, sum, fee, changeV, enough: sum >= value + fee, minerFee: sum - value - (changeV >= 546n ? changeV : 0n) };
 }
 
 const DEFAULT_SEQ = 0xfffffffd;      // signals "replaceable", so a stuck payout could be fee-bumped by hand
@@ -256,6 +271,36 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
     TRX: env("API_TRX") || "https://api.trongrid.io",
   };
   const tronHeaders: Record<string, string> = env("TRONGRID_API_KEY") ? { "TRON-PRO-API-KEY": env("TRONGRID_API_KEY") } : {};
+
+  // ---- NETWORK IDENTITY, checked by the SIGNER ITSELF (phase 40). The quote and the deposit watcher also check networks, but they are other functions with other
+  // runs: this one proves, on the very endpoint it is about to read coins from, sign for and broadcast to, that the endpoint serves the intended MAINNET.
+  //   BTC / LTC  genesis block hash of the API   ·  SOL  getGenesisHash (+ getHealth)   ·  XRP  server_info network_id + a fresh validated ledger   ·  TRX  block 0 id
+  // It runs (1) before anything is read or signed and (2) again immediately before the broadcast. Nothing is cached: every send proves it again.
+  // The expected values default to MAINNET and follow the same GENESIS_* / NETWORK_ID_XRP secrets the watcher and the quote use (for a TEST network, set them there too).
+  const expectedGenesis = { BTC: env("GENESIS_BTC") || GENESIS.BTC, LTC: env("GENESIS_LTC") || GENESIS.LTC, SOL: env("GENESIS_SOL") || GENESIS.SOL, TRX: env("GENESIS_TRX") || GENESIS.TRX };
+  const expectedXrpNetworkId = Number(env("NETWORK_ID_XRP") || 0);
+  const idNet: NNet = {
+    get: async (u) => { const r = await http(u, {}, 10000), t = await r.text(); if (!r.ok) throw new Error(`${r.status} ${t.slice(0, 120)}`); try { return JSON.parse(t); } catch { return t; } },   // /block-height/0 answers bare text
+    rpc: (u, method, params) => rpc(u, method, params),
+    post: (u, body) => jpost(u, body, tronHeaders),
+  };
+  async function identity(sym: string): Promise<Health> {
+    switch (sym) {
+      case "BTC": case "LTC": return await checkUtxoApi(idNet, sym, API[sym], expectedGenesis[sym]);
+      case "SOL": return await checkSol(idNet, API.SOL, expectedGenesis.SOL);
+      case "XRP": return await checkXrp(idNet, API.XRP, expectedXrpNetworkId);
+      case "TRX": return await checkTron(idNet, API.TRX, expectedGenesis.TRX);
+    }
+    return { ok: false, error: "no network identity check exists for " + sym, detail: {} };
+  }
+  /** `retry` before signing (nothing signed; the held amount stays held and the payout is retried once the endpoint is fixed) · `definite` at the broadcast step (nothing was sent: the hold is released) */
+  async function requireNetwork(sym: string, stage: "sign" | "broadcast"): Promise<void> {
+    let h: Health;
+    try { h = await identity(sym); } catch (e) { h = { ok: false, error: `Could not verify the ${sym} network: ${errText(e)}`, detail: {} }; }
+    if (h.ok) return;
+    if (stage === "sign") throw new ChainError("retry", `Network identity check failed; nothing was signed. ${h.error}`);
+    throw new ChainError("definite", `Network identity check failed just before sending; nothing was sent. ${h.error}`);
+  }
   // the keys of the user who is sending (derived per call, never cached between users)
   const K = (row: Row): Treasury => { if (!row.phrase) throw new ChainError("retry", "The sender's wallet key is not available"); return treasuryKeys(P, row.phrase); };
   const fmt = (v: bigint, dec: number) => { const s = v.toString().padStart(dec + 1, "0"); const i = s.slice(0, s.length - dec), f = s.slice(s.length - dec).replace(/0+$/, ""); return i + (f ? "." + f : ""); };
@@ -282,19 +327,12 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
     // coins: confirmed outputs of the sender's own address only
     let all: any[]; try { all = await jget(`${base}/address/${from}/utxo`); } catch (e) { throw new ChainError("retry", "Could not read your wallet's coins: " + errText(e)); }
     const utxos = all.filter((u) => u?.status?.confirmed && /^[0-9a-f]{64}$/.test(u.txid)).map((u) => ({ txid: u.txid as string, vout: Number(u.vout), value: BigInt(u.value) })).sort((a, b) => (a.value < b.value ? 1 : -1));
-    const outSize = (s: Uint8Array) => 8 + 1 + s.length, change = p2wpkhScript(h160);
-    const vsize = (nIn: number, withChange: boolean) => 11 + 69 * nIn + outSize(script) + (withChange ? outSize(change) : 0);
-    const pick: Utxo[] = []; let sum = 0n, fee = 0n;
-    for (const u of utxos) {
-      if (pick.length >= 60) break;
-      pick.push(u); sum += u.value; fee = BigInt(Math.ceil(vsize(pick.length, true) * rate));
-      if (sum >= value + fee) break;
-    }
-    if (sum < value + fee) throw new ChainError("definite", `Your wallet does not hold enough ${sym} to cover the amount plus the network fee (about ${fmt(fee, 8)} ${sym}). Nothing was sent.`);
-    const changeV = sum - value - fee, outs: TxOut[] = [{ script, value }];
+    const change = p2wpkhScript(h160), plan = planUtxoSpend(utxos, value, script.length, rate), { pick, sum, fee, changeV } = plan;
+    if (!plan.enough) throw new ChainError("definite", `Your wallet does not hold enough ${sym} to cover the amount plus the network fee (about ${fmt(fee, 8)} ${sym}). Nothing was sent.`);
+    const outs: TxOut[] = [{ script, value }];
     if (changeV >= 546n) outs.push({ script: change, value: changeV });      // smaller change is not worth an output: it goes to the miners
     let tx; try { tx = buildP2wpkh(P, priv, pick, outs); } catch (e) { throw new ChainError("retry", "Could not sign: " + errText(e)); }
-    return { hash: tx.txid, raw: hex(tx.raw), symbol: sym, from, fee: fmt(sum - value - (changeV >= 546n ? changeV : 0n), 8), feeSymbol: sym };
+    return { hash: tx.txid, raw: hex(tx.raw), symbol: sym, from, fee: fmt(plan.minerFee, 8), feeSymbol: sym };
   }
   async function broadcastUtxo(p: Prepared, sym: "BTC" | "LTC") {
     const base = API[sym];
@@ -466,6 +504,20 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
     if (!i || !i.blockNumber) return null; return { confirmations: 1, block: Number(i.blockNumber), fee: fmt(BigInt(i.fee || 0), 6), feeSymbol: "TRX" };   // bandwidth + energy burned, in TRX
   }
 
+  // ---- fee of a transaction that was MINED BUT FAILED (the network still charged it). Never called for expired / replaced ones: those were never mined.
+  async function failedSol(hash: string): Promise<Detail | null> {
+    const t = await rpc(API.SOL, "getTransaction", [hash, { encoding: "json", maxSupportedTransactionVersion: 0, commitment: "finalized" }]);
+    if (!t?.meta) return null; return { confirmations: 1, block: Number(t.slot), fee: fmt(BigInt(t.meta.fee), 9), feeSymbol: "SOL" };
+  }
+  async function failedXrp(hash: string): Promise<Detail | null> {
+    const t = await xrp("tx", { transaction: hash, binary: false });
+    if (t.error || !t.validated) return null; return { confirmations: 1, block: Number(t.ledger_index), fee: fmt(BigInt(t.Fee ?? t.tx_json?.Fee), 6), feeSymbol: "XRP" };       // a tec result still burns the fee
+  }
+  async function failedTrx(hash: string): Promise<Detail | null> {
+    const i = await trx("/walletsolidity/gettransactioninfobyid", { value: hash });
+    if (!i || !i.blockNumber) return null; return { confirmations: 1, block: Number(i.blockNumber), fee: fmt(BigInt(i.fee || 0), 6), feeSymbol: "TRX" };
+  }
+
   return {
     failKind: (hash: string) => failKinds.get(hash) ?? "failed",
     async detail(hash: string, symbol: string): Promise<Detail | null> {
@@ -478,11 +530,20 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
       }
       return null;
     },
+    async failedDetail(hash: string, symbol: string): Promise<Detail | null> {
+      switch (String(symbol).toUpperCase()) {
+        case "SOL": return await failedSol(hash);
+        case "XRP": return await failedXrp(hash);
+        case "TRX": return await failedTrx(hash);
+      }
+      return null;                                                          // BTC / LTC transactions cannot be mined as "failed"
+    },
     handles: (sym: string) => OTHER_COINS.includes(String(sym).toUpperCase()),
     lane: (sym: string) => String(sym).toUpperCase(),
     waitMs: (sym: string) => ({ BTC: 0, LTC: 0, TRX: 0, SOL: 25000, XRP: 25000 } as Record<string, number>)[String(sym).toUpperCase()] ?? 0,
     async prepare(row: Row): Promise<Prepared> {
       const sym = String(row.symbol).toUpperCase();
+      if (OTHER_COINS.includes(sym)) await requireNetwork(sym, "sign");           // BEFORE any coin is read and BEFORE any key is derived
       switch (sym) {
         case "BTC": case "LTC": return await prepareUtxo({ ...row, symbol: sym }, sym);
         case "SOL": return await prepareSol({ ...row, symbol: sym });
@@ -492,6 +553,7 @@ export function makeOtherChains(env: (k: string) => string, P: Prims) {
       throw new ChainError("definite", "This coin can't be sent automatically");
     },
     async broadcast(p: Prepared) {
+      if (OTHER_COINS.includes(p.symbol)) await requireNetwork(p.symbol, "broadcast");   // again, immediately before the transaction leaves
       switch (p.symbol) {
         case "BTC": case "LTC": return await broadcastUtxo(p, p.symbol);
         case "SOL": return await broadcastSol(p);

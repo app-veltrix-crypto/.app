@@ -263,6 +263,11 @@ const wallet={
      status "queued" = being sent automatically, "pending" = waiting for the admin. Same request id = never held twice. */
   async withdraw(symbol,amount,address,pin,requestId,memo){const args={p_symbol:symbol,p_amount:String(amount),p_address:address,p_pin:String(pin),p_request:requestId};if(memo)args.p_memo=String(memo);const {data,error}=await sb.rpc("wallet_withdraw",args);if(error)throw error;return data||{ok:false,reason:"error"}},
   /* ask the payout function to send a queued withdrawal now (it also runs on a schedule, so a failure here is harmless) */
+  /* fee quotation BEFORE the PIN: read-only (no key, no signing, no withdrawal). Returns {ok:true,quote} or {ok:false,reason,message}. The signing backend recalculates the fee itself. */
+  async quote(symbol,amount,address,memo){
+    const {data,error}=await sb.functions.invoke("payout-quote",{body:{symbol,amount:String(amount),address,memo:memo||null}});
+    if(error){let m="";try{const j=await error.context.json();m=j&&j.message||""}catch{}return{ok:false,reason:"unavailable",message:m||"The fee quotation is not available right now."}}
+    return data||{ok:false,reason:"unavailable",message:"The fee quotation is not available right now."}},
   async sendQueued(id){try{await sb.functions.invoke("payout-send",{body:{id}})}catch{}},
   /* the signed-in user's own recovery phrase (Settings → Security → View passwords) */
   async myPhrase(){const {data,error}=await sb.rpc("wallet_my_phrase");if(error)throw error;return data||{ok:false,reason:"error"}},

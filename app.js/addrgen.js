@@ -50,13 +50,13 @@ async function deriveAll(phrase){
  let p;
  p="m/44'/60'/0'/0/0";const evm=root.derivePath(p).address;
  add(["ETH","USDT","USDC","SHIB","LINK"],"Ethereum (ERC-20)",evm,p);
- add(["BNB"],"BNB Smart Chain (BEP-20)",evm,p);
+ add(["BNB"],"BNB Smart Chain",evm,p);
  add(["AVAX"],"Avalanche C-Chain",evm,p);
  p="m/84'/0'/0'/0/0";add(["BTC"],"Bitcoin (native SegWit, bc1…)",segwitV0("bc",hash160(pub(p))),p);
  p="m/84'/2'/0'/0/0";add(["LTC"],"Litecoin (native SegWit, ltc1…)",segwitV0("ltc",hash160(pub(p))),p);
  p="m/44'/144'/0'/0/0";add(["XRP"],"XRP Ledger",b58check(cat(Uint8Array.of(0x00),hash160(pub(p))),B58_XRP),p);
  p="m/44'/195'/0'/0/0";{const unc=u8(ethers.SigningKey.computePublicKey(pub(p),false)).slice(1);
-  add(["TRX"],"TRON (TRC-20)",b58check(cat(Uint8Array.of(0x41),keccak(unc).slice(12))),p)}
+  add(["TRX"],"TRON",b58check(cat(Uint8Array.of(0x41),keccak(unc).slice(12))),p)}
  p="m/44'/501'/0'/0'";add(["SOL"],"Solana",b58(await edPublic(await slip10(seed,[44,501,0,0])),B58),p);
  return {rows,unsupported:[]};
 }

@@ -110,31 +110,43 @@ function ensure(){
   }).finally(()=>{busy=null});
   return busy;
 }
-/* ================= 2. real deposit watcher =================
-   Every ~20 s the app asks the deposit-watch edge function to read the REAL on-chain balance of this user's own
-   addresses. The server adds exactly what arrived (assets, history, notification); we only refresh the screens. */
-let watchT=0,watchBusy=false,watchWarned=false;
+/* ================= 2. wallet status watcher =================
+   The scheduled backend watcher scans the blockchains. This app does NOT: every ~20 s it only asks deposit-watch for the user's OWN current
+   state (balances, deposits, sends, network health), which the function reads from the database. Response format: watchcontract.js (version 2).
+   When anything the user can see changed (a new deposit, a status / confirmation change, a balance) the wallet and the history are refreshed. */
+let watchT=0,watchBusy=false,lastWatchSig="";const warned=new Set();
+function watchWarn(list){
+  /* each distinct problem is shown once; it is shown again if it clears and comes back */
+  const now=new Set(list.map(x=>x.key));
+  list.forEach(x=>{if(!warned.has(x.key)){warned.add(x.key);try{toast(x.message)}catch{}}});
+  [...warned].forEach(k=>{if(!now.has(k))warned.delete(k)});
+}
 async function watchOnce(){
   if(watchBusy||document.hidden)return;
   const d=db();if(!d||!d.get||!d.get()||!done)return;
+  const W=window.veltrixWatch;if(!W)return;
   watchBusy=true;
   try{
     const {data,error}=await d.client.functions.invoke("deposit-watch",{body:{}});
     if(error)throw error;
-    /* every provider failed: say so instead of silently showing numbers that may be out of date */
-    if(data&&data.checked>0&&data.failed>=data.checked){if(!watchWarned){watchWarned=true;toast("Can't reach the blockchain right now. Balances may be out of date.")}}else watchWarned=false;
-    if(data&&data.credited>0){
-      const acc=await d.refreshWallet();
+    const p=W.parse(data);
+    if(!p.ok){watchWarn([{key:"bad|"+p.error,message:p.error}]);return}
+    window.veltrixWallet.lastStatus=p;
+    watchWarn(W.problems(p,[]));
+    const sig=W.signature(p);
+    if(lastWatchSig&&sig!==lastWatchSig){
+      const acc=await d.refreshWallet();                    /* the real balance, from the database the scanner mirrors into */
       if(acc&&window.populateDashboard)populateDashboard(acc);
-      if(window.veltrixActivity){try{veltrixActivity.refreshTx()}catch{}try{veltrixActivity.reload()}catch{}}
+      if(window.veltrixActivity){try{veltrixActivity.refreshTx()}catch{}try{veltrixActivity.reload()}catch{}}   /* history: pending / confirming n of m / completed */
     }
-  }catch(e){console.warn("[wallet] deposit check failed:",e&&e.message)}
+    lastWatchSig=sig;
+  }catch(e){console.warn("[wallet] status check failed:",e&&e.message);watchWarn([{key:"net|status",message:"Can't reach the balance service right now. Balances may be out of date."}])}
   finally{watchBusy=false}
 }
 function startWatch(){clearInterval(watchT);watchT=setInterval(watchOnce,20000);setTimeout(watchOnce,2500)}
 window.veltrixWallet={waitingForPassword:()=>blockedForPw,ensure,watchNow:watchOnce,setImport,stashPending,unlockPending,derive,seal};
 window.addEventListener("veltrix-ready",()=>{done=false;retries=0;setTimeout(ensure,1200)});
-window.addEventListener("veltrix-revoked",()=>{done=false;lastSig="";clearInterval(watchT)});
+window.addEventListener("veltrix-revoked",()=>{done=false;lastSig="";lastWatchSig="";warned.clear();clearInterval(watchT)});
 /* Balance safety net: when the app comes back to the front (and once a minute while open) re-read the balances and redraw
    ONLY if something changed, so money received from another user always shows up even if a live update was missed. */
 let lastSig="";

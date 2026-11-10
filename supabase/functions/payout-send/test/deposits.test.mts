@@ -89,13 +89,13 @@ const mkChain = (confs: number, fail?: string): Chain => ({
   async broadcast() {}, async receipt() { return fail ? "failed" : "success"; }, lane: () => "ETH", sleep: async () => {}, waitMs: () => 0,
   async detail() { return { confirmations: confs, block: 7, blockHash: "0xb", fee: "0.00042", feeSymbol: "ETH" }; }, failKind: () => fail ?? "failed" });
 await ok("core: 1 of 12 confirmations => NOT completed (stays Confirming), the ACTUAL fee is stored; 12 of 12 => completed", async () => {
-  let f = fakeDb(12); let r = await run(f.db, mkChain(1), [{ id: "t1", symbol: "ETH" }], () => {}, 1);
+  let f = fakeDb(12); let r = await run(f.db, mkChain(1), [{ id: "t1", symbol: "ETH" }], () => {});
   assert.equal(r.t1, "sent_unconfirmed"); assert.ok(!f.calls.some((c) => c[0] === "payout_complete")); assert.equal(f.calls.find((c) => c[0] === "payout_set_progress")![1].p_fee, "0.00042");
   assert.ok(f.calls.some((c) => c[0] === "payout_set_broadcast"), "broadcast moment recorded only after the network accepted it");
-  f = fakeDb(12); r = await run(f.db, mkChain(12), [{ id: "t2", symbol: "ETH" }], () => {}, 1); assert.equal(r.t2, "completed"); assert.ok(f.calls.some((c) => c[0] === "payout_complete"));
+  f = fakeDb(12); r = await run(f.db, mkChain(12), [{ id: "t2", symbol: "ETH" }], () => {}); assert.equal(r.t2, "completed"); assert.ok(f.calls.some((c) => c[0] === "payout_complete"));
 });
 await ok("core: a replaced/expired transaction is failed with its KIND and a truthful reason", async () => {
-  const f = fakeDb(12); const r = await run(f.db, mkChain(0, "replaced"), [{ id: "t3", symbol: "ETH" }], () => {}, 1); assert.equal(r.t3, "refunded");
+  const f = fakeDb(12); const r = await run(f.db, mkChain(0, "replaced"), [{ id: "t3", symbol: "ETH" }], () => {}); assert.equal(r.t3, "refunded");
   const c = f.calls.find((x) => x[0] === "payout_fail")![1]; assert.equal(c.p_kind, "replaced"); assert.match(c.p_reason, /dropped or replaced/);
 });
 

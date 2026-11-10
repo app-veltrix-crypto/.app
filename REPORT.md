@@ -71,3 +71,6 @@ update app_flags set enabled = true where key = 'auto_withdraw';   -- kill switc
 
 ## K. Still requires your real-wallet testing
 Everything on-chain: each cell of the matrix in TESTING-REAL-MONEY.md §4, plus: EVM send path, ERC-20 sends with real gas, XRP tag handling, SOL first-transfer rent rule, a deliberate stuck/replaced transaction, and a reorg-sensitive case (cannot be forced; watch `reorg_count`).
+
+## L. Phase 39 update (correction round)
+Supersedes F.1 (a pre-PIN quote now exists), F.3 (internal transfers: detected when a trace RPC is configured), F.5 and F.6 (paged BTC/LTC/SOL/XRP/TRX sweeps). Details, limits, deployment order and what remains untested: **PHASE39.md**. Still true: nothing has run on a real chain; the SQL has not been applied to your database.

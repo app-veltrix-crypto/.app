@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { nodePrims as P, ecdsaVerify } from "./nodeprims.mts";
 import * as C from "../chains.ts";
 import { ChainError, run, type Chain, type Db } from "../core.ts";
+import { identityAnswer } from "./identity-fixtures.mts";
 
 let n = 0; const ok = (name: string, f: () => void | Promise<void>) => Promise.resolve().then(f).then(() => { n++; console.log("  ok  " + name); }, (e) => { console.log("FAIL  " + name + "\n      " + (e?.message || e)); process.exitCode = 1; });
 const H = C.hex, U = C.unhex;
@@ -93,8 +94,8 @@ await ok("Bitcoin: end-to-end prepare() with a fake network; the signed transact
   const addrs = await C.treasuryAddresses(P, ABANDON);
   const realFetch = globalThis.fetch;
   const txidA = "aa".repeat(32), txidB = "bb".repeat(32);
-  globalThis.fetch = (async (url: string) => {
-    const u = String(url), js = (o: unknown) => new Response(JSON.stringify(o), { status: 200 });
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    const u = String(url), js = (o: unknown) => new Response(JSON.stringify(o), { status: 200 }), id = identityAnswer(u, init); if (id) return id;
     if (u.endsWith("/v1/fees/recommended")) return js({ halfHourFee: 12 });
     if (u.endsWith(`/address/${addrs.BTC}/utxo`)) return js([{ txid: txidA, vout: 1, value: 30000, status: { confirmed: true } }, { txid: txidB, vout: 0, value: 90000, status: { confirmed: true } }, { txid: "cc".repeat(32), vout: 0, value: 999999, status: { confirmed: false } }]);
     return new Response("nope", { status: 404 });
@@ -135,8 +136,8 @@ await ok("NO TREASURY: each user signs with their own key, from their own addres
   const addrA = await C.treasuryAddresses(P, A), addrB = await C.treasuryAddresses(P, B);
   assert.notEqual(addrA.BTC, addrB.BTC);
   const realFetch = globalThis.fetch;
-  globalThis.fetch = (async (url: string) => {
-    const u = String(url), js = (o: unknown) => new Response(JSON.stringify(o), { status: 200 });
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    const u = String(url), js = (o: unknown) => new Response(JSON.stringify(o), { status: 200 }), id = identityAnswer(u, init); if (id) return id;
     if (u.endsWith("/v1/fees/recommended")) return js({ halfHourFee: 10 });
     if (u.endsWith("/utxo")) return js([{ txid: "dd".repeat(32), vout: 0, value: 200000, status: { confirmed: true } }]);
     return new Response("nope", { status: 404 });
@@ -148,7 +149,7 @@ await ok("NO TREASURY: each user signs with their own key, from their own addres
     assert.equal((await chains.prepare({ ...row, phrase: B })).from, addrB.BTC);
     await assert.rejects(chains.prepare(row), (e: ChainError) => e.kind === "retry" && /key is not available/.test(e.message));   // no phrase, no signature
     // an unconfirmed-only or empty wallet is refused BEFORE anything is signed or sent, and the user is told why
-    globalThis.fetch = (async (url: string) => String(url).endsWith("/v1/fees/recommended") ? new Response(JSON.stringify({ halfHourFee: 10 }), { status: 200 }) : new Response("[]", { status: 200 })) as typeof fetch;
+    globalThis.fetch = (async (url: string, init?: RequestInit) => identityAnswer(String(url), init) ?? (String(url).endsWith("/v1/fees/recommended") ? new Response(JSON.stringify({ halfHourFee: 10 }), { status: 200 }) : new Response("[]", { status: 200 }))) as typeof fetch;
     await assert.rejects(chains.prepare({ ...row, phrase: A }), (e: ChainError) => e.kind === "definite" && /does not hold enough BTC/.test(e.message));
   } finally { globalThis.fetch = realFetch; }
 });

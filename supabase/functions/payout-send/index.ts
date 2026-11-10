@@ -146,6 +146,12 @@ const evm = {
     const r = await provider(net).getTransactionReceipt(hash); if (!r || r.status !== 1) return null;
     return { confirmations: await r.confirmations(), block: r.blockNumber, blockHash: r.blockHash, fee: ethers.formatUnits(r.fee, 18), feeSymbol: net.key };   // gasUsed x effectiveGasPrice
   },
+  /** a transaction that was mined with status 0 still paid gasUsed x effectiveGasPrice */
+  async failedDetail(hash: string, symbol: string): Promise<Detail | null> {
+    const net = netFor(String(symbol).toUpperCase()); if (!net) return null;
+    const r = await provider(net).getTransactionReceipt(hash); if (!r || r.status === 1) return null;
+    return { confirmations: await r.confirmations(), block: r.blockNumber, blockHash: r.blockHash, fee: ethers.formatUnits(r.fee, 18), feeSymbol: net.key };
+  },
 };
 
 // every coin goes to the chain code that owns it; EVM payouts share one lane per network, each other coin has its own lane.
@@ -167,6 +173,7 @@ function makeChain(getKey: (row: Row) => Promise<{ phrase: string; address: stri
     receipt: (hash, symbol, meta) => other.handles(symbol) ? other.receipt(hash, symbol, meta) : evm.receipt(hash, symbol, meta),
     detail: (hash, symbol, meta) => other.handles(symbol) ? other.detail(hash, symbol) : evm.detail(hash, symbol),
     failKind: (hash) => evmKinds.get(hash) ?? other.failKind(hash),
+    failedDetail: (hash, symbol, meta) => other.handles(symbol) ? other.failedDetail(hash, symbol) : evm.failedDetail(hash, symbol),
     lane: (symbol) => other.handles(symbol) ? other.lane(symbol) : (netFor(String(symbol).toUpperCase())?.key ?? "OTHER"),
     waitMs: (symbol) => other.handles(symbol) ? other.waitMs(symbol) : 45000,
     sleep: (ms: number) => new Promise((r) => setTimeout(r, ms)),

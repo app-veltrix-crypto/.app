@@ -55,3 +55,12 @@ Completion now needs the confirmation policy (`chain_policy`), the ACTUAL fee is
 Only one case needs a person: it is UNCLEAR whether a transaction was broadcast. Check its hash on the explorer, then (as admin):
 - it arrived: `select admin_resolve_payout('<transaction id>', 'complete', '<tx hash>');`
 - it never left: `select admin_resolve_payout('<transaction id>', 'refund', null, 'Could not be sent');`
+
+## Phase 39 additions
+- Mined-but-failed sends: `failedDetail` (SOL/XRP/TRX/EVM) reads the fee; `core.ts` settles through `payout_fail_mined` (falls back to `payout_fail` if phase 39 is absent); `reconcile()` back-fills fees that could not be read.
+- `planUtxoSpend` is shared by `prepare()` and the `payout-quote` function, so the quoted BTC/LTC fee is the fee that is signed.
+- Offline tests: `test/failed-fee.test.mts` (plus the existing two). Run all with `bash supabase/functions/run-tests.sh`.
+
+
+## Network identity (v4)
+For BTC, LTC, SOL, XRP and TRX the signer proves the network itself: before any coin is read or key derived (`retry`: nothing signed) and again right before broadcast (`definite`: nothing sent), on the same endpoint it will use. Genesis hash (BTC/LTC/SOL/TRX) or network id + fresh validated ledger (XRP); expected values follow `GENESIS_*` / `NETWORK_ID_XRP`. EVM coins were already bound to the chain id in `prepare()` and by the signature itself. Tests: `test/network-identity.test.mts`. See PHASE40.md.
