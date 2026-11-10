@@ -121,6 +121,16 @@ function watchWarn(list){
   list.forEach(x=>{if(!warned.has(x.key)){warned.add(x.key);try{toast(x.message)}catch{}}});
   [...warned].forEach(k=>{if(!now.has(k))warned.delete(k)});
 }
+/* WHY the balance service failed: the exact HTTP status and the function's own message, never one generic sentence. status 0 = the request never got an answer (offline / blocked). */
+async function whyStatusFailed(e){
+  let status=0,body=null;
+  try{const c=e&&e.context;if(c&&typeof c.status==="number"){status=c.status;try{body=await c.clone().json()}catch{try{body={error:(await c.clone().text()).slice(0,160)}}catch{}}}}catch{}
+  const said=String(body&&(body.error||body.message)||"").slice(0,160),detail=(status?"HTTP "+status:"no answer")+(said?": "+said:"")+(e&&e.message&&!said?" ("+e.message+")":"");
+  if(!status)return{status:0,detail,message:"Can't reach the balance service right now. Balances may be out of date."};
+  if(status===404)return{status,detail,message:"The balance service (deposit-watch) is not deployed on this project (404). Balances will not update."};
+  if(status===401||status===403)return{status,detail,message:/not signed in/i.test(said)?"Your session expired. Sign in again to refresh balances.":"The balance service refused the request ("+status+"). deposit-watch must be deployed with --no-verify-jwt."};
+  return{status,detail,message:"The balance service failed ("+status+(said?": "+said:"")+"). Balances may be out of date."};
+}
 async function watchOnce(){
   if(watchBusy||document.hidden)return;
   const d=db();if(!d||!d.get||!d.get()||!done)return;
@@ -140,7 +150,7 @@ async function watchOnce(){
       if(window.veltrixActivity){try{veltrixActivity.refreshTx()}catch{}try{veltrixActivity.reload()}catch{}}   /* history: pending / confirming n of m / completed */
     }
     lastWatchSig=sig;
-  }catch(e){console.warn("[wallet] status check failed:",e&&e.message);watchWarn([{key:"net|status",message:"Can't reach the balance service right now. Balances may be out of date."}])}
+  }catch(e){const w=await whyStatusFailed(e);console.warn("[wallet] status check failed:",w.detail);window.veltrixWallet.lastStatusError={status:w.status,detail:w.detail,at:Date.now()};watchWarn([{key:"net|status|"+w.status,message:w.message}])}
   finally{watchBusy=false}
 }
 function startWatch(){clearInterval(watchT);watchT=setInterval(watchOnce,20000);setTimeout(watchOnce,2500)}

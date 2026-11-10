@@ -45,7 +45,7 @@ const net: S.Net = {
 const traceMode = (k: string) => (["off", "trace_filter", "debug_trace"].includes(env("TRACE_MODE_" + k)) ? env("TRACE_MODE_" + k) : "auto") as "auto" | "off" | "trace_filter" | "debug_trace";
 const cache = new Map<string, { at: number; v: any }>();      // identity / trace-probe answers live for a few minutes inside one isolate
 
-Deno.serve(async (req) => {
+async function handle(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
   const db: Deps["db"] = {
@@ -70,4 +70,14 @@ Deno.serve(async (req) => {
   const { data, error } = await admin.auth.getUser(tok);
   if (error || !data.user) return json({ ...failResponse("user", "not signed in"), error: "not signed in" }, 401);
   return json(await userStatus({ db }, data.user.id));          // a database read. It does not scan, and it does not touch a blockchain.
+}
+
+// Any crash is ANSWERED with its reason (the app shows it) instead of an empty 500: the scheduler still gets a 500, a signed-in user gets a readable error in the normal format.
+Deno.serve(async (req) => {
+  try { return await handle(req); }
+  catch (e) {
+    const m = String((e as Error)?.message || e).slice(0, 200), cron = !!env("CRON_SECRET") && req.headers.get("x-cron-secret") === env("CRON_SECRET");
+    console.error("deposit-watch crashed:", m);
+    return json(failResponse(cron ? "scan" : "user", "deposit-watch crashed: " + m + " (check the function's secrets: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided automatically; the database needs schema_phase39)"), cron ? 500 : 200);
+  }
 });

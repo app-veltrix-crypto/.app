@@ -23,3 +23,15 @@ To start TRX internal scanning from a chosen block instead of ~300 blocks (~15 m
 
 ## Limits of those tests
 They use fakes shaped like the documented answers. They cannot show that TronGrid really serves `walletsolidity/gettransactioninfobyblocknum` the way assumed, that `callValueInfo` without a `tokenId` is always TRX, or that a block with no transactions answers `[]`/`{}`. Those are the assumptions to check in §6 of the testing doc.
+
+## Balance-service warning ("Can't reach the balance service right now…")
+The app asks the `deposit-watch` function for the user's wallet status every ~20 s. This exact sentence used to appear for ANY failure of that call. Now the app shows the real cause (and keeps it in `veltrixWallet.lastStatusError` and the browser console), and the function answers a crash with its reason instead of an empty 500.
+| What the app now says | Meaning | Fix |
+|---|---|---|
+| "…not deployed on this project (404)" | the function does not exist | `supabase functions deploy deposit-watch --no-verify-jwt` |
+| "…refused the request (401). …--no-verify-jwt" | the gateway rejects the user's token | redeploy with `--no-verify-jwt` |
+| "Your session expired…" | the function ran, the user is signed out | sign in again |
+| "…failed (503/500: <reason>)" | the function crashed or cannot start | Dashboard → Edge Functions → deposit-watch → Logs |
+| "Could not read your wallet status … (is schema_phase39 installed?)" | the function runs but the database lacks phase 39 | MIGRATION.md §8 |
+| "Can't reach the balance service…" (original text) | no answer at all: offline / blocked / DNS | check the connection |
+Quick phone test: open `https://<project-ref>.supabase.co/functions/v1/deposit-watch` in a browser. A healthy, deployed function answers `{"ok":false … "error":"not signed in"}`. `NOT_FOUND` = not deployed; `Invalid JWT` = redeploy with `--no-verify-jwt`.
