@@ -1,0 +1,33 @@
+/* Compact sizing, same small clean scale as the Settings / Security pages and the Send sheet (strong 12px, helper 10-11px,
+   fields ~44px, buttons 12-12.5px). Only font sizes, heights and spacing are tuned here; colours, layout and structure are untouched.
+   Loaded last so nothing else has to change. */
+
+/* Passcode login + security warning screens */
+.pc-head h2{font-size:14.5px;letter-spacing:-.2px}
+.pc-head p{font-size:11px}
+.pc-pad button{font-size:21px}
+.pw-ic{width:52px;height:52px;margin:26px auto 14px;border-radius:16px}
+.pw-ic svg{width:24px;height:24px}
+.pw-title{font-size:14.5px;letter-spacing:-.2px}
+.pw-text{font-size:11px;line-height:1.55}
+.rp-btn{height:44px;font-size:12px}
+.rp-btn svg{width:16px;height:16px}
+
+/* PIN boxes and linked-device screens */
+.sx-pin input{height:46px;font-size:17px;border-radius:12px}
+.sx-dev-name{font-size:13.5px}
+
+/* Pop-ups (e.g. "Turn on two-step verification", profile edit) */
+.profile-ui-dialog-card{padding:18px}
+.profile-ui-dialog-card h2{font-size:13.5px;margin-bottom:12px}
+.profile-ui-dialog-card label{font-size:10px}
+.profile-ui-dialog-card input{height:42px;font-size:12px}
+.profile-ui-dialog-actions{margin-top:14px}
+.profile-ui-dialog-actions button{height:36px;padding:0 18px;font-size:12px}
+
+/* No-connection page and sheet */
+.wd-off-wrap h2{font-size:16.5px;letter-spacing:-.3px}
+.wd-off-sub{font-size:11.5px}
+.wd-off-btn,.wd-offsheet-btn{height:44px;font-size:12.5px}
+.wd-offsheet-txt strong{font-size:12.5px}
+.tx-empty-body strong{font-size:12.5px}

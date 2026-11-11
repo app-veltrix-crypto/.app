@@ -19,9 +19,9 @@
  /* ---- navigation ---- */
  const stack=[];
  const pages=["twoStepPage","pinPage","devicesPage","linkQrPage","deviceEditPage","notifPage"];
- function openPage(id){const el=$(id);el.hidden=false;el.scrollTop=0;stack.push(id)}
- function back(){const id=stack.pop();if(id)$(id).hidden=true;if(id==="phrasePage")phraseWipe();if(id==="phrasePwPage")phrasePwClear();if(id==="resetPwPage")resetClear()}
- function closeAll(){while(stack.length)$(stack.pop()).hidden=true;phraseWipe();phrasePwClear();resetClear()}
+ function openPage(id){const el=$(id);el.style.zIndex=String(1010+stack.length+1);el.hidden=false;el.scrollTop=0;stack.push(id)}
+ function back(){const id=stack.pop();if(id){$(id).hidden=true;$(id).style.zIndex=""}if(id==="phrasePage")phraseWipe();if(id==="phrasePwPage")phrasePwClear();if(id==="resetPwPage")resetClear()}
+ function closeAll(){while(stack.length){const e=$(stack.pop());e.hidden=true;e.style.zIndex=""}phraseWipe();phrasePwClear();resetClear()}
  window.veltrixSettingsClose=closeAll;
  document.querySelectorAll("[data-sx-back]").forEach(b=>b.addEventListener("click",()=>{const top=stack[stack.length-1];if(top==="pinPage"){pinCancel();return}back()}));
  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&stack.length&&!document.querySelector(".sx-dlg:not([hidden])")){if(stack[stack.length-1]==="pinPage")pinCancel();else back()}});
