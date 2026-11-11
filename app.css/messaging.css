@@ -354,3 +354,9 @@ html[data-theme="dark"] #vmViewer.vv[popover],html[data-theme="dark"] #vmViewer.
 .vm-mwrap.vm-mload{min-width:min(220px,60vw);min-height:180px;background:linear-gradient(100deg,#f0f1f4 30%,#e6e7eb 48%,#f0f1f4 66%);background-size:300% 100%;animation:vmShimmer 1.3s ease-in-out infinite}
 .vm-mwrap.vm-mload>.vm-img,.vm-mwrap.vm-mload>.vm-vid{opacity:0}
 @media (prefers-reduced-motion:reduce){.vm-mwrap.vm-mload{animation:none}}
+
+/* NIGHT MODE, full-screen photo/video viewer: the viewer already stays un-inverted (black, light text), so the photo, the video and the small profile
+   picture inside it must not get the page's invert a second time (that turned them into negatives). Same real colours in day and night mode. */
+html[data-theme="dark"] #vmViewer.vv img,html[data-theme="dark"] #vmViewer.vv video{filter:none}
+/* the loading shimmer inside my own bubbles is not inverted by the page, so it gets its own dark version at night */
+html[data-theme="dark"] .vm-b.me .vm-mwrap.vm-mload{background:linear-gradient(100deg,#23262c 30%,#2f333a 48%,#23262c 66%);background-size:300% 100%}
