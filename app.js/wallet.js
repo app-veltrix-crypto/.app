@@ -126,7 +126,7 @@ async function whyStatusFailed(e){
   let status=0,body=null;
   try{const c=e&&e.context;if(c&&typeof c.status==="number"){status=c.status;try{body=await c.clone().json()}catch{try{body={error:(await c.clone().text()).slice(0,160)}}catch{}}}}catch{}
   const said=String(body&&(body.error||body.message)||"").slice(0,160),detail=(status?"HTTP "+status:"no answer")+(said?": "+said:"")+(e&&e.message&&!said?" ("+e.message+")":"");
-  if(!status)return{status:0,detail,message:"Can't reach the balance service right now. Balances may be out of date."};
+  if(!status)return{status:0,detail,message:"Can't reach the balance service right now. Balances may be out of date. [Reason: "+(e&&e.name||"error")+" - "+String(e&&e.message||"unknown").slice(0,120)+(navigator.onLine===false?" - phone is offline":"")+" - from "+location.origin+"]"};
   if(status===404)return{status,detail,message:"The balance service (deposit-watch) is not deployed on this project (404). Balances will not update."};
   if(status===401||status===403)return{status,detail,message:/not signed in/i.test(said)?"Your session expired. Sign in again to refresh balances.":"The balance service refused the request ("+status+"). deposit-watch must be deployed with --no-verify-jwt."};
   return{status,detail,message:"The balance service failed ("+status+(said?": "+said:"")+"). Balances may be out of date."};
