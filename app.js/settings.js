@@ -215,8 +215,13 @@
  /* ---- support team (WhatsApp) ---- */
  const SUPPORT_WHATSAPP="";/* <-- put your support number here, digits only with country code, e.g. "2348012345678" */
  $("settingsSupport").addEventListener("click",async()=>{
-  const ok=await dialog({title:"Contact support team?",msg:"Do you want to proceed and contact the support team on WhatsApp?",ok:"Proceed",cancel:"Cancel"});
+  const ok=await dialog({title:"Contact support team?",msg:"Do you want to proceed and contact the support team?",ok:"Proceed",cancel:"Cancel"});
   if(!ok)return;
+  /* Proceed opens the verified Veltrix Support chat inside the app's Messaging section, ready for the user to type the issue and send. */
+  let opened=false;try{opened=!!(window.veltrixOpenSupport&&window.veltrixOpenSupport())}catch{}
+  if(opened)return;
+  /* fallback only if the in-app chat could not open AND a WhatsApp number was configured */
+  if(!SUPPORT_WHATSAPP.replace(/\D/g,""))return;
   const url="https://wa.me/"+SUPPORT_WHATSAPP.replace(/\D/g,"")+"?text="+encodeURIComponent("Hello Veltrix Support, I need some help.");
   if(!window.open(url,"_blank","noopener"))location.href=url;
  });

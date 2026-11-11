@@ -304,6 +304,10 @@ function bubble(m){
  {const sn=(!m.type||m.type==="text")?stickerN(m.text):0;if(sn)return `<div class="${cls} vm-sticker st${sn}" data-mid="${m.id}"><p>${escE(String(m.text).trim())}</p>${meta}</div>`}
  return `<div class="${cls}" data-mid="${m.id}"><p>${linkE(m.text)}${m.edited?" <small class=\"vm-edited\">(edited)</small>":""}</p>${meta}</div>`;
 }
+/* Photos and videos show a shimmering placeholder (never the broken-image icon) until the real picture / first frame has loaded. */
+function vmMediaWatch(n){const w=n.closest&&n.closest(".vm-mwrap");if(!w)return;w.classList.add("vm-mload");
+ const vid=n.tagName==="VIDEO";let t=0;const done=()=>{clearTimeout(t);w.classList.remove("vm-mload");["load","error","loadeddata","canplay","seeked"].forEach(e=>n.removeEventListener(e,done))};
+ (vid?["loadeddata","canplay","seeked","error"]:["load","error"]).forEach(e=>n.addEventListener(e,done));t=setTimeout(done,20000)}
 function renderMsgs(forceBottom){
  stopPlayback();
  const c=store.convs[activeId],ms=c&&c.msgs||[];
@@ -311,7 +315,7 @@ function renderMsgs(forceBottom){
  let html="",last="";
  let divDone=false;for(const m of ms){const k=dayKey(m.t);if(k!==last){html+=`<div class="vm-day">${dayLabel(m.t)}</div>`;last=k}if(divN>0&&!divDone&&m.from==="them"&&m.t>divAt){divDone=true;html+=`<div class="vm-newdiv" id="vmNewDiv"><span>${divN} unread message${divN>1?"s":""}</span></div>`}html+=bubble(m)}
  msgsEl.innerHTML=html||`<div class="vm-hello">Say hello 👋<br>Send a message, a voice note, a photo or a video.</div>`;
- msgsEl.querySelectorAll("[data-m]").forEach(async n=>{const u=await mediaURL(n.dataset.m,n.tagName==="VIDEO"?"video":"image");if(u)n.src=n.tagName==="VIDEO"?u+"#t=0.1":u;else n.replaceWith(Object.assign(document.createElement("div"),{className:"vm-gone",textContent:"Media unavailable"}))});
+ msgsEl.querySelectorAll("[data-m]").forEach(async n=>{vmMediaWatch(n);const u=await mediaURL(n.dataset.m,n.tagName==="VIDEO"?"video":"image");if(u)n.src=n.tagName==="VIDEO"?u+"#t=0.1":u;else{const w=n.closest(".vm-mwrap");if(w)w.classList.remove("vm-mload");n.replaceWith(Object.assign(document.createElement("div"),{className:"vm-gone",textContent:"Media unavailable"}))}});
  if(forceBottom||near)requestAnimationFrame(()=>{const d=forceBottom&&document.getElementById("vmNewDiv");msgsEl.scrollTop=d?Math.max(0,d.offsetTop-70):msgsEl.scrollHeight});
 }
 async function addMsg(m,blob){
