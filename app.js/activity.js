@@ -529,5 +529,5 @@ window.addEventListener("veltrix-revoked",reset);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&signedIn()){pollWatch();loadNotifs()}});
 
 window.veltrixActivity={push,refreshTx,paintMode,syncFav:coin=>paintFav(!!(coin&&wl.has(String(coin.symbol).toUpperCase()))),reload:loadNotifs,topicSvg:topicIcon};
-window.veltrixWatch={sync:coin=>paintFav(!!(coin&&wl.has(String(coin.symbol).toUpperCase()))),toggle:toggleWatch};
+window.veltrixWatchlist={sync:coin=>paintFav(!!(coin&&wl.has(String(coin.symbol).toUpperCase()))),toggle:toggleWatch};
 })();

@@ -384,7 +384,7 @@ const marketDetailPage=document.getElementById("marketDetailPage");
 let activeMarketCoin=null,marketChartRange="1D",marketRefreshTimer=null,marketChartPoints=[];
 const marketRangeConfig={"15m":{days:1,windowMs:15*60*1000},"1H":{days:1,windowMs:60*60*1000},"4H":{days:1,windowMs:4*60*60*1000},"1D":{days:1},"1W":{days:7},"1M":{days:30}};
 function openMarketDetail(coin){
- if(!coin)return;activeMarketCoin=coin;marketChartRange="1D";if(window.veltrixWatch)veltrixWatch.sync(coin);
+ if(!coin)return;activeMarketCoin=coin;marketChartRange="1D";if(window.veltrixWatchlist)veltrixWatchlist.sync(coin);
  cryptoSearchPanel.hidden=true;document.getElementById("dashboardPage").classList.remove("searching-crypto");
  marketDetailPage.hidden=false;document.body.classList.add("wd-feature-open");
  const logo=document.getElementById("marketDetailLogo");logo.innerHTML=coinLogoHTML(coin);logo.style.background=coin.color||"#202338";
