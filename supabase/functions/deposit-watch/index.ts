@@ -30,15 +30,21 @@ const cfg: S.Cfg = {
   maxPagesPerRun: Number(env("DEPOSIT_MAX_PAGES_PER_RUN") || 5), traceBlocksPerRun: Number(env("DEPOSIT_TRACE_BLOCKS_PER_RUN") || 2000),
   blocksPerRunBy: { BNB: Number(env("DEPOSIT_MAX_BLOCKS_BNB") || 400), AVAX: Number(env("DEPOSIT_MAX_BLOCKS_AVAX") || 200), TRX: Number(env("DEPOSIT_MAX_BLOCKS_TRX") || 120) },
 };
-const hdr = (): Record<string, string> => (cfg.trongridKey ? { "TRON-PRO-API-KEY": cfg.trongridKey } : {});
+/* the TronGrid key goes ONLY to the TRON API (never to the BTC/LTC explorers), and TRON requests are paced: TronGrid allows ~15 requests/second per key
+   and then suspends the key for ~30 s. One request per 90 ms keeps this scanner at ~11/s even when several run at once. */
+const hdr = (u: string): Record<string, string> => (cfg.trongridKey && u.startsWith(cfg.api.TRX) ? { "TRON-PRO-API-KEY": cfg.trongridKey } : {});
+/** shows in the scan answer (net._http_response.content), so you can SEE which code is deployed */
+const BUILD = "2026-11-12-trx-paced";
+let nextTrxSlot = 0;
+const pace = async (u: string) => { if (!u.startsWith(cfg.api.TRX)) return; const at = Math.max(Date.now(), nextTrxSlot); nextTrxSlot = at + 90; const w = at - Date.now(); if (w > 0) await new Promise((r) => setTimeout(r, w)); };
 const fetchJson = async (url: string, init?: RequestInit) => {
   const r = await fetch(url, { ...init, signal: AbortSignal.timeout(15000) }); const t = await r.text();
   if (!r.ok) throw new Error(`${r.status} ${t.slice(0, 120)}`);
   try { return JSON.parse(t); } catch { return t; }           // /blocks/tip/height and /block-height/0 return bare text
 };
 const net: S.Net = {
-  get: (u) => fetchJson(u, { headers: hdr() }),
-  post: (u, b) => fetchJson(u, { method: "POST", headers: { "content-type": "application/json", ...hdr() }, body: JSON.stringify(b) }),
+  get: async (u) => { await pace(u); return fetchJson(u, { headers: hdr(u) }); },
+  post: async (u, b) => { await pace(u); return fetchJson(u, { method: "POST", headers: { "content-type": "application/json", ...hdr(u) }, body: JSON.stringify(b) }); },
   // XRP reports its errors INSIDE result (e.g. actNotFound); scan.ts checks for that. Everything else throws on a JSON-RPC error.
   rpc: async (u, method, params) => { const j = await fetchJson(u, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) }); if (j.error) throw new Error(JSON.stringify(j.error).slice(0, 200)); return j.result; },
 };
@@ -64,7 +70,7 @@ async function handle(req: Request): Promise<Response> {
         try { const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${Object.values(GECKO).join(",")}&vs_currencies=usd`, { signal: AbortSignal.timeout(12000) });
           if (!r.ok) return null; const p = await r.json(); const o: Record<string, number> = {}; for (const [sym, id] of Object.entries(GECKO)) if (p[id]?.usd > 0) o[sym] = p[id].usd; return o; } catch { return null; }
       } };
-    try { return json(await runScan(deps)); } catch (e) { return json(failResponse("scan", String((e as Error)?.message || e).slice(0, 200)), 500); }
+    try { return json({ build: BUILD, ...(await runScan(deps)) }); } catch (e) { return json(failResponse("scan", String((e as Error)?.message || e).slice(0, 200)), 500); }
   }
   const tok = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   const { data, error } = await admin.auth.getUser(tok);

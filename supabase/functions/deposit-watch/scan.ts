@@ -518,14 +518,14 @@ export async function scanTrxInternal(net: Net, cfg: Cfg, addrs: string[], curso
   const per = opts.maxBlocks ?? cfg.blocksPerRunBy?.TRX ?? cfg.maxBlocksPerRun, to = Math.min(tip, from + per - 1);
   const nums: number[] = []; for (let n = from; n <= to; n++) nums.push(n);
   /* TronGrid allows ~15 requests/second per key and then suspends the key for ~30 s ("The key exceeds the frequency limit(15)... suspended for N s").
-     So read gently (2 at a time), and if the very first block hits that suspension, wait it out once (max 20 s) and try again instead of failing the run. */
+     So read gently (2 at a time), and if the very first block hits that suspension, wait it out once (the pause is ~30 s, so up to 35 s) and try again instead of failing the run. */
   const readBlocks = () => mapLimit(nums, 2, async (n) => { try { return { ok: true as const, r: await net.post(base + "/walletsolidity/gettransactioninfobyblocknum", { num: n }) }; } catch (e) { return { ok: false as const, e }; } });
   let got = await readBlocks();
   if (got.length && !got[0].ok) {
     const t = String((got[0] as any).e?.message ?? (got[0] as any).e ?? "");
     if (/frequency limit|suspended|\b429\b|too many requests/i.test(t)) {
       const secs = Number(/suspended for (\d+)\s*s/i.exec(t)?.[1] ?? 2);
-      await new Promise((r) => setTimeout(r, Math.min(Math.max(secs, 1) + 1, 20) * 1000));
+      await new Promise((r) => setTimeout(r, Math.min(Math.max(secs, 1) + 2, 35) * 1000));
       got = await readBlocks();
     }
   }
