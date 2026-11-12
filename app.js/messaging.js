@@ -378,16 +378,15 @@ function openPreview(i){previewIdx=i;const x=staged[i],v=el("vmPreview"),im=v.qu
  el("vpBar").hidden=x.type!=="video";
  if(x.type==="image"){im.src=x.url}
  else{
-  /* clean spinner until the video can really play (no default browser video loader) */
+  /* same loading as before (src only); the spinner just covers the wait. If the browser really cannot decode it, fall back to the browser's own player instead of blocking. */
   vpWait(true);
-  vd.onerror=()=>{vpWait(false);toast("This video format can't be previewed on this device. You can still send it.")};
-  vd.src=x.url;try{vd.load()}catch(e){}
-  vd.play().catch(()=>{});
+  vd.onerror=()=>{if(!vd.getAttribute("src"))return;vpWait(false);vd.controls=true;el("vpBar").hidden=true};
+  vd.src=x.url;
  }
  paintPreviewOnce();v.hidden=false}
 function vpWait(on){const sp=el("vpSpin"),st=el("vpStage");if(!sp)return;sp.hidden=!on;st.classList.toggle("vp-wait",!!on)}
-function vpReset(){const vd=el("vmPreview").querySelector("video");vd.muted=false;vd.playbackRate=1;el("vpFill").style.width="0";el("vpTime").textContent="-0:00";el("vpPlay").innerHTML=VVI.pause;el("vpMute").innerHTML=VVI.vol;vpWait(false)}
-function closePreview(){const v=el("vmPreview");if(!v||v.hidden)return;const vd=v.querySelector("video");vd.pause();vd.onerror=null;vd.removeAttribute("src");try{vd.load()}catch(e){}v.querySelector("img").removeAttribute("src");vpWait(false);v.hidden=true;previewIdx=-1}
+function vpReset(){const vd=el("vmPreview").querySelector("video");vd.controls=false;vd.muted=false;vd.playbackRate=1;el("vpFill").style.width="0";el("vpTime").textContent="-0:00";el("vpPlay").innerHTML=VVI.pause;el("vpMute").innerHTML=VVI.vol;vpWait(false)}
+function closePreview(){const v=el("vmPreview");if(!v||v.hidden)return;const vd=v.querySelector("video");vd.pause();vd.onerror=null;vd.removeAttribute("src");v.querySelector("img").removeAttribute("src");vpWait(false);v.hidden=true;previewIdx=-1}
 el("vmPreviewX").addEventListener("click",closePreview);
 el("vmPreviewOnce").addEventListener("click",()=>{const x=staged[previewIdx];if(!x)return;x.once=!x.once;paintPreviewOnce();renderStage()});
 async function sendStaged(){
