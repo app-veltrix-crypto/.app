@@ -402,3 +402,7 @@ html[data-theme="dark"] #vmPreview img,html[data-theme="dark"] #vmPreview video{
 #vmPreview .vm-once-big svg{width:17px;height:17px}
 #vmPreview .vp-fail{position:absolute;left:0;right:0;top:50%;margin:0;padding:0 28px;text-align:center;font-size:12px;line-height:1.5;color:#9aa0a6}
 #vmPreview .vp-fail[hidden]{display:none!important}
+
+/* Paperclip button: the pressed highlight is now a true circle (the button was 32px wide but 36px tall, so it showed as an oval) */
+#vmChat .vm-field .vm-ic{height:32px}
+@media(max-width:380px){#vmChat .vm-field .vm-ic{height:29px}}
