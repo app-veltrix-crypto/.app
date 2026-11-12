@@ -114,10 +114,14 @@ host.innerHTML=`
  </div>
  </div>
 </section>
-<div class="vm-viewer" id="vmViewer" hidden><button type="button" class="vm-ic" id="vmViewerX" aria-label="Close">${I.back}</button><img alt="" hidden><video controls playsinline hidden></video></div>
-<div class="vm-viewer vm-preview" id="vmPreview" hidden><button type="button" class="vm-ic" id="vmPreviewX" aria-label="Back">${I.back}</button><button type="button" class="vm-once vm-once-big" id="vmPreviewOnce" aria-label="One-time view">${I.once}</button><img alt="" hidden><video controls playsinline hidden></video><div class="vm-prevhint" id="vmPreviewHint"></div></div>
+<div class="vm-viewer vv" id="vmViewer" hidden><button type="button" class="vm-ic" id="vmViewerX" aria-label="Close">${I.x}</button>
+<div class="vv-stage" id="vvStage"><img alt="" hidden><video playsinline hidden></video></div>
+<div class="vv-info"><div class="vv-author"><span class="vv-av" id="vvAv"></span><span class="vv-name" id="vvName"></span></div><p class="vv-cap" id="vvCap" hidden></p></div>
+<div class="vv-bar" id="vvBar" hidden><div class="vv-prog" id="vvProg" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="vvFill"></i></div>
+<div class="vv-ctl"><button type="button" id="vvPlay" aria-label="Pause"></button><span class="vv-time" id="vvTime">-0:00</span><span class="vv-sp"></span><button type="button" class="vv-speed" id="vvSpeed" aria-label="Playback speed">1x</button><button type="button" id="vvMute" aria-label="Sound"></button><button type="button" id="vvFs" aria-label="Full screen"></button></div></div></div>
+<div class="vm-viewer vm-preview" id="vmPreview" hidden><button type="button" class="vm-ic" id="vmPreviewX" aria-label="Close">${I.x}</button><button type="button" class="vm-once vm-once-big" id="vmPreviewOnce" aria-label="One-time view">${I.once}</button><div class="vp-stage" id="vpStage"><img alt="" hidden><video playsinline preload="auto" hidden></video><span class="vp-spin" id="vpSpin" hidden></span><p class="vp-fail" id="vpFail" hidden>This video can't be previewed here. You can still send it.</p></div><div class="vv-bar vp-bar" id="vpBar" hidden><div class="vv-prog" id="vpProg" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="vpFill"></i></div><div class="vv-ctl"><button type="button" id="vpPlay" aria-label="Pause"></button><span class="vv-time" id="vpTime">-0:00</span><span class="vv-sp"></span><button type="button" id="vpMute" aria-label="Sound"></button></div></div><div class="vm-prevhint" id="vmPreviewHint"></div></div>
 <div class="vm-dialog-backdrop" id="vmDialog" hidden><section class="vm-dialog" role="dialog" aria-modal="true" aria-labelledby="vmDialogTitle"><h2 id="vmDialogTitle">Message options</h2><p id="vmDialogText">Choose an action.</p><div class="vm-dialog-actions" id="vmDialogActions"></div><button type="button" class="vm-dialog-cancel" id="vmDialogCancel">Cancel</button></section></div>
-<div class="vm-upload-menu" id="vmUploadMenu" hidden><button type="button" data-upload="image">Choose image</button><button type="button" data-upload="video">Choose video</button><button type="button" data-upload="file">Browse files</button><button type="button" data-upload="cancel">Cancel</button></div>
+<div class="vm-upload-menu" id="vmUploadMenu" hidden><button type="button" data-upload="image"><span class="vm-um-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 4.6-4.4a1.6 1.6 0 0 1 2.2 0L14 15.5l1.8-1.7a1.6 1.6 0 0 1 2.2 0L20.5 16"/></svg></span><span class="vm-um-t">Choose image</span></button><button type="button" data-upload="video"><span class="vm-um-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="m16 10.5 4.2-2.4a.6.6 0 0 1 .8.5v6.8a.6.6 0 0 1-.8.5L16 13.5"/></svg></span><span class="vm-um-t">Choose video</span></button><button type="button" data-upload="file"><span class="vm-um-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3.5H8a2.5 2.5 0 0 0-2.5 2.5v12A2.5 2.5 0 0 0 8 20.5h8a2.5 2.5 0 0 0 2.5-2.5V8z"/><path d="M14 3.5V8h4.5M9 13h6M9 16.5h4"/></svg></span><span class="vm-um-t">Browse files</span></button><button type="button" data-upload="cancel"><span class="vm-um-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m9 9 6 6M15 9l-6 6"/></svg></span><span class="vm-um-t">Cancel</span></button></div>
 <div class="vm-toast" id="vmToast" role="status" aria-live="polite"></div>
 <input type="file" id="vmFile" accept="image/*,video/*" multiple hidden>
 <input type="file" id="vmImageFile" accept="image/*" multiple hidden>
@@ -265,11 +269,25 @@ el("vmStage").addEventListener("click",e=>{
  const on=e.target.closest("[data-once]");if(on){const x=staged[+on.dataset.once];x.once=!x.once;renderStage();return}
  const t=e.target.closest(".vm-tile");if(t&&staged[+t.dataset.i].type!=="file")openPreview(+t.dataset.i)});
 function paintPreviewOnce(){const x=staged[previewIdx];if(!x)return;const b=el("vmPreviewOnce");b.classList.toggle("on",x.once);el("vmPreviewHint").textContent=x.once?"One-time view is ON — they can open this only once":"Tap the icon to send as a one-time view"}
+let vpAlt=null;
+function vpFree(){if(vpAlt){URL.revokeObjectURL(vpAlt);vpAlt=null}}
 function openPreview(i){previewIdx=i;const x=staged[i],v=el("vmPreview"),im=v.querySelector("img"),vd=v.querySelector("video");
- im.hidden=x.type!=="image";vd.hidden=x.type!=="video";vd.pause();
- if(x.type==="image"){im.src=x.url}else{vd.src=x.url}
+ im.hidden=x.type!=="image";vd.hidden=x.type!=="video";vd.pause();vpReset();
+ el("vpBar").hidden=x.type!=="video";
+ if(x.type==="image"){im.src=x.url}
+ else{
+  /* spinner while loading. Phone files often have an empty/odd type and then fail to play, so on a failure it is tried once more as MP4
+     (the same bytes, only the label changes). If it still cannot play, a clean note is shown - never the browser's default player. */
+  vpWait(true);let retried=false;
+  vd.onerror=()=>{if(!vd.getAttribute("src"))return;
+   if(!retried){retried=true;vpFree();try{vpAlt=URL.createObjectURL(new Blob([x.file],{type:"video/mp4"}));vd.src=vpAlt;vd.play().catch(()=>{});return}catch(e){}}
+   vpWait(false);el("vpFail").hidden=false;el("vpBar").hidden=true};
+  vd.src=x.url;vd.play().catch(()=>{});
+ }
  paintPreviewOnce();v.hidden=false}
-function closePreview(){const v=el("vmPreview");if(!v||v.hidden)return;const vd=v.querySelector("video");vd.pause();vd.removeAttribute("src");v.querySelector("img").removeAttribute("src");v.hidden=true;previewIdx=-1}
+function vpWait(on){const sp=el("vpSpin"),st=el("vpStage");if(!sp)return;sp.hidden=!on;st.classList.toggle("vp-wait",!!on)}
+function vpReset(){const vd=el("vmPreview").querySelector("video");vd.controls=false;vd.muted=false;vd.playbackRate=1;el("vpFill").style.width="0";el("vpTime").textContent="-0:00";el("vpPlay").innerHTML=VVI.pause;el("vpMute").innerHTML=VVI.vol;el("vpFail").hidden=true;vpWait(false)}
+function closePreview(){const v=el("vmPreview");if(!v||v.hidden)return;const vd=v.querySelector("video");vd.pause();vd.onerror=null;vd.removeAttribute("src");vpFree();v.querySelector("img").removeAttribute("src");vpWait(false);el("vpFail").hidden=true;v.hidden=true;previewIdx=-1}
 el("vmPreviewX").addEventListener("click",closePreview);
 el("vmPreviewOnce").addEventListener("click",()=>{const x=staged[previewIdx];if(!x)return;x.once=!x.once;paintPreviewOnce();renderStage()});
 async function sendStaged(){
@@ -294,17 +312,36 @@ el("vmFile").addEventListener("change",onFiles);el("vmImageFile").addEventListen
 const findMsg=id=>(store.convs[activeId]?.msgs||[]).find(x=>x.id===id);
 function saveAs(u,name){const l=document.createElement("a");l.href=u;l.download=name||"download";document.body.appendChild(l);l.click();l.remove()}
 let onceId=null;
-function openViewer(kind,url){const v=el("vmViewer"),im=v.querySelector("img"),vd=v.querySelector("video");im.hidden=kind!=="image";vd.hidden=kind!=="video";if(kind==="image")im.src=url;else{vd.onerror=()=>toast("This video format can't be played on this device. Tap download to save it.");vd.src=url;vd.play().catch(()=>{})}v.hidden=false}
-function closeViewer(){const v=el("vmViewer");if(v.hidden)return;const vd=v.querySelector("video");vd.pause();vd.removeAttribute("src");v.querySelector("img").removeAttribute("src");v.hidden=true;
+const VVI={play:'<svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z" fill="currentColor" stroke="none"/></svg>',pause:'<svg viewBox="0 0 24 24"><path d="M7 4h3.5v16H7zM13.5 4H17v16h-3.5z" fill="currentColor" stroke="none"/></svg>',
+ vol:'<svg viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/></svg>',
+ mute:'<svg viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" fill="currentColor" stroke="none"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>',
+ fs:'<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>'};
+const vvTime=t=>{t=Math.max(0,Math.floor(t||0));return Math.floor(t/60)+":"+String(t%60).padStart(2,"0")};
+function vvWho(m){
+ const u=activeUser||{};
+ if(m&&m.from==="them")return{name:u.contactName||"Veltrix Support",photo:"app.assets/veltrix-support-logo.png",hue:210};
+ return{name:u.name||"",photo:u.photo||"",hue:210}}
+function openViewer(kind,url,m){
+ const v=el("vmViewer"),im=v.querySelector(".vv-stage img"),vd=v.querySelector(".vv-stage video");im.hidden=kind!=="image";vd.hidden=kind!=="video";
+ const w=vvWho(m),av=el("vvAv"),cap=String((m&&m.text)||"").trim();
+ el("vvName").textContent=w.name;av.textContent="";const ini=document.createElement("span");ini.textContent=initials(w.name||"?");av.appendChild(ini);av.style.background="hsl("+w.hue+" 42% 34%)";
+ if(w.photo){const ph=document.createElement("img");ph.alt="";ph.onerror=()=>ph.remove();ph.src=w.photo;av.appendChild(ph)}
+ const c=el("vvCap");c.textContent=cap;c.hidden=!cap;
+ el("vvBar").hidden=kind!=="video";vvReset();
+ if(kind==="image")im.src=url;else{vd.onerror=()=>toast("This video format can't be played on this device. Tap download to save it.");vd.src=url;vd.play().catch(()=>{})}
+ v.hidden=false}
+function vvReset(){const vd=el("vmViewer").querySelector(".vv-stage video");vd.playbackRate=1;vd.muted=false;el("vvSpeed").textContent="1x";el("vvFill").style.width="0";el("vvTime").textContent="-0:00";el("vvPlay").innerHTML=VVI.pause;el("vvMute").innerHTML=VVI.vol;el("vvFs").innerHTML=VVI.fs;
+ try{if(document.fullscreenElement)document.exitFullscreen()}catch(e){}}
+function closeViewer(){const v=el("vmViewer");if(v.hidden)return;const vd=v.querySelector("video");vd.pause();vd.removeAttribute("src");v.querySelector(".vv-stage img").removeAttribute("src");vvReset();v.hidden=true;
  if(onceId){const id=onceId;onceId=null;delBlob(id);mutate(()=>{const m=findMsg(id);if(m)m.opened=true});renderMsgs(false);renderConvs()}}
 msgsEl.addEventListener("click",async e=>{
  const dl=e.target.closest("[data-dl]");
  if(dl){const id=dl.dataset.dl,m=findMsg(id),u=m&&await mediaURL(id,m.type,m.type==="video"?(m.name||"video"):null);if(!m||!u)return toast("Media unavailable");
   saveAs(u,m.name||(m.type==="image"?"photo":"video"));mutate(()=>{const x=findMsg(id);if(x)x.adDl=true});renderMsgs(false);toast("Downloaded — tap to view");return}
  const vw=e.target.closest("[data-view]");
- if(vw){const m=findMsg(vw.dataset.view),u=m&&await mediaURL(vw.dataset.view,m.type);if(!m||!u)return toast("Media unavailable");openViewer(m.type,u);return}
+ if(vw){const m=findMsg(vw.dataset.view),u=m&&await mediaURL(vw.dataset.view,m.type);if(!m||!u)return toast("Media unavailable");openViewer(m.type,u,m);return}
  const oc=e.target.closest("[data-once-open]");
- if(oc){const m=findMsg(oc.dataset.onceOpen);if(!m||m.opened)return;const u=await mediaURL(m.id,m.type);if(!u){const id=m.id;mutate(()=>{const x=findMsg(id);if(x)x.opened=true});renderMsgs(false);return toast("Media unavailable")}onceId=m.id;openViewer(m.type,u);return}
+ if(oc){const m=findMsg(oc.dataset.onceOpen);if(!m||m.opened)return;const u=await mediaURL(m.id,m.type);if(!u){const id=m.id;mutate(()=>{const x=findMsg(id);if(x)x.opened=true});renderMsgs(false);return toast("Media unavailable")}onceId=m.id;openViewer(m.type,u,m);return}
  const a=e.target.closest("[data-file]");
  if(a){e.preventDefault();const m=findMsg(a.dataset.file),u=m&&await mediaURL(a.dataset.file,"file",m.name||"file");if(!u||!m)return toast("File unavailable");saveAs(u,m.name)}
 });
@@ -318,7 +355,35 @@ el("vmEditCancel").addEventListener("click",()=>{editingId=null;el("vmEditing").
 // Long-press (or right-click) a message to open the styled action sheet.
 bindLongPress(msgsEl,".vm-b",row=>{const c=store.convs[activeId];if(!c)return;const msg=c.msgs.find(m=>m.id===row.dataset.mid);if(!msg)return;const actions=[];if(msg.from==="them"&&msg.type==="text")actions.push({label:"Edit message",run:()=>beginEdit(msg)});actions.push({label:"Delete message",danger:true,run:()=>{mutate(()=>{const x=store.convs[activeId];if(x){const i=x.msgs.findIndex(m=>m.id===msg.id);if(i>-1)x.msgs.splice(i,1)}});renderMsgs(false);renderConvs();toast("Message deleted")}});showDialog("Message options",msg.from==="them"?"Edit this message or remove it from the conversation.":"Delete this message from the conversation.",actions)});
 el("vmViewerX").addEventListener("click",closeViewer);
+(function(){const v=el("vmViewer"),vd=v.querySelector(".vv-stage video"),prog=el("vvProg");
+ const upd=()=>{const d=vd.duration,t=vd.currentTime||0;el("vvFill").style.width=(d>0&&isFinite(d)?Math.min(100,t/d*100):0)+"%";el("vvTime").textContent="-"+vvTime(isFinite(d)?d-t:0);prog.setAttribute("aria-valuenow",String(Math.round(d>0&&isFinite(d)?t/d*100:0)))};
+ const toggle=()=>{if(vd.paused)vd.play().catch(()=>{});else vd.pause()};
+ vd.addEventListener("timeupdate",upd);vd.addEventListener("loadedmetadata",upd);vd.addEventListener("durationchange",upd);
+ vd.addEventListener("play",()=>{el("vvPlay").innerHTML=VVI.pause;el("vvPlay").setAttribute("aria-label","Pause")});vd.addEventListener("pause",()=>{el("vvPlay").innerHTML=VVI.play;el("vvPlay").setAttribute("aria-label","Play")});
+ vd.addEventListener("ended",()=>{el("vvPlay").innerHTML=VVI.play});
+ vd.addEventListener("click",toggle);el("vvPlay").addEventListener("click",toggle);
+ const speeds=[1,1.5,2,0.5];el("vvSpeed").addEventListener("click",()=>{const i=speeds.indexOf(vd.playbackRate),n=speeds[(i+1)%speeds.length];vd.playbackRate=n;el("vvSpeed").textContent=n+"x"});
+ el("vvMute").addEventListener("click",()=>{vd.muted=!vd.muted;el("vvMute").innerHTML=vd.muted?VVI.mute:VVI.vol});
+ el("vvFs").addEventListener("click",()=>{try{if(document.fullscreenElement){document.exitFullscreen();return}if(v.requestFullscreen)v.requestFullscreen();else if(vd.webkitEnterFullscreen)vd.webkitEnterFullscreen()}catch(e){}});
+ let drag=false;const seek=e=>{const r=prog.getBoundingClientRect(),d=vd.duration;if(!(d>0&&isFinite(d)))return;vd.currentTime=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*d;upd()};
+ prog.addEventListener("pointerdown",e=>{drag=true;try{prog.setPointerCapture(e.pointerId)}catch(x){}seek(e)});prog.addEventListener("pointermove",e=>{if(drag)seek(e)});prog.addEventListener("pointerup",()=>{drag=false});prog.addEventListener("pointercancel",()=>{drag=false});
+})();
 el("vmViewer").addEventListener("click",e=>{if(e.target===e.currentTarget)closeViewer()});
+/* Preview before sending: same custom player as the viewer (spinner while loading, tap to play/pause, slim progress + controls) */
+(function(){const v=el("vmPreview"),vd=v.querySelector("video"),prog=el("vpProg");
+ const upd=()=>{const d=vd.duration,t=vd.currentTime||0,ok=d>0&&isFinite(d);el("vpFill").style.width=(ok?Math.min(100,t/d*100):0)+"%";el("vpTime").textContent="-"+vvTime(ok?d-t:0);prog.setAttribute("aria-valuenow",String(Math.round(ok?t/d*100:0)))};
+ const toggle=()=>{if(vd.paused)vd.play().catch(()=>{});else vd.pause()};
+ vd.addEventListener("timeupdate",upd);vd.addEventListener("loadedmetadata",upd);vd.addEventListener("durationchange",upd);
+ ["loadeddata","canplay","playing"].forEach(ev=>vd.addEventListener(ev,()=>{if(vd.readyState>=2)vpWait(false)}));
+ vd.addEventListener("waiting",()=>{if(!vd.paused&&!vd.hidden&&vd.getAttribute("src"))vpWait(true)});
+ vd.addEventListener("play",()=>{el("vpPlay").innerHTML=VVI.pause;el("vpPlay").setAttribute("aria-label","Pause")});
+ vd.addEventListener("pause",()=>{el("vpPlay").innerHTML=VVI.play;el("vpPlay").setAttribute("aria-label","Play")});
+ vd.addEventListener("ended",()=>{el("vpPlay").innerHTML=VVI.play});
+ vd.addEventListener("click",toggle);el("vpPlay").addEventListener("click",toggle);
+ el("vpMute").addEventListener("click",()=>{vd.muted=!vd.muted;el("vpMute").innerHTML=vd.muted?VVI.mute:VVI.vol});
+ let drag=false;const seek=e=>{const r=prog.getBoundingClientRect(),d=vd.duration;if(!(d>0&&isFinite(d)))return;vd.currentTime=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*d;upd()};
+ prog.addEventListener("pointerdown",e=>{drag=true;try{prog.setPointerCapture(e.pointerId)}catch(x){}seek(e)});prog.addEventListener("pointermove",e=>{if(drag)seek(e)});prog.addEventListener("pointerup",()=>{drag=false});prog.addEventListener("pointercancel",()=>{drag=false});
+})();
 
 /* voice notes */
 let recorder=null,stream=null,chunks=[],t0=0,tick=null;
