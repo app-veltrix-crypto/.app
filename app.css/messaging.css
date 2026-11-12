@@ -360,3 +360,39 @@ html[data-theme="dark"] #vmViewer.vv[popover],html[data-theme="dark"] #vmViewer.
 html[data-theme="dark"] #vmViewer.vv img,html[data-theme="dark"] #vmViewer.vv video{filter:none}
 /* the loading shimmer inside my own bubbles is not inverted by the page, so it gets its own dark version at night */
 html[data-theme="dark"] .vm-b.me .vm-mwrap.vm-mload{background:linear-gradient(100deg,#23262c 30%,#2f333a 48%,#23262c 66%);background-size:300% 100%}
+
+/* Preview before sending: same look and player as the full-screen viewer (black screen, spinner while loading, slim controls) */
+#vmPreview.vm-preview{background:#000;color:#e7e9ea}
+#vmPreview.vm-preview:not([hidden]){display:flex;flex-direction:column;place-items:initial;overflow:hidden}
+#vmPreview .vp-stage{position:relative;flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding-top:calc(52px + env(safe-area-inset-top));overflow:hidden;background:#000}
+#vmPreview .vp-stage img,#vmPreview .vp-stage video{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;background:#000}
+#vmPreview .vp-stage img[hidden],#vmPreview .vp-stage video[hidden]{display:none!important}
+#vmPreview .vp-stage.vp-wait video{visibility:hidden}
+#vmPreview .vp-spin{position:absolute;left:50%;top:calc(50% + 26px);width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:3px solid rgba(255,255,255,.22);border-top-color:#fff;animation:vpSpin .8s linear infinite}
+#vmPreview .vp-spin[hidden]{display:none!important}
+@keyframes vpSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){#vmPreview .vp-spin{animation-duration:2s}}
+#vmPreview .vp-bar{flex:0 0 auto;background:#000;padding-bottom:0}
+#vmPreview .vp-bar[hidden]{display:none!important}
+#vmPreview .vm-prevhint{position:static;flex:0 0 auto;padding:8px 20px calc(14px + env(safe-area-inset-bottom));background:#000;text-shadow:none;color:#8b9096}
+#vmPreview .vv-prog{position:relative;height:2px;background:#333639;margin-top:10px;touch-action:none;cursor:pointer}
+#vmPreview .vv-prog::before{content:"";position:absolute;left:0;right:0;top:-12px;bottom:-12px}
+#vmPreview .vv-prog i{position:absolute;left:0;top:0;bottom:0;width:0;background:#fff;pointer-events:none}
+#vmPreview .vv-ctl{display:flex;align-items:center;gap:14px;height:42px;padding:0 14px}
+#vmPreview .vv-ctl button{all:unset;box-sizing:border-box;display:grid;place-items:center;min-width:28px;height:36px;color:#e7e9ea;cursor:pointer;font-size:11px;font-weight:600;-webkit-tap-highlight-color:transparent}
+#vmPreview .vv-ctl button svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#vmPreview .vv-ctl button:active{opacity:.6}
+#vmPreview .vv-time{font-size:10px;color:#71767b;font-variant-numeric:tabular-nums}
+#vmPreview .vv-sp{flex:1}
+/* night mode: identical handling to the viewer so the screen stays black and photos/videos keep real colours */
+html[data-theme="dark"] #vmPreview.vm-preview:not([popover]){filter:invert(1) hue-rotate(180deg)}
+html[data-theme="dark"] #vmPreview.vm-preview[popover],html[data-theme="dark"] #vmPreview.vm-preview:fullscreen{filter:none}
+html[data-theme="dark"] #vmPreview img,html[data-theme="dark"] #vmPreview video{filter:none}
+
+/* Attach menu: a clean line icon beside each option */
+.vm-upload-menu button{display:flex;align-items:center;gap:12px}
+.vm-upload-menu .vm-um-ic{flex:0 0 32px;width:32px;height:32px;display:grid;place-items:center;border-radius:10px;background:#f3f4f7;color:#111}
+.vm-upload-menu .vm-um-ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.vm-upload-menu .vm-um-t{flex:1;min-width:0}
+.vm-upload-menu button[data-upload="cancel"]{color:#7b7d85}
+.vm-upload-menu button[data-upload="cancel"] .vm-um-ic{background:transparent;color:#7b7d85}
