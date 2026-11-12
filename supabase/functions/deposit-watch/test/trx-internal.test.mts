@@ -156,4 +156,11 @@ await ok("WATCHER: a WRONG TRON network is refused first: no block is read, noth
   assert.ok(r.errors.some((e: string) => /Wrong network behind the TRON/.test(e))); assert.equal(db.recorded.size, 0); assert.ok(!nd.log.some((l) => /byblocknum/.test(l)));
 });
 
+await ok("RATE LIMIT: when TronGrid suspends the key for a few seconds, the first block read waits it out once and retries - the run does not fail, the deposit is found", async () => {
+  const nd = node({ tip: 100, blocks: { 93: [info("d1".repeat(32), 93, [itx(ME, 4_000_000)])] } }), post = nd.post.bind(nd); let hit = 0;
+  nd.post = async (u: string, b: any) => { if (u.endsWith("/walletsolidity/gettransactioninfobyblocknum") && hit++ === 0) throw new Error('"Error":"The key exceeds the frequency limit(15), and the query server is suspended for 1 s"'); return post(u, b); };
+  const a = await S.scanTrxInternal(nd, cfg(), [ME], null);
+  assert.equal(a.found.length, 1); assert.equal(a.found[0].amount, "4"); assert.ok(hit > 5, "all blocks were read after the retry");
+});
+
 console.log(process.exitCode ? "\nSOME CHECKS FAILED" : `\nall ${n} TRX internal-transfer checks ran — passed`);
