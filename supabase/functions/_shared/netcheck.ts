@@ -19,7 +19,7 @@ export const GENESIS = {
   BTC: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
   LTC: "12a765e31ffd4059bada1e25190f6e98c99d9714d334efa41a195a7e7e04bfe2",
   SOL: "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
-  TRX: "0000000000000000d698d4192c56cb6be724a558448e2684802de4d6cd8690dc",
+  TRX: "00000000000000001ebf88508a03865c71d452e25f4d51194196a1d22b6653dc",   // TRON MAINNET block 0 (chain id 0x2b6653dc). The old value ended cd8690dc = the Nile TESTNET, so mainnet was wrongly refused.
 } as const;
 export const EVM_CHAIN_ID = { ETH: 1, BNB: 56, AVAX: 43114 } as const;
 /** the canonical token contracts, per chain id (only chain 1 is listed: tokens are Ethereum-mainnet tokens in this app) */
