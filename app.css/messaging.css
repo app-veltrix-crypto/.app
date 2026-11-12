@@ -400,3 +400,5 @@ html[data-theme="dark"] #vmPreview img,html[data-theme="dark"] #vmPreview video{
 /* Preview before sending: the one-time view button is the same size as the close button */
 #vmPreview .vm-once-big{width:36px;height:36px;flex:0 0 36px;top:calc(12px + env(safe-area-inset-top));right:12px}
 #vmPreview .vm-once-big svg{width:17px;height:17px}
+#vmPreview .vp-fail{position:absolute;left:0;right:0;top:50%;margin:0;padding:0 28px;text-align:center;font-size:12px;line-height:1.5;color:#9aa0a6}
+#vmPreview .vp-fail[hidden]{display:none!important}

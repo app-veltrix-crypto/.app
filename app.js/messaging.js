@@ -156,7 +156,7 @@ wrap.innerHTML=`
 <div class="vv-info"><div class="vv-author"><span class="vv-av" id="vvAv"></span><span class="vv-name" id="vvName"></span></div><p class="vv-cap" id="vvCap" hidden></p></div>
 <div class="vv-bar" id="vvBar" hidden><div class="vv-prog" id="vvProg" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="vvFill"></i></div>
 <div class="vv-ctl"><button type="button" id="vvPlay" aria-label="Pause"></button><span class="vv-time" id="vvTime">-0:00</span><span class="vv-sp"></span><button type="button" class="vv-speed" id="vvSpeed" aria-label="Playback speed">1x</button><button type="button" id="vvMute" aria-label="Sound"></button><button type="button" id="vvFs" aria-label="Full screen"></button></div></div></div>
-<div class="vm-viewer vm-preview" id="vmPreview" hidden><button type="button" class="vm-ic" id="vmPreviewX" aria-label="Close">${I.x}</button><button type="button" class="vm-once vm-once-big" id="vmPreviewOnce" aria-label="One-time view">${I.once}</button><div class="vp-stage" id="vpStage"><img alt="" hidden><video playsinline preload="auto" hidden></video><span class="vp-spin" id="vpSpin" hidden></span></div><div class="vv-bar vp-bar" id="vpBar" hidden><div class="vv-prog" id="vpProg" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="vpFill"></i></div><div class="vv-ctl"><button type="button" id="vpPlay" aria-label="Pause"></button><span class="vv-time" id="vpTime">-0:00</span><span class="vv-sp"></span><button type="button" id="vpMute" aria-label="Sound"></button></div></div><div class="vm-prevhint" id="vmPreviewHint"></div></div>
+<div class="vm-viewer vm-preview" id="vmPreview" hidden><button type="button" class="vm-ic" id="vmPreviewX" aria-label="Close">${I.x}</button><button type="button" class="vm-once vm-once-big" id="vmPreviewOnce" aria-label="One-time view">${I.once}</button><div class="vp-stage" id="vpStage"><img alt="" hidden><video playsinline preload="auto" hidden></video><span class="vp-spin" id="vpSpin" hidden></span><p class="vp-fail" id="vpFail" hidden>This video can't be previewed here. You can still send it.</p></div><div class="vv-bar vp-bar" id="vpBar" hidden><div class="vv-prog" id="vpProg" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="vpFill"></i></div><div class="vv-ctl"><button type="button" id="vpPlay" aria-label="Pause"></button><span class="vv-time" id="vpTime">-0:00</span><span class="vv-sp"></span><button type="button" id="vpMute" aria-label="Sound"></button></div></div><div class="vm-prevhint" id="vmPreviewHint"></div></div>
 <div class="vm-dialog-backdrop" id="vmDialog" hidden><section class="vm-dialog" role="dialog" aria-modal="true" aria-labelledby="vmDialogTitle"><h2 id="vmDialogTitle">Message options</h2><p id="vmDialogText">Choose an action.</p><div class="vm-dialog-actions" id="vmDialogActions"></div><button type="button" class="vm-dialog-cancel" id="vmDialogCancel">Cancel</button></section></div>
 <div class="vm-upload-menu" id="vmUploadMenu" hidden><button type="button" data-upload="image"><span class="vm-um-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 4.6-4.4a1.6 1.6 0 0 1 2.2 0L14 15.5l1.8-1.7a1.6 1.6 0 0 1 2.2 0L20.5 16"/></svg></span><span class="vm-um-t">Choose image</span></button><button type="button" data-upload="video"><span class="vm-um-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="m16 10.5 4.2-2.4a.6.6 0 0 1 .8.5v6.8a.6.6 0 0 1-.8.5L16 13.5"/></svg></span><span class="vm-um-t">Choose video</span></button><button type="button" data-upload="file"><span class="vm-um-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3.5H8a2.5 2.5 0 0 0-2.5 2.5v12A2.5 2.5 0 0 0 8 20.5h8a2.5 2.5 0 0 0 2.5-2.5V8z"/><path d="M14 3.5V8h4.5M9 13h6M9 16.5h4"/></svg></span><span class="vm-um-t">Browse files</span></button><button type="button" data-upload="cancel"><span class="vm-um-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m9 9 6 6M15 9l-6 6"/></svg></span><span class="vm-um-t">Cancel</span></button></div>
 <div class="vm-toast" id="vmToast" role="status" aria-live="polite"></div>
@@ -373,20 +373,25 @@ el("vmStage").addEventListener("click",e=>{
  const on=e.target.closest("[data-once]");if(on){const x=staged[+on.dataset.once];x.once=!x.once;renderStage();return}
  const t=e.target.closest(".vm-tile");if(t&&staged[+t.dataset.i].type!=="file")openPreview(+t.dataset.i)});
 function paintPreviewOnce(){const x=staged[previewIdx];if(!x)return;const b=el("vmPreviewOnce");b.classList.toggle("on",x.once);el("vmPreviewHint").textContent=x.once?"One-time view is ON — they can open this only once":"Tap the icon to send as a one-time view"}
+let vpAlt=null;
+function vpFree(){if(vpAlt){URL.revokeObjectURL(vpAlt);vpAlt=null}}
 function openPreview(i){previewIdx=i;const x=staged[i],v=el("vmPreview"),im=v.querySelector("img"),vd=v.querySelector("video");
  im.hidden=x.type!=="image";vd.hidden=x.type!=="video";vd.pause();vpReset();
  el("vpBar").hidden=x.type!=="video";
  if(x.type==="image"){im.src=x.url}
  else{
-  /* same loading as before (src only); the spinner just covers the wait. If the browser really cannot decode it, fall back to the browser's own player instead of blocking. */
-  vpWait(true);
-  vd.onerror=()=>{if(!vd.getAttribute("src"))return;vpWait(false);vd.controls=true;el("vpBar").hidden=true};
-  vd.src=x.url;
+  /* spinner while loading. Phone files often have an empty/odd type and then fail to play, so on a failure it is tried once more as MP4
+     (the same bytes, only the label changes). If it still cannot play, a clean note is shown - never the browser's default player. */
+  vpWait(true);let retried=false;
+  vd.onerror=()=>{if(!vd.getAttribute("src"))return;
+   if(!retried){retried=true;vpFree();try{vpAlt=URL.createObjectURL(new Blob([x.file],{type:"video/mp4"}));vd.src=vpAlt;vd.play().catch(()=>{});return}catch(e){}}
+   vpWait(false);el("vpFail").hidden=false;el("vpBar").hidden=true};
+  vd.src=x.url;vd.play().catch(()=>{});
  }
  paintPreviewOnce();v.hidden=false}
 function vpWait(on){const sp=el("vpSpin"),st=el("vpStage");if(!sp)return;sp.hidden=!on;st.classList.toggle("vp-wait",!!on)}
-function vpReset(){const vd=el("vmPreview").querySelector("video");vd.controls=false;vd.muted=false;vd.playbackRate=1;el("vpFill").style.width="0";el("vpTime").textContent="-0:00";el("vpPlay").innerHTML=VVI.pause;el("vpMute").innerHTML=VVI.vol;vpWait(false)}
-function closePreview(){const v=el("vmPreview");if(!v||v.hidden)return;const vd=v.querySelector("video");vd.pause();vd.onerror=null;vd.removeAttribute("src");v.querySelector("img").removeAttribute("src");vpWait(false);v.hidden=true;previewIdx=-1}
+function vpReset(){const vd=el("vmPreview").querySelector("video");vd.controls=false;vd.muted=false;vd.playbackRate=1;el("vpFill").style.width="0";el("vpTime").textContent="-0:00";el("vpPlay").innerHTML=VVI.pause;el("vpMute").innerHTML=VVI.vol;el("vpFail").hidden=true;vpWait(false)}
+function closePreview(){const v=el("vmPreview");if(!v||v.hidden)return;const vd=v.querySelector("video");vd.pause();vd.onerror=null;vd.removeAttribute("src");vpFree();v.querySelector("img").removeAttribute("src");vpWait(false);el("vpFail").hidden=true;v.hidden=true;previewIdx=-1}
 el("vmPreviewX").addEventListener("click",closePreview);
 el("vmPreviewOnce").addEventListener("click",()=>{const x=staged[previewIdx];if(!x)return;x.once=!x.once;paintPreviewOnce();renderStage()});
 async function sendStaged(){
