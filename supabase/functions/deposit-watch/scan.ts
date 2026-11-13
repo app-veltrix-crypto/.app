@@ -519,24 +519,30 @@ export async function scanTrxInternal(net: Net, cfg: Cfg, addrs: string[], curso
   const nums: number[] = []; for (let n = from; n <= to; n++) nums.push(n);
   /* TronGrid allows ~15 requests/second per key and then suspends the key for ~30 s ("The key exceeds the frequency limit(15)... suspended for N s").
      So read gently (2 at a time), and if the very first block hits that suspension, wait it out once (the pause is ~30 s, so up to 35 s) and try again instead of failing the run. */
-  const readBlocks = () => mapLimit(nums, 2, async (n) => { try { return { ok: true as const, r: await net.post(base + "/walletsolidity/gettransactioninfobyblocknum", { num: n }) }; } catch (e) { return { ok: false as const, e }; } });
-  let got = await readBlocks();
-  if (got.length && !got[0].ok) {
-    const t = String((got[0] as any).e?.message ?? (got[0] as any).e ?? "");
-    if (/frequency limit|suspended|\b429\b|too many requests/i.test(t)) {
-      const secs = Number(/suspended for (\d+)\s*s/i.exec(t)?.[1] ?? 2);
-      await new Promise((r) => setTimeout(r, Math.min(Math.max(secs, 1) + 2, 35) * 1000));
-      got = await readBlocks();
+  /* Blocks are read in SMALL BATCHES and each batch is reduced to the deposits it contains before the next one is read: a TRON block's transaction info can be
+     hundreds of KB, and holding 120 of them at once ran the function out of memory (WORKER_RESOURCE_LIMIT / HTTP 546). */
+  const BATCH = 8;
+  const readBatch = (ns: number[]) => mapLimit(ns, 2, async (n) => { try { return { ok: true as const, r: await net.post(base + "/walletsolidity/gettransactioninfobyblocknum", { num: n }) }; } catch (e) { return { ok: false as const, e }; } });
+  const found: Found[] = []; let last = cursor ?? from - 1, stop = false;
+  for (let i = 0; i < nums.length && !stop; i += BATCH) {
+    const ns = nums.slice(i, i + BATCH);
+    let got = await readBatch(ns);
+    if (i === 0 && got.length && !got[0].ok) {                                  // the very first block hit TronGrid's pause: wait it out once (the pause is ~30 s) and retry
+      const t = String((got[0] as any).e?.message ?? (got[0] as any).e ?? "");
+      if (/frequency limit|suspended|\b429\b|too many requests/i.test(t)) {
+        const secs = Number(/suspended for (\d+)\s*s/i.exec(t)?.[1] ?? 2);
+        await new Promise((r) => setTimeout(r, Math.min(Math.max(secs, 1) + 2, 35) * 1000));
+        got = await readBatch(ns);
+      }
     }
-  }
-  const found: Found[] = []; let last = cursor ?? from - 1;
-  for (let i = 0; i < nums.length; i++) {
-    const g = got[i];
-    if (!g.ok) { if (last < from) throw g.e; break; }                                                                       // stop at the first unreadable block: it is read again next run
-    const r = g.r;
-    if (r && !Array.isArray(r) && typeof r === "object" && Object.keys(r).length && (r as any).Error) throw new Error("TRON node: " + String((r as any).Error).slice(0, 100));
-    if (!Array.isArray(r) && !(r && typeof r === "object" && Object.keys(r).length === 0)) throw new Error("unexpected answer for block " + nums[i]);   // [] or {} = a block without transactions; anything else is not an answer
-    found.push(...await trxInternalFrom(want, r, nums[i])); last = nums[i];
+    for (let j = 0; j < ns.length; j++) {
+      const g = got[j];
+      if (!g.ok) { if (last < from) throw g.e; stop = true; break; }                                                   // stop at the first unreadable block: it is read again next run
+      const r = g.r;
+      if (r && !Array.isArray(r) && typeof r === "object" && Object.keys(r).length && (r as any).Error) throw new Error("TRON node: " + String((r as any).Error).slice(0, 100));
+      if (!Array.isArray(r) && !(r && typeof r === "object" && Object.keys(r).length === 0)) throw new Error("unexpected answer for block " + ns[j]);   // [] or {} = a block without transactions; anything else is not an answer
+      found.push(...await trxInternalFrom(want, r, ns[j])); last = ns[j];
+    }
   }
   return { found, next: last, tip };
 }

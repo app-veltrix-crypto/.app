@@ -28,13 +28,13 @@ const cfg: S.Cfg = {
   },
   backfillBlocks: Number(env("DEPOSIT_BACKFILL_BLOCKS") || 300), maxBlocksPerRun: Number(env("DEPOSIT_MAX_BLOCKS_PER_RUN") || 40), required: {}, trongridKey: env("TRONGRID_API_KEY"),
   maxPagesPerRun: Number(env("DEPOSIT_MAX_PAGES_PER_RUN") || 5), traceBlocksPerRun: Number(env("DEPOSIT_TRACE_BLOCKS_PER_RUN") || 2000),
-  blocksPerRunBy: { BNB: Number(env("DEPOSIT_MAX_BLOCKS_BNB") || 400), AVAX: Number(env("DEPOSIT_MAX_BLOCKS_AVAX") || 200), TRX: Number(env("DEPOSIT_MAX_BLOCKS_TRX") || 120) },
+  blocksPerRunBy: { BNB: Number(env("DEPOSIT_MAX_BLOCKS_BNB") || 400), AVAX: Number(env("DEPOSIT_MAX_BLOCKS_AVAX") || 200), TRX: Number(env("DEPOSIT_MAX_BLOCKS_TRX") || 60) },
 };
 /* the TronGrid key goes ONLY to the TRON API (never to the BTC/LTC explorers), and TRON requests are paced: TronGrid allows ~15 requests/second per key
    and then suspends the key for ~30 s. One request per 90 ms keeps this scanner at ~11/s even when several run at once. */
 const hdr = (u: string): Record<string, string> => (cfg.trongridKey && u.startsWith(cfg.api.TRX) ? { "TRON-PRO-API-KEY": cfg.trongridKey } : {});
 /** shows in the scan answer (net._http_response.content), so you can SEE which code is deployed */
-const BUILD = "2026-11-12-trx-paced";
+const BUILD = "2026-11-12-trx-lowmem";
 let nextTrxSlot = 0;
 const pace = async (u: string) => { if (!u.startsWith(cfg.api.TRX)) return; const at = Math.max(Date.now(), nextTrxSlot); nextTrxSlot = at + 90; const w = at - Date.now(); if (w > 0) await new Promise((r) => setTimeout(r, w)); };
 const fetchJson = async (url: string, init?: RequestInit) => {
