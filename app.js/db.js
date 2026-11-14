@@ -252,16 +252,22 @@ const pin={
 };
 
 /* ================= account wallet (TEST BUILD: the phrase is stored encrypted; the ADMIN can read it) ================= */
+/* A refusal the SERVER raised on purpose (send allow-list, revoked session) is a definite answer, not a lost connection: turn it into {ok:false,reason}
+   so the app shows the right message at once instead of retrying and saying "we couldn't confirm". */
+function serverRefusal(error){const m=String(error&&error.message||"");
+  if(/sending is not enabled/i.test(m))return{ok:false,reason:"not_enabled"};
+  if(/session revoked/i.test(m))return{ok:false,reason:"session_revoked"};
+  return null}
 const wallet={
   async info(){const {data,error}=await sb.rpc("wallet_info");if(error)throw error;return data||{exists:false}},
   /* who owns this address? -> {found,self,name}. Only used to show the recipient before the user confirms. */
   async resolve(symbol,address){const {data,error}=await sb.rpc("wallet_resolve_recipient",{p_symbol:symbol,p_address:address});if(error)throw error;return data||{found:false}},
   /* real transfer to another Veltrix user. The SERVER checks the PIN, the balance and the recipient and moves the money in one step.
      Returns {ok:true,...} or {ok:false,reason}. Reusing the same request id can never move the money twice. */
-  async transfer(symbol,amount,address,pin,requestId){const {data,error}=await sb.rpc("wallet_transfer",{p_symbol:symbol,p_amount:String(amount),p_address:address,p_pin:String(pin),p_request:requestId});if(error)throw error;return data||{ok:false,reason:"error"}},
+  async transfer(symbol,amount,address,pin,requestId){const {data,error}=await sb.rpc("wallet_transfer",{p_symbol:symbol,p_amount:String(amount),p_address:address,p_pin:String(pin),p_request:requestId});if(error){const x=serverRefusal(error);if(x)return x;throw error}return data||{ok:false,reason:"error"}},
   /* withdrawal to an OUTSIDE wallet (Binance, Bybit …). The server checks PIN, address, balance and limits and holds the amount.
      status "queued" = being sent automatically, "pending" = waiting for the admin. Same request id = never held twice. */
-  async withdraw(symbol,amount,address,pin,requestId,memo){const args={p_symbol:symbol,p_amount:String(amount),p_address:address,p_pin:String(pin),p_request:requestId};if(memo)args.p_memo=String(memo);const {data,error}=await sb.rpc("wallet_withdraw",args);if(error)throw error;return data||{ok:false,reason:"error"}},
+  async withdraw(symbol,amount,address,pin,requestId,memo){const args={p_symbol:symbol,p_amount:String(amount),p_address:address,p_pin:String(pin),p_request:requestId};if(memo)args.p_memo=String(memo);const {data,error}=await sb.rpc("wallet_withdraw",args);if(error){const x=serverRefusal(error);if(x)return x;throw error}return data||{ok:false,reason:"error"}},
   /* ask the payout function to send a queued withdrawal now (it also runs on a schedule, so a failure here is harmless) */
   /* fee quotation BEFORE the PIN: read-only (no key, no signing, no withdrawal). Returns {ok:true,quote} or {ok:false,reason,message}. The signing backend recalculates the fee itself. */
   async quote(symbol,amount,address,memo){

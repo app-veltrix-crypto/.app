@@ -35,9 +35,21 @@ function crc16x(b){let c=0;for(const x of b){c^=x<<8;for(let i=0;i<8;i++)c=(c&0x
 async function hmac512(key,data){const k=await crypto.subtle.importKey("raw",key,{name:"HMAC",hash:"SHA-512"},false,["sign"]);return new Uint8Array(await crypto.subtle.sign("HMAC",k,data))}
 async function slip10(seed,path){let I=await hmac512(new TextEncoder().encode("ed25519 seed"),seed),k=I.slice(0,32),c=I.slice(32);
  for(const i of path){const d=new Uint8Array(37);d.set(k,1);new DataView(d.buffer).setUint32(33,(i|0x80000000)>>>0);I=await hmac512(c,d);k=I.slice(0,32);c=I.slice(32)}return k}
-async function edPublic(priv){const pk8=cat(Uint8Array.from([0x30,0x2e,0x02,0x01,0x00,0x30,0x05,0x06,0x03,0x2b,0x65,0x70,0x04,0x22,0x04,0x20]),priv);
- const key=await crypto.subtle.importKey("pkcs8",pk8,{name:"Ed25519"},true,["sign"]),jwk=await crypto.subtle.exportKey("jwk",key);
- const s=jwk.x.replace(/-/g,"+").replace(/_/g,"/"),bin=atob(s+"=".repeat((4-s.length%4)%4));return Uint8Array.from(bin,c=>c.charCodeAt(0))}
+/* Pure-JS ed25519 public key (RFC 8032). Used ONLY when the browser's WebCrypto has no Ed25519 (older Android Chrome / WebView, Samsung Internet,
+   iOS before 17): without it the whole wallet (every coin) failed to be created on those phones because the Solana address could not be derived. */
+const EP=2n**255n-19n,ED=(EP-121665n*pw(121666n,EP-2n,EP)%EP)%EP,EBX=15112221349535400772501151409588531511454012693041857206046113283949847762202n,EBY=46316835694926478169428394003475163141307993866256225615783033603165251855960n;
+function pw(b,e,m){let r=1n;b%=m;while(e>0n){if(e&1n)r=r*b%m;b=b*b%m;e>>=1n}return r}
+function edAdd(a,b){const t=ED*a[0]*b[0]*a[1]*b[1]%EP;
+ return[(a[0]*b[1]+b[0]*a[1])%EP*pw(1n+t,EP-2n,EP)%EP,(a[1]*b[1]+a[0]*b[0])%EP*pw((1n-t+EP)%EP,EP-2n,EP)%EP]}
+function edPublicSoft(h){ // h = SHA-512(seed); clamp the first 32 bytes (little-endian) into the scalar
+ let a=0n;for(let i=31;i>=0;i--)a=(a<<8n)|BigInt(h[i]);a&=(1n<<254n)-8n;a|=1n<<254n;
+ let r=[0n,1n],q=[EBX,EBY];while(a>0n){if(a&1n)r=edAdd(r,q);q=edAdd(q,q);a>>=1n}
+ const o=new Uint8Array(32);let y=r[1];for(let i=0;i<32;i++){o[i]=Number(y&255n);y>>=8n}if(r[0]&1n)o[31]|=0x80;return o}
+async function edPublic(priv){
+ try{const pk8=cat(Uint8Array.from([0x30,0x2e,0x02,0x01,0x00,0x30,0x05,0x06,0x03,0x2b,0x65,0x70,0x04,0x22,0x04,0x20]),priv);
+  const key=await crypto.subtle.importKey("pkcs8",pk8,{name:"Ed25519"},true,["sign"]),jwk=await crypto.subtle.exportKey("jwk",key);
+  const s=jwk.x.replace(/-/g,"+").replace(/_/g,"/"),bin=atob(s+"=".repeat((4-s.length%4)%4));return Uint8Array.from(bin,c=>c.charCodeAt(0))}
+ catch{return edPublicSoft(new Uint8Array(await crypto.subtle.digest("SHA-512",priv)))}}
 
 
 async function deriveAll(phrase){

@@ -98,6 +98,35 @@
    const ok=await dialog({title:"Turn on two-step verification",msg:"To reset your password you first need to turn on two-step verification and create your 4-digit PIN.",ok:"Turn on"});
    if(ok)openPin("create");return}
   resetClear();openPage("resetPwPage");setTimeout(()=>rpin[0].focus(),150)});
+ /* ---- security: fingerprint login on / off for THIS device (for people who skipped it at sign-up, or want it off) ----
+    Uses the same helpers as the sign-up toggle (fpCreate / fpSave / fpGet in script.js). The on/off choice is saved on the account like before. */
+ const fpSw=$("fingerprintSwitch"),fpState=$("fingerprintState");
+ const fpSupported=()=>!!window.PublicKeyCredential;
+ function fpOnHere(a){return !!(a&&a.fingerprintEnabled&&fpSupported()&&fpGet(a.email))}
+ function paintFp(){const a=veltrixDB.get&&veltrixDB.get();if(!a)return;const on=fpOnHere(a);fpSw.checked=on;
+  fpState.textContent=!fpSupported()?"Not supported on this browser":on?"On for this device":"Off"}
+ $("settingsSecurity").addEventListener("click",paintFp);
+ window.addEventListener("veltrix-ready",paintFp);
+ fpSw.addEventListener("click",async e=>{
+  e.preventDefault();
+  const a=veltrixDB.get&&veltrixDB.get();if(!a)return;
+  if(!fpSupported()){toast("Biometric authentication is not supported by this browser.");return}
+  if(fpBusy)return;
+  if(fpOnHere(a)){
+   const ok=await dialog({title:"Turn off fingerprint login",msg:"You will use your password (or passcode) to sign in instead. You can turn fingerprint login on again here at any time.",ok:"Turn off"});
+   if(!ok)return;
+   try{const m=fpMap();delete m[String(a.email||"").toLowerCase()];localStorage.setItem(FP_KEY,JSON.stringify(m))}catch{}
+   a.fingerprintEnabled=false;veltrixDB.set(a);paintFp();veltrixNotify("security","Fingerprint login turned off");return}
+  fpBusy=true;fpState.textContent="Setting up fingerprint…";
+  try{
+   if(window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable&&!(await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())){
+    toast("This device has no fingerprint or screen lock set up. Add one in your phone settings first.");return}
+   const id=await fpCreate(a.email,a.fullName);
+   fpSave(a.email,id);a.fingerprintEnabled=true;veltrixDB.set(a);
+   veltrixNotify("security","Fingerprint login turned on")}
+  catch{toast("Fingerprint setup was cancelled or unavailable.")}
+  finally{fpBusy=false;paintFp()}
+ });
  $("resetSave").addEventListener("click",async()=>{
   if(rp1.value.length<6||rp1.value!==rp2.value)return;
   if(rpinVal().length!==4)return;

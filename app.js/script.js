@@ -1080,7 +1080,7 @@ document.addEventListener("click",function(event){
   box.classList.remove("bad","good");m.hidden=false;m.className="sd-msg";
   if(recip.error){box.classList.add("bad");m.classList.add("bad");m.textContent="Couldn't check this address. Check your connection, retrying…"}
   else if(recip.found&&recip.self){box.classList.add("bad");m.classList.add("bad");m.textContent="This is your own wallet address. You can't send to yourself."}
-  else if(recip.found){box.classList.add("good");m.classList.add("good");m.textContent=`Veltrix wallet · ${recip.name||"Veltrix user"}. Instant transfer, no fee.`}
+  else if(recip.found){box.classList.add("good");m.classList.add("good");m.textContent=`Veltrix wallet · ${recip.name||"Veltrix user"}. Sent on the ${c.net} network. A network fee applies and is shown before you confirm.`}
   else{box.classList.add("good");m.classList.add("good");m.textContent=`Outside wallet. It will be sent on the ${c.net} network. Make sure the receiving app (Binance, Bybit …) accepts ${c.symbol} on ${c.net}, or the funds can be lost.`}
   syncTag();$("sdSend").disabled=!addrReady();
  }
@@ -1161,6 +1161,8 @@ document.addEventListener("click",function(event){
  /* ---- step 4: execute + luxury receipt ---- */
  const NETNAME=c=>c.net;
  function makeTx(c){const b=new Uint8Array(6);crypto.getRandomValues(b);return "WD-"+[...b].map(x=>x.toString(16).padStart(2,"0")).join("").toUpperCase()}
+ /* the sender pays the network fee (it is in the quote); show that figure instead of a wrong "Covered by Veltrix" */
+ function paintFee(){const q=quoteState&&quoteState.ok&&quoteState.quote;$("luxFee").textContent=q&&q.fee?`${(+q.fee.amount)?trim(q.fee.amount):"0"} ${q.fee.symbol}${q.fee.kind==="exact"?"":" (est.)"}`:"Paid from your wallet"}
  /* success screen: "processing" = outside withdrawal being sent automatically, "done" = real transfer to another Veltrix user, already completed */
  function setDoneMode(mode){   // "done" | "processing"
   $("luxEyebrow").textContent=mode==="done"?"TRANSFER COMPLETE":"SENDING ON THE BLOCKCHAIN";
@@ -1200,7 +1202,7 @@ document.addEventListener("click",function(event){
     $("luxRecip").textContent=r.to_name||"Veltrix user";$("luxTo").textContent=shortAddr(a);
     $("luxNet").textContent=r.network||c.net;$("luxDate").textContent=when;$("luxTx").textContent=r.reference;
     lastReceipt=`Veltrix transfer receipt\nStatus: Sending on the blockchain (confirming)\nAmount: ${amtTxt}${usdTxt?" ("+usdTxt+")":""}\nTo: ${r.to_name||"Veltrix user"} (${a})\nNetwork: ${r.network||c.net}\nDate: ${when}\nReference: ${r.reference}`;
-    playDone();refreshAfterTransfer();
+    paintFee();playDone();refreshAfterTransfer();
     if(r.status==="queued")veltrixDB.wallet.sendQueued(r.id).then(()=>setTimeout(refreshAfterTransfer,4000));
     return;
   }
@@ -1212,7 +1214,12 @@ document.addEventListener("click",function(event){
    case"insufficient":wdToast("Insufficient balance. Nothing was sent.");refreshAfterTransfer();build();render();show("sdAmountView");break;
    case"invalid_amount":wdToast("That amount isn't valid. Nothing was sent.");show("sdAmountView");break;
    case"unavailable":wdToast("Sending is switched off at the moment. Nothing was sent.");show("sdAddrView");checkAddr();break;
+   case"not_enabled":wdToast("Sending isn't enabled for this account yet. Nothing was sent.");show("sdAddrView");checkAddr();break;
+   case"session_revoked":wdToast("Your session has ended. Sign in again. Nothing was sent.");show("sdAddrView");break;
    case"self":case"recipient_not_found":show("sdAddrView");checkAddr();wdToast(r.reason==="self"?"You can't send to your own wallet.":"That wallet could not be found. Nothing was sent.");break;
+   case"invalid_address":show("sdAddrView");checkAddr();wdToast("That wallet address isn't valid for this coin. Nothing was sent.");break;
+   case"invalid_memo":show("sdAddrView");checkAddr();wdToast("The destination tag isn't valid. Nothing was sent.");break;
+   case"unsupported_coin":show("sdAmountView");wdToast("This coin can't be sent right now. Nothing was sent.");break;
    default:wdToast("Transfer failed. Nothing was sent.");show("sdAddrView");checkAddr()
   }
  }
@@ -1243,7 +1250,7 @@ document.addEventListener("click",function(event){
    $("luxAmt").textContent=amtTxt;$("luxUsd").textContent=usdTxt;$("luxTo").textContent=shortAddr(a);
    $("luxNet").textContent=r.network||c.net;$("luxDate").textContent=when;$("luxTx").textContent=r.reference;
    lastReceipt=`Veltrix withdrawal receipt\nStatus: ${"Processing"}\nAmount: ${amtTxt}${usdTxt?" ("+usdTxt+")":""}\nTo: ${a}${tag?"\nDestination tag: "+tag:""}\nNetwork: ${r.network||c.net}\nDate: ${when}\nReference: ${r.reference}`;
-   playDone();refreshAfterTransfer();
+   paintFee();playDone();refreshAfterTransfer();
    if(r.status==="queued")veltrixDB.wallet.sendQueued(r.id).then(()=>setTimeout(refreshAfterTransfer,4000));
    return;
   }
@@ -1258,6 +1265,9 @@ document.addEventListener("click",function(event){
    case"invalid_memo":wdToast("That destination tag isn't valid. Nothing was sent.");show("sdAddrView");checkAddr();break;
    case"unsupported_coin":wdToast("Sending "+c.symbol+" to outside wallets isn't available yet. Nothing was sent.");show("sdAddrView");checkAddr();break;
    case"unavailable":wdToast("Withdrawals to outside wallets are temporarily unavailable. Nothing was sent.");show("sdAddrView");checkAddr();break;
+   case"not_enabled":wdToast("Sending isn't enabled for this account yet. Nothing was sent.");show("sdAddrView");checkAddr();break;
+   case"session_revoked":wdToast("Your session has ended. Sign in again. Nothing was sent.");show("sdAddrView");break;
+   case"self":wdToast("You can't send to your own wallet. Nothing was sent.");show("sdAddrView");checkAddr();break;
    case"limit_exceeded":wdToast("This is above the withdrawal limit. Try a smaller amount. Nothing was sent.");show("sdAmountView");break;
    case"internal_recipient":show("sdAddrView");checkAddr();wdToast("That is a Veltrix wallet. Review the recipient and send again.");break;
    default:wdToast("Withdrawal failed. Nothing was sent.");show("sdAddrView");checkAddr()

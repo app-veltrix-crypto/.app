@@ -506,6 +506,7 @@ IMPORTANT - READ BEFORE EDITING (for any AI assistant or developer)
     <p class="sx-lead left">Manage how your account and wallet are protected.</p>
     <button type="button" class="sx-card sx-link-row" id="securityReset"><span class="sx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M16 7l3 3M14 9l2 2"/></svg></span><span class="sx-grow"><strong>Reset password</strong><small>Choose a new password for your account.</small></span><svg class="sx-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
     <button type="button" class="sx-card sx-link-row" id="securityPhrase"><span class="sx-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sx-grow"><strong>View recovery phrase</strong><small>Show your wallet recovery phrase.</small></span><svg class="sx-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    <div class="sx-card sx-toggle-row" id="securityFingerprintRow"><span class="sx-ico"><svg aria-hidden="true" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M112 320C112 205.1 205.1 112 320 112C383.1 112 439.6 140.1 477.8 184.5C486.4 194.6 501.6 195.7 511.6 187.1C521.6 178.5 522.8 163.3 514.2 153.3C467.3 98.6 397.7 64 320 64C178.6 64 64 178.6 64 320L64 360C64 373.3 74.7 384 88 384C101.3 384 112 373.3 112 360L112 320zM570.5 267.1C567.8 254.1 555 245.8 542.1 248.6C529.2 251.4 520.8 264.1 523.6 277C526.5 290.9 528.1 305.3 528.1 320.1L528.1 360.1C528.1 373.4 538.8 384.1 552.1 384.1C565.4 384.1 576.1 373.4 576.1 360.1L576.1 320.1C576.1 302 574.2 284.3 570.6 267.2zM320 144C301 144 282.6 147 265.5 152.6C250.3 157.6 246.8 176.3 257.2 188.5C264.3 196.8 276 199.3 286.6 196.4C297.2 193.5 308.4 192 320 192C390.7 192 448 249.3 448 320L448 344.9C448 370.1 446.5 395.2 443.6 420.2C441.9 434.8 453 448 467.8 448C479.6 448 489.7 439.4 491.1 427.7C494.4 400.3 496.1 372.7 496.1 345L496.1 320.1C496.1 222.9 417.3 144.1 320.1 144.1zM214.7 212.7C205.6 202.1 189.4 201.3 180.8 212.3C157.7 242.1 144 279.4 144 320L144 344.9C144 369.1 141.4 393.3 136.2 416.8C132.8 432.4 144.1 447.9 160.1 447.9C170.6 447.9 180 440.9 182.3 430.6C188.7 402.5 192 373.8 192 344.8L192 319.9C192 292.7 200.5 267.5 214.9 246.8C222.1 236.4 222.9 222.2 214.7 212.6zM320 224C267 224 224 267 224 320L224 344.9C224 380.8 219.4 416.4 210.2 451C206.4 465.3 216.9 480 231.7 480C241.2 480 249.6 473.8 252.1 464.6C262.6 425.6 268 385.4 268 344.9L268 320C268 291.3 291.3 268 320 268C348.7 268 372 291.3 372 320L372 344.9C372 381.2 368.5 417.3 361.6 452.8C358.9 466.7 369.3 480 383.4 480C393.6 480 402.4 473 404.4 463C412.1 424.2 416 384.7 416 344.9L416 320C416 267 373 224 320 224zM344 320C344 306.7 333.3 296 320 296C306.7 296 296 306.7 296 320L296 344.9C296 404.8 285 464.2 263.5 520.1L257.6 535.4C252.8 547.8 259 561.7 271.4 566.4C283.8 571.1 297.7 565 302.4 552.6L308.3 537.3C331.9 475.9 344 410.7 344 344.9L344 320z"/></svg></span><span class="sx-grow"><strong>Fingerprint login</strong><small id="fingerprintState">Off</small></span><label class="sx-switch"><input type="checkbox" id="fingerprintSwitch" aria-label="Fingerprint login"><i></i></label></div>
   </div>
 </section>
 <section id="resetPwPage" class="profile-ui-page sx-page" hidden aria-label="Reset password">
@@ -663,7 +664,7 @@ IMPORTANT - READ BEFORE EDITING (for any AI assistant or developer)
         <div class="lux-row" id="luxRecipRow" hidden><span>Recipient</span><b id="luxRecip"></b></div>
         <div class="lux-row"><span>To</span><b><em id="luxTo"></em><button type="button" class="lux-copy" data-copy="to" aria-label="Copy address"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg></button></b></div>
         <div class="lux-row"><span>Network</span><b id="luxNet"></b></div>
-        <div class="lux-row"><span>Network fee</span><b class="lux-free">Covered by Veltrix</b></div>
+        <div class="lux-row"><span>Network fee</span><b id="luxFee">Paid from your wallet</b></div>
         <div class="lux-row"><span>Date</span><b id="luxDate"></b></div>
         <div class="lux-row"><span>Transaction ID</span><b><em id="luxTx"></em><button type="button" class="lux-copy" data-copy="tx" aria-label="Copy transaction ID"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg></button></b></div>
       </div>
@@ -676,19 +677,19 @@ IMPORTANT - READ BEFORE EDITING (for any AI assistant or developer)
 </section>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
-<script src="app.js/addrgen.js?v=102"></script>
+<script src="app.js/addrgen.js?v=103"></script>
 <script src="app.js/supabase-config.js?v=105"></script>
-<script src="app.js/db.js?v=124"></script>
+<script src="app.js/db.js?v=125"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
 <script src="app.js/qr.js?v=106"></script>
 <script src="app.js/skeleton.js?v=104"></script>
 <script src="app.js/welcome.js?v=105"></script>
-<script src="app.js/script.js?v=125"></script>
+<script src="app.js/script.js?v=127"></script>
 <script src="app.js/messaging.js?v=127"></script>
 <script src="app.js/chatmenu.js?v=2"></script>
 <script src="app.js/chatkeyboard.js?v=2"></script>
 <script src="app.js/truecolor.js?v=103"></script>
-<script src="app.js/settings.js?v=117"></script>
+<script src="app.js/settings.js?v=118"></script>
 <script src="app.js/passcode.js?v=1"></script>
 <script src="app.js/watchcontract.js?v=1"></script>
 <script src="app.js/wallet.js?v=109"></script>
