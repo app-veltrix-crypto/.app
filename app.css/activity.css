@@ -108,7 +108,7 @@
 .wd-empty .wd-empty-icon svg{width:26px;height:26px}
 
 /* ===== bell badge: number perfectly centred in its container ===== */
-.wd-bell-badge{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;line-height:1;text-align:center;font-variant-numeric:tabular-nums;letter-spacing:0;box-sizing:border-box}
+.wd-bell-badge{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;line-height:1;text-align:center;letter-spacing:0;box-sizing:border-box}
 
 /* ===== transaction details page: same look as the notification details page ===== */
 #txDetailPage .wd-notification-header{display:grid;grid-template-columns:32px 1fr 32px;align-items:center;gap:0;max-width:680px;margin:0 auto;min-height:40px;padding-top:4px}
