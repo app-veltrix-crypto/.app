@@ -16,3 +16,18 @@
 .vxg-sw::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
 .vxg-item[aria-checked="true"] .vxg-sw{background:#111}
 .vxg-item[aria-checked="true"] .vxg-sw::after{transform:translateX(13px)}
+
+/* Switch-dashboard pop-up (Veltrix Support chat, admin accounts): a lighter, smaller version of the pop-up above */
+.vxg-pop.vxg-switch{min-width:0;width:max-content;padding:3px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.1)}
+.vxg-switch .vxg-item{gap:8px;padding:7px 10px 7px 8px;font-size:11px;font-weight:500;border-radius:9px}
+.vxg-switch .vxg-item>svg{flex:0 0 15px;width:15px;height:15px;stroke-width:1.7}
+.vxg-switch .vxg-t small{font-size:9px;font-weight:400}
+
+/* Disappearing-messages pop-up: same compact height as the switch-dashboard pop-up (width is unchanged) */
+.vxg-pop{padding:3px;border-radius:12px}
+.vxg-item{gap:8px;padding:7px 10px 7px 8px;font-size:11px;font-weight:500;border-radius:9px}
+.vxg-item>svg{flex:0 0 15px;width:15px;height:15px;stroke-width:1.7}
+.vxg-t small{font-size:9px;font-weight:400}
+.vxg-sw{flex:0 0 28px;width:28px;height:17px}
+.vxg-sw::after{width:13px;height:13px}
+.vxg-item[aria-checked="true"] .vxg-sw::after{transform:translateX(11px)}

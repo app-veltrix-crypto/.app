@@ -57,3 +57,7 @@ html.vm-tl[data-theme="dark"] #vmChat .vxg-t small{color:#8e8e93}
 html.vm-tl[data-theme="dark"] #vmChat .vxg-sw{background:#3a3a3e}
 html.vm-tl[data-theme="dark"] #vmChat .vxg-item[aria-checked="true"] .vxg-sw{background:#f2f2f2}
 html.vm-tl[data-theme="dark"] #vmChat .vxg-item[aria-checked="true"] .vxg-sw::after{background:#111}
+
+/* While a conversation is open the browser stops resizing the page for the keyboard (app.js/chatkeyboard.js) and the chat page
+   is lifted by the keyboard's real height instead: the typing area sits right on top of letters, emoji, stickers and GIFs alike. */
+html.vm-vk:not(.vm-kb) .vm-page{bottom:env(keyboard-inset-height,0px)}

@@ -10,11 +10,24 @@
   /* Page scale. 1 = original size; 0.9 = everything 10% smaller. Change this one number to tune the size. */
   var SCALE = 0.85;
 
+  /* Orientation must come from the PHONE, never from the size of the visible page area. The "(orientation: portrait)"
+     media query compares the page's width and height, so with a browser address bar plus a keyboard / emoji panel open the
+     page area is shorter than it is wide, the phone looks "landscape", the width jumps to the long side and the layout
+     turns into the wide desktop one. screen.orientation and window.orientation ignore the keyboard. */
+  function isPortrait() {
+    try {
+      var so = window.screen && window.screen.orientation && window.screen.orientation.type;
+      if (so) return so.indexOf("portrait") === 0;
+    } catch (e) {}
+    if (typeof window.orientation === "number") return Math.abs(window.orientation) !== 90;
+    return window.matchMedia ? window.matchMedia("(orientation: portrait)").matches : true;
+  }
+
   function layoutWidth() {
     var s = window.screen || {};
     var a = s.width || 0, b = s.height || 0;
     if (!a || !b) return null;
-    var portrait = window.matchMedia ? window.matchMedia("(orientation: portrait)").matches : true;
+    var portrait = isPortrait();
     var w = portrait ? Math.min(a, b) : Math.max(a, b);
     return Math.round(w / SCALE);
   }

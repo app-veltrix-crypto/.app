@@ -493,7 +493,7 @@ html { -webkit-text-size-adjust: 100%; }
 .profile-ui-page button{cursor:none;font-family:inherit}
 .profile-ui-page button:focus-visible{outline:2px solid #111;outline-offset:2px}
 
-.profile-ui-header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:6px;padding:calc(10px + env(safe-area-inset-top)) max(14px,calc((100vw - 440px)/2 + 14px)) 10px;background:rgba(255,255,255,.91);backdrop-filter:blur(18px) saturate(1.35);-webkit-backdrop-filter:blur(18px) saturate(1.35);border-bottom:1px solid rgba(22,24,30,.055)}
+.profile-ui-header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:6px;padding:calc(10px + env(safe-area-inset-top)) max(14px,calc((100% - 440px)/2 + 14px)) 10px;background:rgba(255,255,255,.91);backdrop-filter:blur(18px) saturate(1.35);-webkit-backdrop-filter:blur(18px) saturate(1.35);border-bottom:1px solid rgba(22,24,30,.055)}
 .profile-ui-header h1{flex:1;margin:0;font-size:15.5px;font-weight:600;letter-spacing:-.3px;color:#111}
 .profile-ui-back,.profile-ui-top-icon,.profile-ui-header-spacer{width:36px;height:36px;flex-shrink:0;display:grid;place-items:center;padding:0;border:0;border-radius:50%;background:none;color:#1a1a1a}
 .profile-ui-back:hover,.profile-ui-top-icon:hover{background:#f1f2f5}

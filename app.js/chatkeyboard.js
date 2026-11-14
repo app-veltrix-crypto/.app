@@ -48,3 +48,30 @@ apply();
  bind();
  new MutationObserver(bind).observe(document.documentElement,{childList:true,subtree:true})
 })();
+
+/* The typing area always sits directly on top of the keyboard, whatever the keyboard is showing (letters, emoji, stickers, GIFs).
+   Some browsers do not resize the page when the emoji / sticker panel opens, which dropped the typing area to the bottom of the screen.
+   While a conversation is open (and only then) the browser's VirtualKeyboard API reports the real keyboard height for every panel,
+   and app.css/chatkeyboard.css lifts the chat page by exactly that amount. Browsers without the API, or where it reports nothing,
+   keep the visual-viewport logic above unchanged. */
+(function(){
+"use strict";
+var vk=navigator.virtualKeyboard;if(!vk||!("overlaysContent" in vk))return;
+var root=document.documentElement,on=false,broken=false,near=true;
+function chatOpen(){var c=document.getElementById("vmChat");return !!(c&&!c.hidden)}
+function msgs(){return document.getElementById("vmMsgs")}
+function kbH(){try{return vk.boundingRect?Math.round(vk.boundingRect.height):0}catch(e){return 0}}
+function set(v){if(v===on)return;try{vk.overlaysContent=v;on=v;root.classList.toggle("vm-vk",v)}catch(e){on=false;root.classList.remove("vm-vk")}}
+function sync(){set(chatOpen()&&!broken)}
+function toBottom(){var m=msgs();if(m)m.scrollTop=m.scrollHeight}
+/* keep the newest message in view above the typing area while the keyboard moves */
+try{vk.addEventListener("geometrychange",function(){if(!on||!chatOpen()||!near)return;requestAnimationFrame(toBottom);setTimeout(toBottom,120)})}catch(e){}
+document.addEventListener("scroll",function(e){var m=msgs();if(m&&e.target===m)near=m.scrollHeight-m.scrollTop-m.clientHeight<160},true);
+/* safety net: if the typing box is focused but the browser reports no keyboard at all, give control back to the old logic */
+document.addEventListener("focusin",function(e){var t=e.target;if(!on||!t||!t.closest||!t.closest("#vmChat")||!/^(TEXTAREA|INPUT)$/.test(t.tagName))return;
+ setTimeout(function(){if(on&&document.activeElement===t&&kbH()===0){broken=true;set(false)}},1000)});
+var pend=0;function later(){if(!pend)pend=requestAnimationFrame(function(){pend=0;sync()})}
+new MutationObserver(later).observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:["hidden"]});
+window.addEventListener("pageshow",later);
+sync();
+})();
