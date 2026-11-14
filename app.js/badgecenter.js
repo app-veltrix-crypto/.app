@@ -1,48 +1,35 @@
 /* Veltrix · count badges: the number is centred in its circle, whatever the font or phone.
-   Fonts draw digits with different side gaps and heights, so CSS alone can leave a number a pixel off.
-   This finds where the digits are really drawn on screen (real baseline from the page + the digit shapes from a canvas
-   using the badge's own font), compares that with the middle of the badge, and nudges the badge's inner padding by the
-   difference - rounded to a whole device pixel - so no badge ever changes size. Covers the notification bell, the Messaging
-   button and the unread counts in the conversation list. If the browser cannot measure, the CSS centring stays. */
+   Fonts draw digits with slightly different side gaps and heights, so pure CSS centring can leave a number a pixel off.
+   This measures where the digits are really drawn (with the badge's own font) and shifts them to the exact middle using
+   the badge's inner padding only - so no badge ever changes size. Covers the notification bell, the Messaging button and the
+   unread counts in the conversation list. If the browser cannot measure, nothing changes and the CSS centring stays. */
 (function(){
 "use strict";
-var SEL=".wd-bell-badge,.vm-badge,.vm-badge-n",ctx=null,pend=0,busy=false;
+var SEL=".vm-badge-n",BASE={"wd-bell-badge":4,"vm-badge":5,"vm-badge-n":6},ctx=null,pend=0;
 function c2d(){if(ctx)return ctx;try{ctx=document.createElement("canvas").getContext("2d")}catch(e){}return ctx}
-function snap(n){var d=window.devicePixelRatio||1;return Math.round(n*d)/d}
+function baseOf(el){for(var k in BASE)if(el.classList.contains(k))return BASE[k];return 0}
+function r1(n){return Math.round(n*10)/10}
 function fit(el){
- var t=el.textContent;if(!t||!el.firstChild||el.firstChild.nodeType!==3)return;var x=c2d();if(!x)return;
- var r0=el.getBoundingClientRect();if(!r0.width||!r0.height)return;
- var cs=getComputedStyle(el),dpr=window.devicePixelRatio||1,
-     sig=t+"|"+cs.fontSize+"|"+cs.fontWeight+"|"+cs.fontFamily+"|"+r0.width+"|"+r0.height+"|"+dpr;
+ var t=el.textContent;if(!t)return;var x=c2d();if(!x)return;
+ var cs=getComputedStyle(el),sig=t+"|"+cs.fontSize+"|"+cs.fontWeight+"|"+cs.fontFamily;
  if(el.__bcSig===sig)return;
- var s=el.style;
- /* start from the plain CSS centring */
- s.paddingLeft=s.paddingRight=s.paddingTop=s.paddingBottom="";
- var pl=parseFloat(cs.paddingLeft)||0,pr=parseFloat(cs.paddingRight)||0,net=0,ok=false;
  x.font=cs.fontStyle+" "+cs.fontWeight+" "+cs.fontSize+" "+cs.fontFamily;x.textAlign="left";x.textBaseline="alphabetic";
  var m=x.measureText(t);
  if(m.actualBoundingBoxAscent==null||m.fontBoundingBoxAscent==null||!isFinite(m.width))return;
- /* measure -> nudge -> measure again (a few rounds), so rounding in the layout cannot leave a leftover offset */
- for(var i=0;i<4;i++){
-  var rect=el.getBoundingClientRect(),rg=document.createRange();rg.selectNodeContents(el.firstChild);var tr=rg.getBoundingClientRect();
-  if(!tr.width)return;
-  var base=tr.top+m.fontBoundingBoxAscent,
-      inkL=tr.left-m.actualBoundingBoxLeft,inkR=tr.left+m.actualBoundingBoxRight,
-      inkT=base-m.actualBoundingBoxAscent,inkB=base+m.actualBoundingBoxDescent,
-      dx=(rect.left+rect.width/2)-(inkL+inkR)/2,dy=(rect.top+rect.height/2)-(inkT+inkB)/2;   /* + = move right / down */
-  if(Math.abs(dx)<=.5/dpr&&Math.abs(dy)<=.5/dpr){ok=true;break}
-  if(Math.abs(dx)>3||Math.abs(dy)>3)break;           /* implausible measurement: stop */
-  pl=Math.max(0,pl+dx);pr=Math.max(0,pr-dx);net+=2*dy;
-  s.paddingLeft=pl.toFixed(2)+"px";s.paddingRight=pr.toFixed(2)+"px";
-  s.paddingTop=Math.max(0,net).toFixed(2)+"px";s.paddingBottom=Math.max(0,-net).toFixed(2)+"px";
-  if(i===3)ok=true}
- if(!ok){s.paddingLeft=s.paddingRight=s.paddingTop=s.paddingBottom=""}
+ /* sideways: middle of the drawn digits vs middle of the text box */
+ var sx=-((m.actualBoundingBoxRight-m.actualBoundingBoxLeft)/2-m.width/2);
+ /* up/down: middle of the drawn digits vs middle of the line (line-height 1 keeps the text box centred in the badge) */
+ var sy=-((m.fontBoundingBoxAscent-m.fontBoundingBoxDescent)/2+(m.actualBoundingBoxDescent-m.actualBoundingBoxAscent)/2);
+ if(Math.abs(sx)>3||Math.abs(sy)>3)return;           /* implausible measurement: leave the CSS centring alone */
+ var b=baseOf(el),s=el.style;
+ s.paddingLeft=r1(Math.max(0,b+sx))+"px";s.paddingRight=r1(Math.max(0,b-sx))+"px";
+ s.paddingTop=r1(Math.max(0,2*sy))+"px";s.paddingBottom=r1(Math.max(0,-2*sy))+"px";
  el.__bcSig=sig}
-function scan(){pend=0;if(busy)return;busy=true;try{var l=document.querySelectorAll(SEL);for(var i=0;i<l.length;i++)fit(l[i])}catch(e){}busy=false}
+function scan(){pend=0;try{var l=document.querySelectorAll(SEL);for(var i=0;i<l.length;i++)fit(l[i])}catch(e){}}
 function later(){if(!pend)pend=requestAnimationFrame(scan)}
 function start(){
- new MutationObserver(function(ms){if(busy)return;for(var i=0;i<ms.length;i++){var t=ms[i].target,e=t.nodeType===1?t:t.parentNode;if(e&&e.closest&&(e.matches(SEL)||e.closest(SEL)||ms[i].addedNodes.length||ms[i].type==="attributes")){later();return}}}).observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:["hidden","class"]});
+ new MutationObserver(later).observe(document.documentElement,{childList:true,subtree:true,characterData:true});
  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){var l=document.querySelectorAll(SEL);for(var i=0;i<l.length;i++)l[i].__bcSig="";later()});
- window.addEventListener("pageshow",later);window.addEventListener("resize",later);later()}
+ window.addEventListener("pageshow",later);later()}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
 })();

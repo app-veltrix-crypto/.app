@@ -221,12 +221,12 @@ html[data-theme="dark"] .vm-emoji{filter:invert(1) hue-rotate(180deg)}
 /* divider: fully rounded pill, soft glow */
 .vm-newdiv span{border-radius:999px;padding:5px 16px;box-shadow:0 0 0 1px rgba(37,211,102,.25),0 2px 12px rgba(37,211,102,.28)}
 /* count badges: true centring for 1, 2, 99, 1000… (flex, equal side padding, circle when one digit, pill when longer) */
-.vm-badge-n,.vm-badge{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:20px;min-width:20px;padding:0 6px;border-radius:999px;font-size:10px;font-weight:600;line-height:1;letter-spacing:0;text-align:center;white-space:nowrap;text-indent:0}
+.vm-badge-n,.vm-badge{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:20px;min-width:20px;padding:0 6px;border-radius:999px;font-size:10px;font-weight:600;line-height:1;letter-spacing:0;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap;text-indent:0}
 .vm-badge-n::first-line,.vm-badge::first-line{line-height:1}
 .vm-badge{height:21px;min-width:21px;border:2px solid #fff;top:-6px;right:-7px;padding:0 5px;font-size:9.5px}
 /* full-width rounded card (buttons shrink-wrap by default) and optical vertical centring of the digits */
 .vm-row.vm-unread{width:calc(100% - 20px)}
-
+.vm-badge-n,.vm-badge{padding-top:1.5px;padding-bottom:0}
 
 
 /* ---------- Polish 2: unread highlight fades out; emoji clean everywhere; composer mirror ---------- */
