@@ -5,7 +5,7 @@
    unread counts in the conversation list. If the browser cannot measure, nothing changes and the CSS centring stays. */
 (function(){
 "use strict";
-var SEL=".vm-badge-n",BASE={"wd-bell-badge":4,"vm-badge":5,"vm-badge-n":6},ctx=null,pend=0;
+var SEL=".wd-bell-badge,.vm-badge,.vm-badge-n",BASE={"wd-bell-badge":4,"vm-badge":5,"vm-badge-n":6},ctx=null,pend=0;
 function c2d(){if(ctx)return ctx;try{ctx=document.createElement("canvas").getContext("2d")}catch(e){}return ctx}
 function baseOf(el){for(var k in BASE)if(el.classList.contains(k))return BASE[k];return 0}
 function r1(n){return Math.round(n*10)/10}

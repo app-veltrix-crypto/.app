@@ -108,7 +108,7 @@
 .wd-empty .wd-empty-icon svg{width:26px;height:26px}
 
 /* ===== bell badge: number perfectly centred in its container ===== */
-.wd-bell-badge{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;line-height:1;text-align:center;letter-spacing:0;box-sizing:border-box}
+.wd-bell-badge{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;line-height:1;text-align:center;font-variant-numeric:tabular-nums;letter-spacing:0;box-sizing:border-box}
 
 /* ===== transaction details page: same look as the notification details page ===== */
 #txDetailPage .wd-notification-header{display:grid;grid-template-columns:32px 1fr 32px;align-items:center;gap:0;max-width:680px;margin:0 auto;min-height:40px;padding-top:4px}
@@ -398,3 +398,12 @@ html[data-theme="dark"] .vx-info-card{filter:invert(1) hue-rotate(180deg)}
 :is(#notificationDetailPage,#txDetailPage) .vx-info-card{margin-top:auto;flex:none}
 :is(#notificationDetailPage,#txDetailPage) .nd-wrap>.nd-card:nth-last-child(2),:is(#notificationDetailPage,#txDetailPage) .nd-wrap>.nd-card:last-child{margin-bottom:12px}
 :is(#notificationDetailPage,#txDetailPage) .vx-info-card{margin-bottom:0}
+
+/* ===== bell badge + dashboard Messaging badge: same recipe as the admin unread count (.vm-badge-n) =====
+   Pure CSS, number centred by flex, same 1.5px optical drop. !important so the old badgecenter.js
+   padding nudges cannot move these two (and the conversation-list count). */
+.wd-bell-badge{display:inline-flex!important;align-items:center;justify-content:center;box-sizing:border-box;padding:1.5px 4px 0!important;font-weight:600;line-height:1;letter-spacing:0;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap;text-indent:0}
+.wd-bell-badge::first-line{line-height:1}
+.vm-badge{padding:1.5px 5px 0!important}
+/* conversation-list unread count (user side): same as the admin one - no script nudging it. admin.html does not load this file. */
+.vm-badge-n{padding:1.5px 6px 0!important}
